@@ -7,7 +7,7 @@ export type AuthenticatedUser = {
 
 const WORD_PATTERN = /[A-Za-z][A-Za-z'\-]{0,63}/g;
 
-export function normalizeSpaces(input: string): string {
+function normalizeSpaces(input: string): string {
   return input.trim().replace(/\s+/g, ' ');
 }
 

@@ -7,10 +7,7 @@
 
 const STORAGE_KEY = 'merken-daily-review-limit';
 
-export const DEFAULT_DAILY_REVIEW_LIMIT = 50;
-
-/** 設定ページに出す選択肢。0 は無制限 */
-export const DAILY_REVIEW_LIMIT_OPTIONS = [10, 25, 50, 100, 0] as const;
+const DEFAULT_DAILY_REVIEW_LIMIT = 50;
 
 export function getDailyReviewLimit(): number {
   if (typeof window === 'undefined') return DEFAULT_DAILY_REVIEW_LIMIT;
@@ -22,17 +19,4 @@ export function getDailyReviewLimit(): number {
   } catch {
     return DEFAULT_DAILY_REVIEW_LIMIT;
   }
-}
-
-export function setDailyReviewLimit(limit: number): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, String(Math.max(0, Math.floor(limit))));
-  } catch {
-    // ignore
-  }
-}
-
-export function dailyReviewLimitLabel(limit: number): string {
-  return limit === 0 ? '無制限' : `${limit}問`;
 }

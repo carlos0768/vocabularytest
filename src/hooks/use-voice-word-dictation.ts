@@ -56,7 +56,7 @@ async function requestHeaders(): Promise<HeadersInit> {
   return headers;
 }
 
-export function isVoiceDictationSupported(): boolean {
+function isVoiceDictationSupported(): boolean {
   return typeof window !== 'undefined'
     && typeof MediaRecorder !== 'undefined'
     && Boolean(navigator.mediaDevices?.getUserMedia);

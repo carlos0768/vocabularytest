@@ -18,7 +18,7 @@ export const EXTRACT_MODES = ['all', 'circled', 'eiken', 'idiom', 'custom'] as c
 
 const EXTRACT_MODE_SET = new Set<string>(EXTRACT_MODES);
 
-export function isExtractMode(value: unknown): value is ExtractMode {
+function isExtractMode(value: unknown): value is ExtractMode {
   return typeof value === 'string' && EXTRACT_MODE_SET.has(value);
 }
 
@@ -94,9 +94,6 @@ export function requiresProForModes(modes: Iterable<ExtractMode>): boolean {
 
 // カスタムモードはユーザ定義プロンプトで抽出条件が決まるため、他モードとの
 // 併用（積集合）を許さない。UI・APIの両方でこの判定を使って弾く。
-export function isCustomModeSelection(modes: Iterable<ExtractMode>): boolean {
-  return Array.from(modes).includes('custom');
-}
 
 export function isValidModeCombination(modes: Iterable<ExtractMode>): boolean {
   const normalized = normalizeExtractModes(Array.from(modes));

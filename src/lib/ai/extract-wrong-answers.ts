@@ -80,7 +80,7 @@ function extractJsonContent(content: string): string {
  * Step 1: Extract test structure from image
  * Analyzes the vocabulary test image and extracts question/answer/marking data
  */
-export async function extractTestFromImage(
+async function extractTestFromImage(
   imageBase64: string,
   apiKeys: ProviderApiKeys,
   deps: WrongAnswerDeps = {}
@@ -203,7 +203,7 @@ export async function extractTestFromImage(
  * Step 2: Analyze test data and extract only wrong answers
  * Generates vocabulary data for incorrectly answered questions
  */
-export async function analyzeWrongAnswers(
+async function analyzeWrongAnswers(
   testData: TestOCRData,
   apiKeys: ProviderApiKeys,
   deps: WrongAnswerDeps = {}

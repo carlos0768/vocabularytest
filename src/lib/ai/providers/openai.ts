@@ -10,7 +10,7 @@ import type { AIProvider, AIRequest, AIResponse } from './types';
 import { AIError } from './types';
 import { recordApiCostEvent } from '@/lib/api-cost/recorder';
 
-export class OpenAIProvider implements AIProvider {
+class OpenAIProvider implements AIProvider {
   readonly name = 'openai';
   private client: OpenAI;
 

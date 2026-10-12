@@ -76,7 +76,7 @@ function tagAffinity(candidate: ReelCandidate, ctx: ReelRankingContext): number 
 }
 
 /** Book ref used by the feedback tables: 's:<shareId>' | 'o:<officialSlug>'. */
-export function candidateBookRef(candidate: ReelCandidate): string | null {
+function candidateBookRef(candidate: ReelCandidate): string | null {
   if (candidate.book.type === 'shared') {
     return candidate.book.shareId ? `s:${candidate.book.shareId}` : null;
   }

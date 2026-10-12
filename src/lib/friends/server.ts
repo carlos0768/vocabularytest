@@ -117,7 +117,7 @@ function isUniqueViolation(error: { code?: string | null } | null | undefined): 
   return error?.code === '23505';
 }
 
-export function normalizeFriendErrorText(error: unknown): string {
+function normalizeFriendErrorText(error: unknown): string {
   if (!error) return '';
   if (typeof error === 'string') return error.toLowerCase();
 

@@ -11,7 +11,7 @@ import type { AIProvider, AIRequest, AIResponse } from './types';
 import { AIError } from './types';
 import { recordApiCostEvent } from '@/lib/api-cost/recorder';
 
-export class GeminiProvider implements AIProvider {
+class GeminiProvider implements AIProvider {
   readonly name = 'gemini';
   private client: GoogleGenAI;
 

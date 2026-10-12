@@ -45,7 +45,7 @@ const morphologyPartSchema = z.object({
 });
 
 /** 保存値 (WordMorphology) のスキーマ。formula は最大8パーツ。 */
-export const wordMorphologySchema = z.object({
+const wordMorphologySchema = z.object({
   formula: z.array(morphologyPartSchema).max(8),
   explanation: z.string().max(200),
   version: z.literal(1),
@@ -60,8 +60,6 @@ export const morphologyAiResponseSchema = z.object({
   parts: z.array(morphologyPartSchema).max(8).optional().default([]),
   explanation: z.string().max(400).optional().default(''),
 });
-
-export type MorphologyAiResponse = z.output<typeof morphologyAiResponseSchema>;
 
 /** 「語源構造なし」を表すキャッシュ用センチネル値（解析世代の刻印つき） */
 export function buildNoneMorphology(

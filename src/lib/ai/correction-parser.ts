@@ -3,7 +3,7 @@ import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 
-export const correctionIssueSchema = z.object({
+const correctionIssueSchema = z.object({
   id: z.string().trim().min(1).max(80),
   tag: z.string().trim().min(1).max(24),
   from: z.string().trim().min(1).max(160),
@@ -13,7 +13,7 @@ export const correctionIssueSchema = z.object({
   vocabularyCandidateId: z.string().trim().max(80).nullish().transform(v => v ?? undefined),
 }).strict();
 
-export const correctionWordCandidateSchema = z.object({
+const correctionWordCandidateSchema = z.object({
   id: z.string().trim().min(1).max(80),
   english: z.string().trim().min(1).max(120),
   japanese: z.string().trim().min(1).max(200),
@@ -39,13 +39,13 @@ export const correctionResultSchema = z.object({
 
 const svoRoleSchema = z.enum(['S', 'V', 'O', 'C', 'M']);
 
-export const parserTokenSchema = z.object({
+const parserTokenSchema = z.object({
   text: z.string().trim().min(1).max(160),
   role: svoRoleSchema.optional(),
   clauseId: z.string().trim().min(1).max(80).optional(),
 }).strict();
 
-export const parserClauseSchema = z.object({
+const parserClauseSchema = z.object({
   id: z.string().trim().min(1).max(80),
   label: z.string().trim().min(1).max(80),
   kind: z.enum(['main', 'subordinate', 'relative', 'phrase']).default('phrase'),
@@ -102,13 +102,6 @@ export function countWords(text: string): number {
 export function previewText(text: string, maxLength = 120): string {
   const normalized = text.replace(/\s+/g, ' ').trim();
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized;
-}
-
-export function scoreColor(score: number): string {
-  if (score >= 85) return 'var(--color-success)';
-  if (score >= 70) return 'var(--color-accent)';
-  if (score >= 60) return '#c8a02e';
-  return '#c43d3d';
 }
 
 function getJsonProviderConfig(maxOutputTokens: number) {

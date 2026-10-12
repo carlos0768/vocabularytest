@@ -19,7 +19,7 @@ import { getProviderFromConfig } from '@/lib/ai/providers';
 import { parseJsonResponse } from '@/lib/ai/utils/json';
 import { MAX_DICTATED_ENTRY_LENGTH, MAX_DICTATED_WORDS } from './dictated-words-limits';
 
-export { MAX_DICTATED_ENTRY_LENGTH, MAX_DICTATED_WORDS };
+export { MAX_DICTATED_WORDS };
 
 /** 熟語として扱う語数の上限。これより長い並びは文であって見出し語ではない。 */
 const MAX_WORDS_PER_ENTRY = 6;
@@ -121,7 +121,7 @@ const splitResponseSchema = z.object({
 });
 
 /** Gemini Controlled Generation schema mirroring `splitResponseSchema`. */
-export const DICTATED_WORDS_RESPONSE_SCHEMA: ResponseSchema = {
+const DICTATED_WORDS_RESPONSE_SCHEMA: ResponseSchema = {
   type: 'OBJECT',
   properties: {
     entries: { type: 'ARRAY', items: { type: 'STRING' } },

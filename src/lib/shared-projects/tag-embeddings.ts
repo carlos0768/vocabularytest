@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import { readSingleLineEnv } from '@/lib/env';
 import { formatSharedTag, normalizeSharedTags } from '../../../shared/shared-tags';
 
-export const SHARED_TAG_EMBEDDING_MODEL = 'text-embedding-3-small';
+const SHARED_TAG_EMBEDDING_MODEL = 'text-embedding-3-small';
 
 let openaiClient: OpenAI | null = null;
 let openaiClientKey: string | null = null;

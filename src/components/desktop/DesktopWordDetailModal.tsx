@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { desktopPosLabel } from '@/components/desktop/desktop-data';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';

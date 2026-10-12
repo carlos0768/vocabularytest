@@ -94,9 +94,9 @@ const CREATE_INVITE_CODE_RETRIES = 5;
 const DEFAULT_PUBLIC_GROUP_PAGE_SIZE = 12;
 const MAX_PUBLIC_GROUP_PAGE_SIZE = 36;
 export const STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT = 5;
-export const STUDY_GROUP_STRUGGLING_MIN_LEARNERS = 2;
+const STUDY_GROUP_STRUGGLING_MIN_LEARNERS = 2;
 
-export function normalizeGroupInviteCode(input: string): string | null {
+function normalizeGroupInviteCode(input: string): string | null {
   const normalized = input.trim().replace(/[\s-]+/g, '');
   return GROUP_INVITE_CODE_PATTERN.test(normalized) ? normalized : null;
 }

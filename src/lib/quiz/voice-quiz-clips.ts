@@ -235,7 +235,7 @@ function sharedElement(): HTMLAudioElement | null {
  * ユーザー操作の中で呼んで、以降の再生を許可させる。
  * 操作から離れたところで呼んでも害は無い (拒否されるだけ) が、効きもしない。
  */
-export function unlockVoiceQuizClips(): void {
+function unlockVoiceQuizClips(): void {
   const ctx = createAudioContext();
   if (ctx) {
     void ctx.resume?.().catch(() => {});

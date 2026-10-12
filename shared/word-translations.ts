@@ -1,12 +1,11 @@
 import type {
-  AIJapaneseTranslation,
   CustomSection,
   WordTranslation,
   WordTranslationSource,
 } from './types';
 
 export const TRANSLATION_NOTES_SECTION_ID = 'translation-notes';
-export const TRANSLATION_NOTES_SECTION_TITLE = '訳注';
+const TRANSLATION_NOTES_SECTION_TITLE = '訳注';
 
 const INVALID_TRANSLATIONS = new Set(['unknown', '不明', 'n/a', 'N/A', '-', '---', '']);
 
@@ -316,16 +315,4 @@ export function normalizeCustomSections(raw: unknown): CustomSection[] {
     sections.push({ id, title, content });
   }
   return sections;
-}
-
-export function toAIJapaneseTranslations(translations: readonly WordTranslation[] | undefined): AIJapaneseTranslation[] | undefined {
-  if (!translations || translations.length === 0) return undefined;
-  return translations.map((translation) => ({
-    japanese: translation.translationJa,
-    meaningRank: translation.meaningRank,
-    ...(translation.source === 'scan' || translation.source === 'ai'
-      ? { source: translation.source }
-      : {}),
-    ...(translation.lexiconSenseId ? { lexiconSenseId: translation.lexiconSenseId } : {}),
-  }));
 }

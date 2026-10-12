@@ -37,7 +37,7 @@ import {
 import { CustomScanModePanel, type CustomScanModeSelection } from '@/components/scan/CustomScanModePanel';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
-export const MAX_SCAN_IMAGE_COUNT = 20;
+const MAX_SCAN_IMAGE_COUNT = 20;
 
 const EIKEN_LEVEL_OPTIONS: { value: Exclude<EikenLevel, null>; label: string }[] = [
   { value: '5', label: '5級' },

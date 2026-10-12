@@ -16,8 +16,8 @@ export const MAX_PROFILE_BIO_LENGTH = 150;
 /** 自己紹介に入れられる行数の上限。改行だけで縦に長くされるのを防ぐ。 */
 export const MAX_PROFILE_BIO_LINES = 8;
 
-export const PROFILE_BIO_TOO_LONG_MESSAGE = `自己紹介は${MAX_PROFILE_BIO_LENGTH}文字以内で入力してください`;
-export const PROFILE_BIO_TOO_MANY_LINES_MESSAGE = `自己紹介は${MAX_PROFILE_BIO_LINES}行以内で入力してください`;
+const PROFILE_BIO_TOO_LONG_MESSAGE = `自己紹介は${MAX_PROFILE_BIO_LENGTH}文字以内で入力してください`;
+const PROFILE_BIO_TOO_MANY_LINES_MESSAGE = `自己紹介は${MAX_PROFILE_BIO_LINES}行以内で入力してください`;
 
 // 改行(\n)以外の制御文字と、ゼロ幅・方向制御文字。見えない文字で表示を崩されないよう落とす。
 const INVISIBLE_CHARS = /[\u0000-\u0009\u000B-\u001F\u007F​-‏‪-‮⁦-⁩﻿]/g;
@@ -46,7 +46,7 @@ export function countProfileBioChars(value: string): number {
   return Array.from(value).length;
 }
 
-export function countProfileBioLines(value: string): number {
+function countProfileBioLines(value: string): number {
   return value === '' ? 0 : value.split('\n').length;
 }
 

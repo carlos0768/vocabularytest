@@ -22,7 +22,7 @@ const safeHref = z
     { message: 'href must be a relative path or an https:// URL' },
   );
 
-export const announcementBlockSchema = z.discriminatedUnion('type', [
+const announcementBlockSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('h2'), text }).strict(),
   z.object({ type: z.literal('p'), text }).strict(),
   z.object({ type: z.literal('list'), items: z.array(text).min(1).max(20) }).strict(),
@@ -62,8 +62,6 @@ export const announcementBlockSchema = z.discriminatedUnion('type', [
 ]);
 
 export const announcementBlocksSchema = z.array(announcementBlockSchema).min(1).max(40);
-
-export type AnnouncementBlock = z.infer<typeof announcementBlockSchema>;
 export type AnnouncementBlocks = z.infer<typeof announcementBlocksSchema>;
 
 export type Announcement = {

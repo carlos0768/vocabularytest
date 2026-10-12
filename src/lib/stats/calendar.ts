@@ -51,7 +51,7 @@ function getWeekStartKey(dateKey: string): string {
   return toDateKey(date);
 }
 
-export function buildCalendarRange(weeks: number, today: Date): string[] {
+function buildCalendarRange(weeks: number, today: Date): string[] {
   const safeWeeks = Math.max(1, weeks);
   const daysToShow = safeWeeks * 7;
   const endDate = new Date(today);

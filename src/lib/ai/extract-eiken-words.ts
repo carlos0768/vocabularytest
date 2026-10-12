@@ -129,7 +129,7 @@ function parseEikenOCRContent(content: string): { text: string; sourceLabels: st
 /**
  * Step 1: Extract text from image
  */
-export async function extractTextForEiken(
+async function extractTextForEiken(
   imageBase64: string,
   apiKeys: ProviderApiKeys,
   deps: EikenDeps = {}
@@ -336,7 +336,7 @@ async function finalizeEikenAnalysis(
  * Single-pass extraction (experimental): image -> level-filtered words in one call.
  * Enabled via EIKEN_SINGLE_PASS_EXTRACTION=1 or deps.singlePassExtraction.
  */
-export async function extractEikenWordsSinglePass(
+async function extractEikenWordsSinglePass(
   imageBase64: string,
   apiKeys: ProviderApiKeys,
   eikenLevel: NonNullable<EikenLevel>,

@@ -2,8 +2,8 @@ import type { Word } from '@/types';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 
 export const REMINDER_QUIZ_TOTAL_COUNT = 10;
-export const REMINDER_QUIZ_PRIORITY_COUNT = 5;
-export const REMINDER_REVIEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+const REMINDER_QUIZ_PRIORITY_COUNT = 5;
+const REMINDER_REVIEW_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type ReminderWrongAnswerRef = {
   wordId: string;

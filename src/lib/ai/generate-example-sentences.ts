@@ -49,15 +49,6 @@ export interface GenerateExamplesResult {
 // ---------- Schema ----------
 
 // Legacy batch schema (kept for /api/generate-examples route compatibility)
-const exampleResponseSchema = z.object({
-  examples: z.array(z.object({
-    wordId: z.string(),
-    partOfSpeechTags: z.array(z.string()).optional().default([]),
-    exampleSentence: z.string(),
-    exampleSentenceJa: z.string(),
-  })),
-});
-
 // ---------- Prompt ----------
 
 const SYSTEM_PROMPT = `あなたは英語教師です。与えられた英単語に対して、その単語を使った自然な英語の例文を1つ生成してください。

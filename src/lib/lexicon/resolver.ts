@@ -28,8 +28,6 @@ import type {
 } from './types';
 
 export type {
-  LexiconResolveMetrics,
-  PendingLexiconEnrichmentCandidate,
   ValidatedTranslationCandidate,
 } from './types';
 

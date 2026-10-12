@@ -41,7 +41,7 @@ export const VOCAB_SIZE_BY_LEVEL = [600, 1300, 2100, 3600, 5100, 7500, 12000] as
 
 // θはレベルインデックスと同じ尺度(0=5級 .. 6=1級)。級の外側にも裾を持たせる。
 export const THETA_MIN = -1;
-export const THETA_MAX = 7;
+const THETA_MAX = 7;
 export const THETA_STEP = 0.05;
 export const THETA_GRID: readonly number[] = Array.from(
   { length: Math.round((THETA_MAX - THETA_MIN) / THETA_STEP) + 1 },
@@ -95,7 +95,7 @@ export type LevelTestAnswer = 'correct' | 'wrong' | 'unknown';
 // 観測(正解/誤答/わからない)のθに対する尤度。
 // 「わからない」は P(知らない) に比例し、知っていたのに時間切れ等で
 // 申告してしまう可能性(UNKNOWN_SLIP)を床として残す。
-export function answerLikelihood(
+function answerLikelihood(
   theta: number,
   difficulty: number,
   answer: LevelTestAnswer,
@@ -109,7 +109,7 @@ export function answerLikelihood(
 // 事後分布の更新
 // ---------------------------------------------------------------------------
 
-export function createInitialPosterior(): number[] {
+function createInitialPosterior(): number[] {
   return THETA_GRID.map(() => 1 / THETA_GRID.length);
 }
 

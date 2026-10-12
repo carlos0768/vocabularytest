@@ -7,7 +7,7 @@ import { fitProfileShareName, type ProfileSharePreview } from '@/lib/profile/sha
 // preview が null(見つからない ID)なら汎用カード。
 // DB を読まないので、データを差し込んで見た目だけ確かめることもできる。
 
-export const PROFILE_SHARE_IMAGE_SIZE = { width: 1200, height: 630 };
+const PROFILE_SHARE_IMAGE_SIZE = { width: 1200, height: 630 };
 
 // globals.css のライトテーマのトークンと同じ値
 const INK = '#1a1a1a';

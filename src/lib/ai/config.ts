@@ -1,9 +1,3 @@
-import {
-  DEFAULT_GEMINI_FLASH_MODEL,
-  DEFAULT_GEMINI_GENERATION_MODEL,
-  normalizeGeminiModel,
-} from './gemini-model';
-
 /**
  * AI Configuration
  *
@@ -24,7 +18,6 @@ export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini';
 
 const EXTRACTION_MODEL: GeminiModel = 'gemini-2.5-flash';
 const QUESTION_GENERATION_MODEL: GeminiModel = 'gemini-2.5-flash';
-const OPENAI_MODEL: OpenAIModel = 'gpt-4o';
 
 /**
  * Provider-agnostic subset of a Gemini / JSON-Schema "controlled generation" schema.
@@ -168,37 +161,4 @@ export function getAPIKeys() {
     gemini: process.env.GOOGLE_AI_API_KEY,
     openai: process.env.OPENAI_API_KEY,
   };
-}
-
-export function getAPIKey(provider: AIProvider): string | undefined {
-  const keys = getAPIKeys();
-  return keys[provider];
-}
-
-export function setGlobalProvider(provider: AIProvider, model?: string): void {
-  const defaultModel = provider === 'openai' ? OPENAI_MODEL : EXTRACTION_MODEL;
-  const targetModel = provider === 'gemini'
-    ? normalizeGeminiModel(model || defaultModel)
-    : model || defaultModel;
-
-  AI_CONFIG.extraction.words.provider = provider;
-  AI_CONFIG.extraction.words.model = targetModel;
-
-  AI_CONFIG.extraction.idioms.provider = provider;
-  AI_CONFIG.extraction.idioms.model = targetModel;
-
-  AI_CONFIG.extraction.eiken.provider = provider;
-  AI_CONFIG.extraction.eiken.model = targetModel;
-
-  AI_CONFIG.extraction.circled.provider = provider;
-  AI_CONFIG.extraction.circled.model = targetModel;
-
-  AI_CONFIG.extraction.highlighted.provider = provider;
-  AI_CONFIG.extraction.highlighted.model = targetModel;
-
-  AI_CONFIG.extraction.grammar.ocr.provider = provider;
-  AI_CONFIG.extraction.grammar.ocr.model = targetModel;
-
-  AI_CONFIG.extraction.grammar.analysis.provider = provider;
-  AI_CONFIG.extraction.grammar.analysis.model = targetModel;
 }

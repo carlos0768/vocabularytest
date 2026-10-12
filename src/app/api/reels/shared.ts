@@ -105,12 +105,12 @@ function firstOrNull<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null;
 }
 
-export function reelItemKey(source: ReelSource, wordId: string): string {
+function reelItemKey(source: ReelSource, wordId: string): string {
   return `${source === 'shared' ? 's' : 'o'}:${wordId}`;
 }
 
 /** item key ('s:<id>' | 'o:<id>') → { source, wordId }。不正な形式は null。 */
-export function parseReelItemKey(itemKey: string): { source: ReelSource; wordId: string } | null {
+function parseReelItemKey(itemKey: string): { source: ReelSource; wordId: string } | null {
   const match = /^([so]):(.+)$/.exec(itemKey.trim());
   if (!match) return null;
   return { source: match[1] === 's' ? 'shared' : 'official', wordId: match[2] };
@@ -850,7 +850,7 @@ export async function buildReelFeedPage(options: {
  * Validate that a reel word exists and belongs to public reel content,
  * returning its book ref ('s:<shareId>' | 'o:<officialSlug>').
  */
-export async function resolveReelWordSource(
+async function resolveReelWordSource(
   source: ReelSource,
   wordId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),

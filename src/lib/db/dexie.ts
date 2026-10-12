@@ -15,7 +15,7 @@ export interface SyncQueueItem {
 // Dexie database definition for local IndexedDB storage
 // This serves as the Free tier storage backend and offline cache for Pro
 
-export class WordSnapDB extends Dexie {
+class WordSnapDB extends Dexie {
   projects!: EntityTable<Project, 'id'>;
   words!: EntityTable<Word, 'id'>;
   lexiconEntries!: EntityTable<LexiconEntry, 'id'>;
@@ -125,13 +125,3 @@ export function getDb(): WordSnapDB {
 
 // For backward compatibility - use getDb() instead
 // Wrapped in try/catch to handle environments where IndexedDB is unavailable
-function createDbSafe(): WordSnapDB | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return new WordSnapDB();
-  } catch (e) {
-    console.error('Failed to initialize IndexedDB:', e);
-    return null;
-  }
-}
-export const db = createDbSafe() as WordSnapDB;

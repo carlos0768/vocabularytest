@@ -5,8 +5,8 @@ import { THETA_GRID, type LevelTestState } from './engine';
 
 // v4: ベイズ推定化で state が事後分布(posterior)を持つ形に変わった
 // (階段型時代の古いスナップショットはキーが違うので読まれず自然消滅する)
-export const LEVEL_TEST_SESSION_KEY = 'level_test_state_v4';
-export const LEVEL_TEST_SESSION_TTL_MS = 30 * 60 * 1000;
+const LEVEL_TEST_SESSION_KEY = 'level_test_state_v4';
+const LEVEL_TEST_SESSION_TTL_MS = 30 * 60 * 1000;
 
 // 出題された単語1問分の記録(結果画面の○×リスト用)
 export type AnsweredWord = {
@@ -26,7 +26,7 @@ export type LevelTestSessionSnapshot = {
   savedAt: number;
 };
 
-export function isLevelTestSessionExpired(savedAt: number, now: number = Date.now()): boolean {
+function isLevelTestSessionExpired(savedAt: number, now: number = Date.now()): boolean {
   if (!Number.isFinite(savedAt)) return true;
   return now - savedAt > LEVEL_TEST_SESSION_TTL_MS;
 }

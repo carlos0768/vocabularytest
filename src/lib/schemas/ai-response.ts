@@ -13,7 +13,7 @@ import type { CustomSection, WordTranslation } from '../../../shared/types';
 // Zod schema for validating OpenAI API response
 // This ensures robustness against malformed AI outputs
 
-export const AIWordSchema = z.object({
+const AIWordSchema = z.object({
   english: z.string(),
   japanese: z.string().optional().default(''),
   rawJapanese: z.string().optional(),
@@ -211,8 +211,6 @@ export const AIResponseSchema = z.object({
 }));
 
 export type ValidatedAIResponse = z.infer<typeof AIResponseSchema>;
-export type ValidatedAIWord = z.infer<typeof AIWordSchema>;
-
 // Safe parser that returns result with error info
 export function parseAIResponse(data: unknown): {
   success: boolean;

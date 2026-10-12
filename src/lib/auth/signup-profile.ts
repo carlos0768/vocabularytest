@@ -14,7 +14,7 @@ type SignupProfileError = {
   details?: string | null;
 };
 
-export function buildDefaultAccountId(userId: string): string {
+function buildDefaultAccountId(userId: string): string {
   const compact = userId.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
   return `mk${compact.slice(0, 12)}`.slice(0, 24);
 }
@@ -43,7 +43,7 @@ function isAccountIdUniqueViolation(error: SignupProfileError | null): boolean {
   return text.includes('account_id');
 }
 
-export function buildSignupProfilePayload(
+function buildSignupProfilePayload(
   userId: string,
   fields: SignupProfileFields,
   accountId: string | undefined,

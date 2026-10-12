@@ -2,7 +2,7 @@ export type ReelFeedEntry<T> =
   | { kind: 'item'; item: T }
   | { kind: 'ad'; adKey: string };
 
-export const REEL_AD_INTERVAL = 6;
+const REEL_AD_INTERVAL = 6;
 
 /**
  * Interleave ad entries into the reel feed: one ad before every

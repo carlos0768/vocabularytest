@@ -2747,15 +2747,6 @@ function RedSheetToggle({
   );
 }
 
-function ToolChip({ icon, label }: { icon: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-[5px] rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-muted)]">
-      <Icon name={icon} size={12} />
-      <span className="text-[var(--color-ink-dim)]">{label}</span>
-    </span>
-  );
-}
-
 function BulkActionBar({
   open,
   selectedCount,

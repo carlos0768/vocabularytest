@@ -5,7 +5,7 @@ import type {
   SharedProjectPreviewPayload,
   SharedUserSummary,
 } from '@/lib/shared-projects/types';
-import type { Project, Word } from '@/types';
+import type { Word } from '@/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../shared/db';
 import { normalizeSharedTags } from '../../../../shared/shared-tags';
 import {
@@ -849,5 +849,3 @@ export async function setSharedWordbookLike(
 
   return { liked, likeCount };
 }
-
-export type { Project };

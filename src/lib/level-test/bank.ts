@@ -16,7 +16,7 @@ export type LevelTestBank = {
   levels: BankWord[][];
 };
 
-export const LEVEL_TEST_BANK_URL = '/level-test/bank-v1.json';
+const LEVEL_TEST_BANK_URL = '/level-test/bank-v1.json';
 const EXPECTED_LEVEL_COUNT = 7;
 
 // バンクJSONはタプル形式([english, japanese, [d1, d2, d3]])で圧縮されている。

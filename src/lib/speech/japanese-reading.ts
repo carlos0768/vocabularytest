@@ -35,7 +35,7 @@ const readingResponseSchema = z.object({
 });
 
 /** Gemini Controlled Generation schema mirroring `readingResponseSchema`. */
-export const JAPANESE_READING_RESPONSE_SCHEMA: ResponseSchema = {
+const JAPANESE_READING_RESPONSE_SCHEMA: ResponseSchema = {
   type: 'OBJECT',
   properties: {
     results: {

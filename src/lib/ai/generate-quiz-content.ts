@@ -14,11 +14,9 @@ import {
 // このファイル自体は providers を読むのでクライアントに import してはいけない。
 export {
   DISTRACTOR_CANDIDATE_COUNT,
-  DISTRACTOR_COUNT,
   collectForbiddenSenses,
   isDistractorSenseOfWord,
   isSourceSameOrDerivedWord,
-  normalizeJapaneseSense,
   selectSafeDistractors,
 } from '@/lib/quiz/distractor-safety';
 
@@ -190,7 +188,7 @@ function extractJsonContent(content: string): string {
  * 出題語が持つ「正解以外の訳」をプロンプト用に整える。
  * 正解そのものと重複・空文字は除き、順序は保つ。
  */
-export function formatKnownTranslationsForPrompt(word: QuizContentWordInput): string {
+function formatKnownTranslationsForPrompt(word: QuizContentWordInput): string {
   const correct = word.japanese.trim();
   const seen = new Set<string>([correct]);
   const others: string[] = [];

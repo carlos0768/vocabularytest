@@ -172,20 +172,6 @@ function findLastCompleteObjectEnd(json: string): number {
 }
 
 /**
- * 安全にJSONをパース（失敗時はnullを返す）
- *
- * @param text パースするテキスト
- * @returns パース結果またはnull
- */
-export function safeParseJson<T = unknown>(text: string): T | null {
-  try {
-    return parseJsonResponse<T>(text);
-  } catch {
-    return null;
-  }
-}
-
-/**
  * 安全にJSONをパース（結果オブジェクト形式）
  *
  * @param text パースするテキスト
@@ -201,20 +187,4 @@ export function safeParseJSON<T = unknown>(text: string): { success: true; data:
       error: error instanceof Error ? error.message : 'Unknown parse error',
     };
   }
-}
-
-/**
- * オブジェクトが空かどうかをチェック
- */
-export function isEmptyObject(obj: unknown): boolean {
-  if (obj === null || obj === undefined) return true;
-  if (typeof obj !== 'object') return false;
-  return Object.keys(obj as object).length === 0;
-}
-
-/**
- * 配列が空かどうかをチェック
- */
-export function isEmptyArray(arr: unknown): boolean {
-  return !Array.isArray(arr) || arr.length === 0;
 }

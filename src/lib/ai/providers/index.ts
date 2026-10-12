@@ -16,10 +16,6 @@ import { readSingleLineEnv } from '@/lib/env';
 // Re-export types and classes
 export { AIError } from './types';
 export type { AIProvider, AIRequest, AIResponse, AIErrorType } from './types';
-export { GeminiProvider, createGeminiProvider } from './gemini';
-export { OpenAIProvider, createOpenAIProvider } from './openai';
-export { CloudRunProvider } from './cloud-run';
-
 /**
  * プロバイダーのキャッシュ
  * 同じAPIキーで何度もインスタンスを作らないようにする
@@ -56,7 +52,7 @@ function getCacheKey(provider: AIProviderType, apiKey: string): string {
  * @param apiKey APIキー（Cloud Run使用時は不要）
  * @returns AIプロバイダーインスタンス
  */
-export function getProvider(provider: AIProviderType, apiKey = ''): AIProvider {
+function getProvider(provider: AIProviderType, apiKey = ''): AIProvider {
   const cloudRun = getCloudRunConfig();
 
   // Cloud Run経由モード
@@ -97,13 +93,6 @@ export function getProvider(provider: AIProviderType, apiKey = ''): AIProvider {
 
   providerCache.set(cacheKey, instance);
   return instance;
-}
-
-/**
- * キャッシュをクリア（テスト用）
- */
-export function clearProviderCache(): void {
-  providerCache.clear();
 }
 
 /**

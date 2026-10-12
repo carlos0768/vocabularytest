@@ -421,7 +421,7 @@ async function getStudyGroupSharedProject(
   );
 }
 
-export async function getPublicSharedProject(projectId: string): Promise<SharedProjectSummary | null> {
+async function getPublicSharedProject(projectId: string): Promise<SharedProjectSummary | null> {
   const admin = getSupabaseAdmin();
   const { data, error } = await admin
     .from('projects')

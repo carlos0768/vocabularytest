@@ -113,7 +113,7 @@ export const CUSTOM_SCAN_MODE_SELECT = 'id, name, prompt, created_at, updated_at
  * クライアントが送るIDは信用せず、必ず本人の行だけを引く。
  * 見つからない場合は null（呼び出し側で400にする）。
  */
-export async function fetchCustomScanModePrompt(
+async function fetchCustomScanModePrompt(
   supabase: SupabaseClient,
   userId: string,
   customScanModeId: string,

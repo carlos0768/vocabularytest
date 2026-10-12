@@ -1,4 +1,4 @@
-import type { FriendProfile, FriendTimelineSession } from '@/lib/friends/types';
+import type { FriendProfile } from '@/lib/friends/types';
 
 export type FollowStatus = 'active' | 'pending';
 
@@ -37,8 +37,4 @@ export type FollowsHomePayload = {
   followers: FollowSummary[];
   pendingIncoming: FollowSummary[];
   pendingOutgoing: FollowSummary[];
-};
-
-export type FollowTimelinePayload = {
-  sessions: FriendTimelineSession[];
 };

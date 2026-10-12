@@ -76,7 +76,7 @@ const SYSTEM_PROMPT = `あなたは英単語の語源（接頭語・接尾語・
   "explanation": "「心が1つ」が原義。全員の心が1つにそろう→「満場一致の」となった。"
 }`;
 
-export const MORPHOLOGY_RESPONSE_SCHEMA: ResponseSchema = {
+const MORPHOLOGY_RESPONSE_SCHEMA: ResponseSchema = {
   type: 'OBJECT',
   properties: {
     hasMorphology: { type: 'BOOLEAN' },
@@ -244,9 +244,3 @@ export async function generateMorphology(
 
   return { results, errors };
 }
-
-export const __internal = {
-  generateSingle,
-  buildMorphologyPrompt,
-  toWordMorphology,
-};

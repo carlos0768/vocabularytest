@@ -17,7 +17,6 @@ import {
   appendDiscoverPage,
   buildSharedPageSearch,
   mergeProfileSearchUsers,
-  mergeUniqueProjectCards,
   parseSharedPageTab,
   removeProjectFromDiscover,
 } from './shared-page-utils';
@@ -82,7 +81,7 @@ type OfficialWordbooksApiResponse = {
 
 const OFFICIAL_PAGE_SIZE = 12;
 
-export function buildOfficialWordbooksUrl(query: string, cursor?: string | null) {
+function buildOfficialWordbooksUrl(query: string, cursor?: string | null) {
   const params = new URLSearchParams({ limit: String(OFFICIAL_PAGE_SIZE) });
   if (query.trim()) params.set('q', query.trim());
   if (cursor) params.set('cursor', cursor);

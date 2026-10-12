@@ -22,7 +22,7 @@ export interface ParsedImage {
  * const pdf = parseDataUrl('data:application/pdf;base64,JVBERi...');
  * // { base64: 'JVBERi...', mimeType: 'application/pdf' }
  */
-export function parseDataUrl(dataUrl: string): ParsedImage {
+function parseDataUrl(dataUrl: string): ParsedImage {
   // Match image formats or PDF
   const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+|application\/pdf);base64,(.+)$/);
 
@@ -34,63 +34,6 @@ export function parseDataUrl(dataUrl: string): ParsedImage {
     mimeType: match[1],
     base64: match[2],
   };
-}
-
-/**
- * データURLが有効な画像/PDF形式かどうかを検証
- *
- * @param dataUrl 検証するデータURL
- * @returns 有効な場合はtrue
- */
-export function isValidImageDataUrl(dataUrl: string): boolean {
-  return /^data:(image\/(jpeg|png|gif|webp)|application\/pdf);base64,.+$/.test(dataUrl);
-}
-
-/**
- * HEIC/HEIF形式かどうかをチェック
- *
- * @param dataUrl 検証するデータURL
- * @returns HEIC/HEIF形式の場合はtrue
- */
-export function isHeicFormat(dataUrl: string): boolean {
-  return dataUrl.startsWith('data:image/heic') || dataUrl.startsWith('data:image/heif');
-}
-
-/**
- * 画像のMIMEタイプを取得
- *
- * @param dataUrl データURL
- * @returns MIMEタイプ（取得できない場合は'unknown'）
- */
-export function getMimeType(dataUrl: string): string {
-  const match = dataUrl.match(/^data:([^;,]+)/);
-  return match ? match[1] : 'unknown';
-}
-
-/**
- * 画像データの概算サイズを取得（バイト単位）
- *
- * @param base64 Base64エンコードされた文字列
- * @returns 概算サイズ（バイト）
- */
-export function estimateImageSize(base64: string): number {
-  // Base64は約4/3倍のサイズになるため、逆算する
-  return Math.ceil((base64.length * 3) / 4);
-}
-
-/**
- * サポートされている形式の一覧
- */
-export const SUPPORTED_FORMATS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'] as const;
-
-/**
- * サポートされていない形式のエラーメッセージを生成
- */
-export function getUnsupportedFormatError(mimeType: string): string {
-  if (mimeType.includes('heic') || mimeType.includes('heif')) {
-    return 'HEIC/HEIF形式は対応していません。カメラアプリの設定で「互換性優先」を選択するか、スクリーンショットをお試しください。';
-  }
-  return `${mimeType}形式は対応していません。JPEG/PNG形式の画像またはPDFを使用してください。`;
 }
 
 /**

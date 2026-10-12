@@ -337,12 +337,6 @@ export interface AIWordExtraction {
   morphology?: WordMorphology;
 }
 
-export interface AIResponse {
-  words: AIWordExtraction[];
-  sourceLabels: string[];
-  lexiconEntries?: LexiconEntry[];
-}
-
 // ============ Quiz Types ============
 
 export interface MultipleChoiceQuizQuestion {
@@ -367,13 +361,6 @@ export interface WordOrderQuizQuestion {
 }
 
 export type QuizQuestion = MultipleChoiceQuizQuestion | WordOrderQuizQuestion;
-
-export interface QuizResult {
-  wordId: string;
-  isCorrect: boolean;
-  selectedIndex: number;
-}
-
 // ============ Repository Interface ============
 
 export interface WordRepository {
@@ -394,18 +381,6 @@ export interface WordRepository {
 }
 
 // ============ App State Types ============
-
-export interface ScanProgress {
-  step: 'uploading' | 'analyzing' | 'generating' | 'complete' | 'error';
-  message: string;
-}
-
-export interface ProgressStep {
-  id: string;
-  label: string;
-  status: 'pending' | 'active' | 'complete' | 'error';
-}
-
 // ============ Subscription Types ============
 
 export type SubscriptionStatus = 'free' | 'active' | 'cancelled' | 'past_due';
@@ -428,16 +403,6 @@ export interface Subscription {
   updatedAt: string;
 }
 
-export interface UserState {
-  id: string;
-  email: string;
-  username?: string | null;
-  subscriptionStatus: SubscriptionStatus;
-  subscriptionPlan: SubscriptionPlan;
-  dailyScanCount: number;
-  lastScanDate: string;
-}
-
 // ============ Profile Types ============
 
 export type EikenLevel = '5' | '4' | '3' | 'pre2' | '2' | 'pre1' | '1' | null;
@@ -452,10 +417,3 @@ export interface Profile {
 }
 
 // ============ Auth Types ============
-
-export interface AuthUser {
-  id: string;
-  email: string;
-  username?: string | null;
-  subscription?: Subscription;
-}

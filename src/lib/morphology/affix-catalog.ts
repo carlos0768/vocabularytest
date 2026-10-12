@@ -196,11 +196,6 @@ export const AFFIX_CATALOG: readonly AffixSense[] = [
   { id: 'i-link', form: 'i', kind: 'infix', meaningJa: '連結母音', nuanceJa: 'ラテン語系の語根同士をつなぐ「つなぎの i」。herb（草）-i-vore（食べる）＝草食動物。', examples: ['herbivore', 'carnivore', 'insecticide'], level: 'advanced' },
 ] as const;
 
-/** id → AffixSense の索引 */
-export const AFFIX_BY_ID: ReadonlyMap<string, AffixSense> = new Map(
-  AFFIX_CATALOG.map((sense) => [sense.id, sense]),
-);
-
 export function getAffixesByKind(kind: AffixKind): AffixSense[] {
   return AFFIX_CATALOG.filter((sense) => sense.kind === kind);
 }

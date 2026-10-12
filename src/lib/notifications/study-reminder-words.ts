@@ -9,8 +9,8 @@ export type StudyReminderWordPick = {
 };
 
 export const STUDY_REMINDER_WORD_COUNT = 5;
-export const STUDY_REMINDER_QUIZ_QUESTION_COUNT = 10;
-export const STUDY_REMINDER_REVIEW_WINDOW_HOURS = 24;
+const STUDY_REMINDER_QUIZ_QUESTION_COUNT = 10;
+const STUDY_REMINDER_REVIEW_WINDOW_HOURS = 24;
 
 type ReviewWordRow = {
   id: string;

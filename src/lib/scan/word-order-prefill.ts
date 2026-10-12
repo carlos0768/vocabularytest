@@ -10,7 +10,7 @@ import {
 } from '@/lib/quiz/word-order';
 import type { WordOrderQuizCache } from '@/types';
 
-export const WORD_ORDER_PREFILL_BATCH_SIZE = 30;
+const WORD_ORDER_PREFILL_BATCH_SIZE = 30;
 
 export interface WordOrderQuizPrefillCandidateWord {
   id: string;

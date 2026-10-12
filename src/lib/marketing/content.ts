@@ -11,48 +11,7 @@ export interface PricingComparisonRow {
   pro: string;
 }
 
-export const marketingHighlights: MarketingItem[] = [
-  {
-    title: '手入力ゼロ',
-    description: 'ノートやプリントを撮るだけで単語帳を作成。',
-    icon: 'photo_camera',
-  },
-  {
-    title: '学習進捗を可視化',
-    description: '習得率・復習中・未学習を自動で集計。',
-    icon: 'insights',
-  },
-  {
-    title: '使い分けできる学習モード',
-    description: 'クイズ、自己評価、カード、例文クイズに対応。',
-    icon: 'psychology',
-  },
-];
-
 // スキャンは Pro プラン限定の機能。モードは実装と揃える（all / circled / eiken / idiom）。
-export const scanModes: MarketingItem[] = [
-  {
-    title: '単語帳取込',
-    description: '単語帳形式の英単語と訳を抽出。',
-    icon: 'center_focus_weak',
-  },
-  {
-    title: '丸で囲んだ単語',
-    description: 'マークした単語だけを抽出。',
-    icon: 'radio_button_checked',
-  },
-  {
-    title: '英検レベル',
-    description: '指定した級の単語だけを抽出。',
-    icon: 'menu_book',
-  },
-  {
-    title: '熟語・イディオム',
-    description: '句動詞や熟語を重点抽出。',
-    icon: 'translate',
-  },
-];
-
 export const studyModes: MarketingItem[] = [
   {
     title: 'クイズ',

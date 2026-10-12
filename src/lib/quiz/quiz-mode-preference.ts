@@ -67,7 +67,7 @@ export type QuizModeStorage = Pick<Storage, 'getItem' | 'setItem'>;
  * SSR では window が無く、Safari のプライベートモードでは localStorage 参照自体が
  * 例外を投げることがあるので、どちらも null に倒して呼び出し側を守る。
  */
-export function defaultQuizModeStorage(): QuizModeStorage | null {
+function defaultQuizModeStorage(): QuizModeStorage | null {
   if (typeof window === 'undefined') return null;
   try {
     return window.localStorage;

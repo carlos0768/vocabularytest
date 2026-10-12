@@ -20,7 +20,7 @@ const EIKEN_LEVEL_TAG_PATTERN = /^[#＃]?英検準?[1-5]級$/;
  * Words with a lexicon CEFR level below this count are too few to call a
  * level for the whole wordbook, so no tag is emitted.
  */
-export const MIN_KNOWN_WORDS_FOR_LEVEL_TAG = 3;
+const MIN_KNOWN_WORDS_FOR_LEVEL_TAG = 3;
 
 function cefrIndex(level: string): number {
   return CEFR_LEVEL_ORDER.indexOf(level.toUpperCase() as CefrLevel);

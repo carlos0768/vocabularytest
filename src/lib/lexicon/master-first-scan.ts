@@ -277,7 +277,7 @@ async function lookupLexiconEntriesByHeadwordsDirect(
  * 見出し語だけでマスター候補を引く（品詞は問わない）。
  * `lookupLexiconEntriesByKeys` が (見出し語, 品詞) で外したときの second pass 専用。
  */
-export async function lookupLexiconEntriesByHeadwords(
+async function lookupLexiconEntriesByHeadwords(
   normalizedHeadwords: string[],
   deps?: Pick<ResolveImmediateWordsDeps, 'lookupEntriesByHeadwords' | 'supabaseAdmin'>,
 ): Promise<LexiconEntry[]> {

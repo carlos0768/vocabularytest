@@ -14,7 +14,7 @@ import type { ProjectKind } from '../../../shared/types';
 import { isClassicalWord, shouldSkipEnglishEnrichment, type ClassicalWordMarker } from './is-classical';
 
 // 種別そのものは shared/types にある（shared/db/mappers.ts からも使うため）。
-export { PROJECT_KINDS, normalizeProjectKind, type ProjectKind } from '../../../shared/types';
+export { normalizeProjectKind } from '../../../shared/types';
 
 export interface ExampleBearingWord {
   exampleSentence?: string | null;

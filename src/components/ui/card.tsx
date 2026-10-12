@@ -42,5 +42,3 @@ const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ),
 );
 CardContent.displayName = 'CardContent';
-
-export { Card, CardHeader, CardTitle, CardContent };
