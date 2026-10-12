@@ -24,6 +24,12 @@ import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embedding
 import type { Word } from '@/types';
 import { mapProjectFromRow, mapWordFromRow, type ProjectRow, type WordRow } from '../../../../shared/db';
 import { formatSharedTag } from '../../../../shared/shared-tags';
+import {
+  decodeOffsetCursor,
+  encodeOffsetCursor,
+  includesSearchText,
+  normalizeHandleSearchQuery,
+} from '@/lib/api/listing';
 
 type ProjectMembershipRow = {
   project_id: string;
@@ -567,7 +573,7 @@ export async function listPublicSharedProjects(
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<PublicSharedProjectListPayload> {
   const limit = clampPublicPageSize(options.limit);
-  const query = normalizeSearchQuery(options.query);
+  const query = normalizeHandleSearchQuery(options.query);
 
   if (query) {
     const cursorOffset = decodeOffsetCursor(options.cursor ?? null);
@@ -633,7 +639,7 @@ export async function listPublicSharedUsers(
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<{ users: SharedUserSummary[]; nextCursor: string | null }> {
   const limit = clampPublicPageSize(options.limit);
-  const query = normalizeSearchQuery(options.query);
+  const query = normalizeHandleSearchQuery(options.query);
   const cursorOffset = decodeOffsetCursor(options.cursor ?? null);
   const projectLimit = Math.max(80, (cursorOffset + limit + 1) * 4);
 
@@ -1289,14 +1295,6 @@ function clampSharePreviewWordLimit(limit: number): number {
   return Math.max(0, Math.min(MAX_SHARE_PREVIEW_WORD_LIMIT, Math.floor(limit)));
 }
 
-function normalizeSearchQuery(query?: string | null): string {
-  return (query ?? '').trim().replace(/^@+/, '').toLowerCase();
-}
-
-function includesSearchText(value: string | null | undefined, query: string): boolean {
-  return value?.toLowerCase().includes(query) ?? false;
-}
-
 function projectMatchesSearch(
   row: ProjectRow,
   ownerProfile: SharedProfileSummary | undefined,
@@ -1309,22 +1307,6 @@ function projectMatchesSearch(
   return (row.shared_tags ?? []).some((tag) => (
     includesSearchText(String(tag), query) || includesSearchText(formatSharedTag(String(tag)), query)
   ));
-}
-
-function encodeOffsetCursor(offset: number): string {
-  return Buffer.from(JSON.stringify({ offset }), 'utf8').toString('base64url');
-}
-
-function decodeOffsetCursor(cursor: string | null): number {
-  if (!cursor) return 0;
-  try {
-    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as { offset?: unknown };
-    return typeof parsed.offset === 'number' && Number.isFinite(parsed.offset) && parsed.offset > 0
-      ? Math.floor(parsed.offset)
-      : 0;
-  } catch {
-    return 0;
-  }
 }
 
 function encodePublicCursor(row: Pick<ProjectRow, 'created_at' | 'id'>): string {

@@ -1,3 +1,5 @@
+import { isRecord } from '@/lib/utils';
+
 export interface HomeScanJobNotificationJob {
   id: string;
   project_id: string | null;
@@ -105,8 +107,4 @@ function buildHomeScanJobNotificationContent(
     title: 'MERKEN: スキャン完了',
     body: `「${entry.projectTitle}」に${entry.wordCount}語追加されました`,
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

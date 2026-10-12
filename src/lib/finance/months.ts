@@ -1,7 +1,7 @@
 // JST月キー('YYYY-MM')ヘルパー。財務ダッシュボードの集計は
 // コインシステムと同じくJST暦月を単位とする。
 
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+import { JST_OFFSET_MS } from '@/lib/date/jst';
 
 export function jstMonthKey(date: Date): string {
   const jst = new Date(date.getTime() + JST_OFFSET_MS);

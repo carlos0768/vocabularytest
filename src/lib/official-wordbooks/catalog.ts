@@ -7,6 +7,7 @@ import {
   OFFICIAL_WORDBOOK_EIKEN_LEVEL_LABELS,
   type OfficialWordbookEikenLevelValue,
 } from './editor';
+import { decodeOffsetCursor, encodeOffsetCursor, normalizeSearchQuery } from '@/lib/api/listing';
 
 /**
  * 公式単語帳(official_wordbooks / official_wordbook_words)の一般ユーザー向け
@@ -98,22 +99,6 @@ function clampPageSize(limit?: number): number {
   return Math.max(1, Math.min(MAX_PAGE_SIZE, Math.floor(Number(limit))));
 }
 
-function encodeOffsetCursor(offset: number): string {
-  return Buffer.from(JSON.stringify({ offset }), 'utf8').toString('base64url');
-}
-
-function decodeOffsetCursor(cursor: string | null | undefined): number {
-  if (!cursor) return 0;
-  try {
-    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as { offset?: unknown };
-    return typeof parsed.offset === 'number' && Number.isFinite(parsed.offset) && parsed.offset > 0
-      ? Math.floor(parsed.offset)
-      : 0;
-  } catch {
-    return 0;
-  }
-}
-
 function toStringArray(value: unknown, maxItems: number): string[] {
   if (!Array.isArray(value)) return [];
   const result: string[] = [];
@@ -199,10 +184,6 @@ function compareCatalogRows(a: OfficialWordbookCatalogRow, b: OfficialWordbookCa
     || a.sortOrder - b.sortOrder
     || a.createdAt.localeCompare(b.createdAt)
     || a.slug.localeCompare(b.slug);
-}
-
-function normalizeSearchQuery(query?: string | null): string {
-  return (query ?? '').trim().toLowerCase();
 }
 
 function rowMatchesSearch(row: OfficialWordbookCatalogRow, query: string): boolean {

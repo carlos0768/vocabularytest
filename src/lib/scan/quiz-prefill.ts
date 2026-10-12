@@ -41,7 +41,7 @@ export interface QuizPrefillWordUpdatePayload {
   example_sentence_ja?: string;
 }
 
-function hasValidDistractors(value: unknown): boolean {
+export function hasValidDistractors(value: unknown): boolean {
   if (!Array.isArray(value)) return false;
   if (value.length < 3) return false;
   if (value.length === 3 && value[0] === '選択肢1') return false;
@@ -56,7 +56,7 @@ function hasPartOfSpeechTags(value: unknown): boolean {
   return normalizePartOfSpeechTags(value).length > 0;
 }
 
-function hasPronunciation(value: unknown): boolean {
+export function hasPronunciation(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
 

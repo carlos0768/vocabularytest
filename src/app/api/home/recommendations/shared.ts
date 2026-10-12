@@ -7,6 +7,7 @@ import {
 } from '@/lib/reels/eiken-cefr';
 import { lookupLexiconCefrLevels } from '@/lib/lexicon/eiken-cefr-filter';
 import { EIKEN_LEVEL_TAG_LABELS } from '@/lib/shared-projects/eiken-level-tag';
+import { toStringArray } from '@/lib/utils';
 import type {
   HomeRecommendedBook,
   HomeRecommendationsPayload,
@@ -27,11 +28,6 @@ const BOOK_CEFR_WORDS_PER_BOOK = 40;
 const BOOK_CEFR_WORDS_FETCH_LIMIT = 1200;
 
 // ---------- helpers ----------
-
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-}
 
 const EIKEN_LEVEL_BY_TAG = new Map(
   Object.entries(EIKEN_LEVEL_TAG_LABELS).map(([level, label]) => [label, level]),

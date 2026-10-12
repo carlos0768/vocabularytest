@@ -7,6 +7,7 @@ import {
 } from './prompts';
 import { AI_CONFIG } from './config';
 import { AIError, getProviderFromConfig } from './providers';
+import { extractJsonContent } from './utils/json';
 import { mergeSourceLabels, normalizeSourceLabels } from '../../../shared/source-labels';
 
 // Type for OCR result - structured test data
@@ -59,21 +60,6 @@ interface ProviderApiKeys {
 
 interface WrongAnswerDeps {
   getProviderFromConfig?: typeof getProviderFromConfig;
-}
-
-function extractJsonContent(content: string): string {
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-
-  const jsonStartIndex = content.indexOf('{');
-  const jsonEndIndex = content.lastIndexOf('}');
-  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-    return content.slice(jsonStartIndex, jsonEndIndex + 1);
-  }
-
-  return content;
 }
 
 /**
