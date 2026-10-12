@@ -12,7 +12,7 @@ import { useOnboarding } from '@/hooks/use-onboarding';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { getRepository } from '@/lib/db';
 import { getDb } from '@/lib/db/dexie';
-import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
+import { chunkArray, FREE_WORD_LIMIT, getGuestUserId, sleep } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
 import {
@@ -34,17 +34,6 @@ interface EditableWord extends AIWordExtraction {
 
 const QUIZ_PREFILL_BATCH_SIZE = 30;
 const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  if (items.length === 0) return [];
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
-  return chunks;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function hasValidDistractors(value: unknown): boolean {
   if (!Array.isArray(value)) return false;

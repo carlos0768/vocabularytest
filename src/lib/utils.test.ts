@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeSingleLineEnvValue, readSingleLineEnv } from './env';
-import { clearAllUserStats } from './utils';
+import { chunkArray, clearAllUserStats, isRecord, sleep } from './utils';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -86,4 +86,25 @@ test('readSingleLineEnv reads normalized values from an env map', () => {
     }),
     'anon-key',
   );
+});
+
+test('isRecord accepts objects and arrays but rejects null and primitives', () => {
+  assert.equal(isRecord({}), true);
+  assert.equal(isRecord([]), true);
+  assert.equal(isRecord(null), false);
+  assert.equal(isRecord(undefined), false);
+  assert.equal(isRecord('x'), false);
+  assert.equal(isRecord(1), false);
+});
+
+test('chunkArray splits items into fixed-size chunks with a shorter tail', () => {
+  assert.deepEqual(chunkArray([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+  assert.deepEqual(chunkArray([1, 2], 5), [[1, 2]]);
+  assert.deepEqual(chunkArray([], 3), []);
+});
+
+test('sleep resolves after the given delay', async () => {
+  const startedAt = Date.now();
+  await sleep(20);
+  assert.ok(Date.now() - startedAt >= 15);
 });

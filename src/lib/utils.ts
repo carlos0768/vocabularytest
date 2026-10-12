@@ -562,3 +562,20 @@ export function clearAllUserStats(): void {
   localStorage.removeItem(WRONG_ANSWERS_KEY);
   localStorage.removeItem(ACTIVITY_HISTORY_KEY);
 }
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+export function chunkArray<T>(items: T[], size: number): T[][] {
+  if (items.length === 0) return [];
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

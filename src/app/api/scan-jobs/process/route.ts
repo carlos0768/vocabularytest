@@ -119,6 +119,7 @@ import {
   withCloudRunTimingPhase,
   type CloudRunTimingEntry,
 } from '@/lib/ai/providers/cloud-run-timing';
+import { chunkArray, sleep } from '@/lib/utils';
 
 // Lazy initialization to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -403,19 +404,6 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMes
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
-}
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  if (items.length === 0) return [];
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 interface TimingMetrics {

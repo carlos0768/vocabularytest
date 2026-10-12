@@ -10,6 +10,7 @@ import {
 import type { TranslatedSense, ValidatedTranslationCandidate } from './types';
 import { z } from 'zod';
 import { JAPANESE_PARENTHESIS_RULES } from '@/lib/ai/prompts/japanese-format';
+import { chunkArray } from '@/lib/utils';
 
 /** 1語あたり保存する senses の上限（トークン増を抑える）。 */
 export const MAX_TRANSLATED_SENSES = 4;
@@ -241,15 +242,6 @@ export function buildPosClassificationKey(
   japaneseHint?: string | null,
 ): string {
   return `${normalizeHeadword(english)}::${normalizeLexiconTranslation(japaneseHint) ?? ''}`;
-}
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  if (items.length === 0) return [];
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function looksLikeJapaneseTranslation(text: string, english: string): boolean {

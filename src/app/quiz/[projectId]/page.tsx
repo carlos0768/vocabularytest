@@ -29,6 +29,7 @@ import {
   recordActivity,
   getGuestUserId,
   getWrongAnswers,
+  sleep,
   type WrongAnswer,
 } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
@@ -117,10 +118,6 @@ const DISTRACTOR_FETCH_TIMEOUT_MS = 25000;
 const WORD_ORDER_API_CHUNK_SIZE = 30;
 /** 単語帳をまたぐ出題では音読チャレンジを選ばせない (向こうが1冊ぶんしか出せない)。 */
 const VOICE_MODE_HIDDEN = ['voice'] as const;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 type QuizAnswerResult = boolean | 'skip' | null;
 
