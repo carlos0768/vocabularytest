@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 /**
  * バインダー（フォルダ）のアイコン画像。
@@ -22,8 +23,7 @@ const putSchema = z.object({
 
 async function resolveUser(request: NextRequest) {
   const supabase = await createRouteHandlerClient(request);
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const bearerToken = getBearerToken(request);
   const { data: { user } } = bearerToken
     ? await supabase.auth.getUser(bearerToken)
     : await supabase.auth.getUser();

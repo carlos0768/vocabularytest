@@ -1,27 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { readSingleLineEnv } from '@/lib/env';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import {
   getEffectiveSubscriptionStatus,
   isActiveProSubscription,
 } from '@/lib/subscription/status';
-
-let supabaseAdmin: SupabaseClient | null = null;
-
-function getSupabaseAdmin(): SupabaseClient {
-  if (!supabaseAdmin) {
-    const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
-    const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
-
-    supabaseAdmin = createClient(
-      url.startsWith('http') ? url : `https://${url}`,
-      key
-    );
-  }
-
-  return supabaseAdmin;
-}
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 function isTestGrantEnabled(): boolean {
   const value = (process.env.ENABLE_TEST_PRO_GRANTS || '').trim().toLowerCase();
@@ -38,8 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createRouteHandlerClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
 
     const {
       data: { user },

@@ -28,6 +28,7 @@ import type {
   BattleSourceWord,
   BattleStatus,
 } from '@/lib/battle/types';
+import { isUniqueViolationOrDuplicateKey } from '@/lib/supabase/postgres-errors';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -785,7 +786,7 @@ export async function createOrJoinRematch(options: {
 
   if (error) {
     // 相手が一瞬先に押していた。その部屋にゲストとして入る。
-    if (isUniqueViolation(error)) {
+    if (isUniqueViolationOrDuplicateKey(error)) {
       const room = await findRematchRoom(options.roomId, admin);
       if (room) return joinRematchRoom(room, options.userId, admin);
     }
@@ -858,12 +859,6 @@ async function joinRematchRoom(
   }
 
   return hydrateRoom(data, admin);
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const maybeError = error as { code?: string | null; message?: string | null };
-  return maybeError?.code === '23505'
-    || (maybeError?.message ?? '').toLowerCase().includes('duplicate key');
 }
 
 export async function requestRandomMatch(options: {

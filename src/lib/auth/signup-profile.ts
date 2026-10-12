@@ -14,7 +14,7 @@ type SignupProfileError = {
   details?: string | null;
 };
 
-function buildDefaultAccountId(userId: string): string {
+export function buildDefaultAccountId(userId: string): string {
   const compact = userId.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
   return `mk${compact.slice(0, 12)}`.slice(0, 24);
 }

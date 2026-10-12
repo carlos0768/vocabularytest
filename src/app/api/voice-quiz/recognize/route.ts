@@ -11,6 +11,7 @@ import {
 import { recognizeSpeech, type RecognizeSpeechFailureReason } from '@/lib/speech/cloud-speech-to-text';
 import { lookupJapaneseReadings } from '@/lib/speech/japanese-reading';
 import { isAnyJapaneseAnswerCorrect, MAX_ANSWER_HINTS } from '@/lib/quiz/voice-quiz-answer';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 // 設定ミスを502で返すと上流障害と見分けがつかないので、種別ごとにステータスを分ける。
 const RECOGNIZE_FAILURE_STATUS: Record<RecognizeSpeechFailureReason, number> = {
@@ -114,8 +115,7 @@ export async function handleVoiceQuizRecognizePost(
     const enableUsageLimits = isAiUsageLimitsEnabled();
 
     const supabase = await createClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();

@@ -1,5 +1,6 @@
 import { after, NextRequest, NextResponse } from 'next/server';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { authorizeInternalWorkerRequest } from '@/lib/api/internal-worker';
 import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
@@ -9,7 +10,6 @@ import { extractCompositeWordsFromImage } from '@/lib/ai/extract-composite-words
 import { extractCustomWordsFromImage } from '@/lib/ai/extract-custom-words';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { readSingleLineEnv } from '@/lib/env';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { applyClassicalDictionary as applyClassical } from '@/lib/classical/apply';
 import { isClassicalWord } from '@/lib/classical/is-classical';
@@ -119,21 +119,6 @@ import {
   withCloudRunTimingPhase,
   type CloudRunTimingEntry,
 } from '@/lib/ai/providers/cloud-run-timing';
-
-// Lazy initialization to avoid build-time errors
-let supabaseAdmin: SupabaseClient | null = null;
-
-function getSupabaseAdmin(): SupabaseClient {
-  if (!supabaseAdmin) {
-    const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
-    const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
-    supabaseAdmin = createClient(
-      url.startsWith('http') ? url : `https://${url}`,
-      key
-    );
-  }
-  return supabaseAdmin;
-}
 
 // Vercel Hobby plan upper limit is 300 seconds.
 export const maxDuration = 300;

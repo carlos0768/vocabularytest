@@ -1,10 +1,3 @@
-import { NextRequest } from 'next/server';
-import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-
-export type AuthenticatedUser = {
-  id: string;
-};
-
 const WORD_PATTERN = /[A-Za-z][A-Za-z'\-]{0,63}/g;
 
 function normalizeSpaces(input: string): string {
@@ -55,20 +48,6 @@ export function extractRepresentativeEnglish(text: string): { english: string; w
     english: picked,
     wasSentence,
   };
-}
-
-export async function resolveAuthenticatedUser(request: NextRequest): Promise<AuthenticatedUser | null> {
-  const supabase = await createRouteHandlerClient(request);
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-  const { data: { user }, error } = bearerToken
-    ? await supabase.auth.getUser(bearerToken)
-    : await supabase.auth.getUser();
-
-  if (error || !user) return null;
-
-  return { id: user.id };
 }
 
 export function buildDefaultProjectTitle(now: Date = new Date()): string {

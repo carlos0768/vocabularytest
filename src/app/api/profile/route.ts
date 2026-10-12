@@ -14,6 +14,7 @@ import {
 import { getProfileBioError, normalizeProfileBio } from '@/lib/profile/bio';
 import { certificationListSchema } from '@/lib/profile/certifications';
 import { fetchProfileExtras, saveProfileExtras } from '@/lib/profile/extras-server';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 // アイコンは data URL (正方形の小さな JPEG)。null / 空文字は「アイコンを外す」。
 const avatarUrlSchema = z
@@ -130,8 +131,7 @@ async function fetchProfileRow(
 }
 
 async function resolveUserId(request: NextRequest): Promise<string | null> {
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const bearerToken = getBearerToken(request);
 
   if (bearerToken) {
     const admin = getSupabaseAdmin();

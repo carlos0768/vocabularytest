@@ -10,6 +10,8 @@ import type {
   FriendTimelineSession,
   QuizSessionWordSummary,
 } from '@/lib/friends/types';
+import { isUniqueViolation } from '@/lib/supabase/postgres-errors';
+import { buildDefaultAccountId } from '@/lib/auth/signup-profile';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -99,11 +101,6 @@ export function normalizeAccountIdInput(input: string): string {
     .slice(0, 24);
 }
 
-export function buildDefaultAccountId(userId: string): string {
-  const compact = userId.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
-  return `mk${compact.slice(0, 12)}`.slice(0, 24);
-}
-
 function normalizeSearchText(input: string): string {
   return input
     .trim()
@@ -111,10 +108,6 @@ function normalizeSearchText(input: string): string {
     .replace(/[%_,]/g, ' ')
     .replace(/\s+/g, ' ')
     .slice(0, 50);
-}
-
-function isUniqueViolation(error: { code?: string | null } | null | undefined): boolean {
-  return error?.code === '23505';
 }
 
 function normalizeFriendErrorText(error: unknown): string {

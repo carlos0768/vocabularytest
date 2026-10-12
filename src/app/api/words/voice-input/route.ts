@@ -9,6 +9,7 @@ import {
 } from '@/lib/ai/feature-usage';
 import { recognizeSpeech, type RecognizeSpeechFailureReason } from '@/lib/speech/cloud-speech-to-text';
 import { splitDictatedTranscript } from '@/lib/speech/dictated-words';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 /**
  * 音声で単語を追加する (読み上げた英単語の並び → 見出し語の一覧)。
@@ -66,8 +67,7 @@ export async function handleWordVoiceInputPost(request: NextRequest, deps?: Voic
     const splitTranscript = deps?.splitTranscript ?? splitDictatedTranscript;
 
     const supabase = await createClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();
