@@ -55,11 +55,10 @@ import {
   type ProjectWordSortOrder,
 } from '@/lib/project/project-page-selectors';
 import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus, WordTranslation } from '@/types';
+import { thumbColor } from '@/lib/ui/thumb-color';
 
 /** 音声でまとめて追加するとき、同時に補完を走らせる語数。 */
 const VOICE_ADD_CONCURRENCY = 3;
-
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
 // One-time coach mark for a wordbook's word list. Two steps in left-to-right
 // reading order: the status squares, then the Active / Passive toggle.
@@ -130,12 +129,6 @@ function shuffleArray<T>(items: T[]): T[] {
     [arr[i], arr[j]] = [arr[j]!, arr[i]!];
   }
   return arr;
-}
-
-function thumbColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return THUMBS[Math.abs(h) % THUMBS.length];
 }
 
 /**

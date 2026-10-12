@@ -74,8 +74,8 @@ import { useFollowingTodayActivity } from '@/hooks/use-following-today-activity'
 import { FollowingTodayStrip } from '@/components/home/FollowingTodayStrip';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import type { Project, SubscriptionStatus, Word } from '@/types';
+import { thumbColor } from '@/lib/ui/thumb-color';
 
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 const HOME_MY_BOOKS_VISIBLE_LIMIT = 5;
 
 // Final tip of the guided flow: the play button as a quiz shortcut. Shown only
@@ -135,12 +135,6 @@ function withHomeGeneratingFallbackId(
     ...payload,
     id: payload.id ?? `generating-${Date.now()}`,
   };
-}
-
-function thumbColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return THUMBS[Math.abs(h) % THUMBS.length];
 }
 
 async function getProjectsWithWords(

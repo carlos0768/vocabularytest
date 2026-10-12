@@ -23,14 +23,7 @@ import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import { getGuestUserId } from '@/lib/utils';
 import { summarizeWordMemory } from '@/lib/words/memory';
 import type { Project, SubscriptionStatus, Word, WordStatus } from '@/types';
-
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-
-function thumbColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return THUMBS[Math.abs(h) % THUMBS.length];
-}
+import { thumbColor } from '@/lib/ui/thumb-color';
 
 function isOwnedBy(project: Project | undefined | null, expectedUserId: string): project is Project {
   return Boolean(project && project.userId === expectedUserId);

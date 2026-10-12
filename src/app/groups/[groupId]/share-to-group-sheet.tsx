@@ -8,7 +8,7 @@ import { triggerHaptic } from '@/lib/haptics';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import type { Project } from '@/types';
-import { thumbColor } from './member-ui';
+import { thumbColor } from '@/lib/ui/thumb-color';
 
 export function ShareToGroupSheet({
   open,
