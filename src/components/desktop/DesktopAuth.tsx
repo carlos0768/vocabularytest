@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, type ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
