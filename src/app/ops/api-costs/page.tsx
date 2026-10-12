@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Button, Icon } from '@/components/ui';
+import { formatNumber } from '../finance/format';
 
 type DashboardSummary = {
   days: number;
@@ -86,10 +87,6 @@ function formatUsd(value: number): string {
     currency: 'USD',
     maximumFractionDigits: 6,
   }).format(value);
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('ja-JP').format(value);
 }
 
 function toNumber(value: number | string | null): number {

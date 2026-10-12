@@ -29,6 +29,7 @@ import type { FollowSearchResult, FollowSummary } from '@/lib/follows/types';
 import type { OfficialWordbookCard } from '@/lib/official-wordbooks/catalog';
 import type { PublicStudyGroupSummary, StudyGroupSummary } from '@/lib/shared-projects/types';
 import { formatSharedTag } from '../../../shared/shared-tags';
+import { thumbColor } from '@/lib/ui/thumb-color';
 
 type SharedPageClientProps = {
   initialDiscover: SharedDiscoverPayload;
@@ -95,14 +96,6 @@ const EMPTY_DISCOVER: SharedDiscoverPayload = {
   groups: [],
   nextCursor: null,
 };
-
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-
-function thumbColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return THUMBS[Math.abs(h) % THUMBS.length];
-}
 
 function buildDiscoverUrl(category: SharedDiscoverCategory, query: string, cursor?: string | null) {
   const params = new URLSearchParams({ category, limit: '12' });

@@ -36,7 +36,7 @@ import type {
   StudyGroupMissedWord,
   StudyGroupSummary,
 } from '@/lib/shared-projects/types';
-import { thumbColor } from './member-ui';
+import { thumbColor } from '@/lib/ui/thumb-color';
 
 // シェアシートはブランドSVG込みで重いので、開くまでロードしない。
 const GroupInviteShareSheet = dynamic(

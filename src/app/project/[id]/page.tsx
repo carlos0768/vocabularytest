@@ -42,7 +42,7 @@ import { MANUAL_TRANSLATION_INPUT_LIMIT, buildManualTranslations } from '@/lib/w
 import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
 import { isProjectPageFlowStage } from '@/lib/onboarding/tutorial-stage';
-import { getGuestUserId } from '@/lib/utils';
+import { getGuestUserId, shuffleArray } from '@/lib/utils';
 import {
   buildProjectWordOrderSnapshot,
   countProjectWordStats,
@@ -54,11 +54,10 @@ import {
   type ProjectWordSortOrder,
 } from '@/lib/project/project-page-selectors';
 import type { Project, ProjectShareScope, SubscriptionStatus, VocabularyType, Word, WordStatus, WordTranslation } from '@/types';
+import { thumbColor } from '@/lib/ui/thumb-color';
 
 /** 音声でまとめて追加するとき、同時に補完を走らせる語数。 */
 const VOICE_ADD_CONCURRENCY = 3;
-
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
 
 // One-time coach mark for a wordbook's word list. Two steps in left-to-right
 // reading order: the status squares, then the Active / Passive toggle.
@@ -105,21 +104,6 @@ type RecommendedWordSuggestion = {
 
 const RECOMMENDATION_SOURCE_PROJECT_LIMIT = 8;
 const RECOMMENDATION_LIMIT = 10;
-
-function shuffleArray<T>(items: T[]): T[] {
-  const arr = [...items];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
-  }
-  return arr;
-}
-
-function thumbColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return THUMBS[Math.abs(h) % THUMBS.length];
-}
 
 /**
  * ローカルで0語だった単語帳の単語をサーバーから取り直す。

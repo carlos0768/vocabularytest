@@ -9,12 +9,9 @@ import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome
 import { profileAvatarColor } from '@/components/profile/ProfileView';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import type { FriendProfile } from '@/lib/friends/types';
+import { displayName } from '@/lib/profile/display-name';
 
 export type FollowsTab = 'following' | 'followers';
-
-function displayName(profile: FriendProfile): string {
-  return profile.username?.trim() || `@${profile.accountId}`;
-}
 
 export function FollowsList({
   title,
