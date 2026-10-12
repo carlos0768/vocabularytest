@@ -14,6 +14,7 @@ import {
 } from '@/lib/auth/otp-lifecycle';
 import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_API_ERROR } from '@/lib/auth/signup-feature-flag';
 import { isUniqueViolation } from '@/lib/supabase/postgres-errors';
+import { buildDefaultAccountId } from '@/lib/auth/signup-profile';
 
 const requestSchema = z.object({
   email: z.string().trim().email().max(254),
@@ -37,11 +38,6 @@ export type SignupVerifyRouteDeps = {
   fetchDefaultOfficialWordbooksForLocalImport?: typeof fetchDefaultOfficialWordbooksForLocalImport;
   persistDefaultOfficialWordbooksToDb?: typeof persistDefaultOfficialWordbooksToDb;
 };
-
-function buildDefaultAccountId(userId: string): string {
-  const compact = userId.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
-  return `mk${compact.slice(0, 12)}`.slice(0, 24);
-}
 
 function hasSignupProfileFields(fields: SignupProfileFields): boolean {
   return fields.display_name !== undefined

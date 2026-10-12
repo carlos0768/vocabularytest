@@ -11,6 +11,7 @@ import type {
   QuizSessionWordSummary,
 } from '@/lib/friends/types';
 import { isUniqueViolation } from '@/lib/supabase/postgres-errors';
+import { buildDefaultAccountId } from '@/lib/auth/signup-profile';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -98,11 +99,6 @@ export function normalizeAccountIdInput(input: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, '')
     .slice(0, 24);
-}
-
-export function buildDefaultAccountId(userId: string): string {
-  const compact = userId.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
-  return `mk${compact.slice(0, 12)}`.slice(0, 24);
 }
 
 function normalizeSearchText(input: string): string {

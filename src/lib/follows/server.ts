@@ -2,9 +2,9 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import {
   ensureFriendProfile,
   normalizeAccountIdInput,
-  buildDefaultAccountId,
   getFriendSchemaIssue,
 } from '@/lib/friends/server';
+import { buildDefaultAccountId } from '@/lib/auth/signup-profile';
 import { normalizeStoredAvatarUrl } from '@/lib/profile/avatar';
 import { sendFollowPushNotification } from '@/lib/notifications/web-push';
 import type { FriendProfile, FriendTimelineSession, QuizSessionWordSummary } from '@/lib/friends/types';
