@@ -33,10 +33,17 @@ docs と実コードが食い違ったら実コードが正です。食い違い
 | API ルート (`src/app/api/**/route.ts`) | 入出力と認可だけ。処理本体は `src/lib/<機能>/` (例: `lib/scan/`, `lib/battle/`) |
 | service role の Supabase クライアント | `src/lib/supabase/admin.ts` (ルートごとに `createClient(url, serviceKey)` を書かない) |
 | Cookie セッションの Supabase クライアント (サーバー) | `src/lib/supabase/server.ts` |
+| `Authorization: Bearer` の取り出し | `src/lib/api/bearer-token.ts` (`getBearerToken`) |
+| ルートでのログインユーザー解決 | `src/lib/api/route-auth.ts`、Pro 限定は `src/lib/api/pro-auth.ts` |
+| 一意制約違反 (23505) の判定 | `src/lib/supabase/postgres-errors.ts` |
+| 公開一覧のカーソル・検索語の正規化 | `src/lib/api/listing.ts` |
 | ブラウザから JSON API を叩くときのトークン付きヘッダー | `src/lib/supabase/auth-headers.ts` |
+| JST の暦日 (日次上限・「今日」) | `src/lib/date/jst.ts` (対戦の上限は SQL の `battle_day_key` と対なので挙動を変えない) |
+| 単語帳・アバターのサムネ色 | `src/lib/ui/thumb-color.ts` (デスクトップは別配色の `components/desktop/desktop-data.ts`) |
+| OG 画像の日本語フォント | `src/lib/og/japanese-font.ts` |
 | 録音 (MediaRecorder) の MIME 選択・GCP 向け変換 | `src/lib/speech/recorded-audio.ts` |
 | AI 出力の JSON 取り出し | `src/lib/ai/utils/json.ts` |
-| 汎用の小物 (`cn`, `shuffleArray` など) | `src/lib/utils.ts` (クライアントからも読むので server 専用 import を入れない) |
+| 汎用の小物 (`cn`, `shuffleArray`, `chunkArray`, `sleep`, `isRecord` など) | `src/lib/utils.ts` (クライアントからも読むので server 専用 import を入れない) |
 | ドメイン型 | `shared/types/` が正。`src/types/` は再エクスポート |
 
 `export` は「ファイルの外から使われている」という意味にそろえてあります (2026-10 に未使用 export を一掃)。ファイル内でしか使わないものは `export` しないでください。使われなくなったコードは消してください —— `*.legacy.tsx` のような「念のため残した旧版」は、誰も使っていないのに後続の変更で律儀に編集され続けていました。
@@ -62,8 +69,8 @@ docs と実コードが食い違ったら実コードが正です。食い違い
 ## 既知の残課題
 
 - 巨大なページ・ルートがまだ残っています。分割するときは、純粋関数を `src/lib/` に出してテストを書く → 表示部品を `src/components/` に出す、の順で、1 回の変更で 1 ファイルずつ進めてください。
-  - `src/app/project/[id]/page.tsx`, `src/app/home-client.tsx`, `src/app/quiz/[projectId]/page.tsx`, `src/app/share/[shareId]/page.tsx`, `src/app/shared/SharedPageClient.tsx`
-  - `src/app/api/scan-jobs/process/route.ts` の `processJobById` (1 関数で千行超。contract test が厚いので、段階ごとに関数へ切り出すのが次の一手)
+  - ページ本体の関数がまだ長いもの: `src/app/project/[id]/page.tsx` (約 2,000 行)、`src/app/quiz/[projectId]/page.tsx`、`src/app/home-client.tsx`、`src/app/share/[shareId]/page.tsx`、`src/app/shared/SharedPageClient.tsx`。次の一手はデータ取得・同期の `useEffect` 群をカスタムフックへ出すこと
+  - `src/app/api/scan-jobs/process/route.ts` の `processJobById` (1 関数で千行超。前段の補助関数は `lib/scan/` へ出し済み。contract test が厚いので、段階 (抽出 → 解決 → 保存 → 後処理) ごとに関数へ切り出すのが次の一手)
   - `src/app/api/shared-projects/shared.ts`, `groups/shared.ts`, `src/app/api/reels/shared.ts` は API ルート間で共有される実質ライブラリ。`src/lib/` へ移すのが筋
 - 401 の応答本文がルートごとにばらばら (`{ error: 'Unauthorized' }` / `{ success: false, error: '認証が必要です。' }` など)。クライアントが本文で分岐していないか確かめてから揃えること
 - `src/app/api/subscription/**` (課金) は service role クライアントをルートごとに作ったまま。危険箇所なので整理は単独の変更で行うこと

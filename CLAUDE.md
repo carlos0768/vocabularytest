@@ -81,6 +81,7 @@ Additional optional env vars documented in `docs/_discovery_notes.md` section 11
 | `src/lib/db/` | Repository layer: local, remote, hybrid, readonly, sync queue |
 | `src/lib/stripe/` | Stripe payment client (server-side only) |
 | `src/lib/supabase/` | Supabase clients: browser singleton, server, middleware |
+| `src/lib/api/` | Route helpers: bearer token, user resolution, Pro gate, listing cursors (see `docs/README.md` "コードの置き場所の約束" before writing a new helper) |
 | `src/lib/subscription/` | Subscription status computation, billing activation |
 | `src/lib/schemas/` | Zod validation schemas for AI responses |
 | `src/lib/observability/` | Sentry init (server/edge/client) + shared event scrubbing |
@@ -91,6 +92,8 @@ Additional optional env vars documented in `docs/_discovery_notes.md` section 11
 | `scripts/` | Security check scripts (SQL injection, secrets, deps audit) |
 
 Full directory map: `docs/architecture.md`
+
+Before adding a helper, check the shared-module table in `docs/README.md` — most of the duplication removed in 2026-10 came from re-implementing something that already existed (service-role client, bearer parsing, thumb colors, JST day keys…). Pages and routes keep orchestration; pure logic goes to `src/lib/<feature>/` with a co-located test, presentational parts to `src/components/<feature>/`.
 
 ### Repository Pattern
 
