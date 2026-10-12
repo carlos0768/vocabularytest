@@ -11,6 +11,28 @@
  */
 
 /**
+ * 録音に使う MIME の候補 (音読チャレンジと音声で追加で共通)。opus で録れれば
+ * 圧縮済みのまま送れる。どれも通らない端末 (iOS Safari) では、ブラウザの既定で
+ * 録って LINEAR16 に変換してから送る。
+ */
+export const RECORDING_MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
+  'audio/mp4',
+];
+
+/**
+ * 候補のうち MediaRecorder が対応すると答えた最初の MIME。null は「指定せず
+ * ブラウザの既定で録る」(MediaRecorder 自体が無い環境でも null)。
+ * 実際に送る形式は録音後の出力から決める (`passthroughEncodingFor`)。
+ */
+export function pickRecordingMimeType(): string | null {
+  if (typeof MediaRecorder === 'undefined') return null;
+  return RECORDING_MIME_CANDIDATES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) ?? null;
+}
+
+/**
  * 送信するサンプリングレート。音声認識はこれで十分で、
  * 48kHzのまま送るのに比べてデータが3分の1になる ——
  * 解答時間を長く取ったときに、リクエストの上限に当たらずに済む。

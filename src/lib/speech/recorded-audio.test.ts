@@ -4,11 +4,13 @@ import assert from 'node:assert/strict';
 import {
   LINEAR16_SAMPLE_RATE,
   MAX_LINEAR16_SECONDS,
+  RECORDING_MIME_CANDIDATES,
   bytesToBase64,
   capDuration,
   floatsToPcm16,
   mixToMono,
   passthroughEncodingFor,
+  pickRecordingMimeType,
   resampleMono,
   trimSilence,
 } from './recorded-audio';
@@ -157,4 +159,24 @@ test('an over-long recording is cut to the cap, keeping the start', () => {
 test('a recording within the cap is untouched', () => {
   const samples = new Float32Array(16000 * 3);
   assert.equal(capDuration(samples, 16000, MAX_LINEAR16_SECONDS), samples);
+});
+
+test('pickRecordingMimeType returns the first candidate MediaRecorder accepts', () => {
+  const globalWithRecorder = globalThis as { MediaRecorder?: unknown };
+  const original = globalWithRecorder.MediaRecorder;
+  try {
+    delete globalWithRecorder.MediaRecorder;
+    assert.equal(pickRecordingMimeType(), null);
+
+    globalWithRecorder.MediaRecorder = { isTypeSupported: (type: string) => type === 'audio/ogg;codecs=opus' };
+    assert.equal(pickRecordingMimeType(), 'audio/ogg;codecs=opus');
+
+    globalWithRecorder.MediaRecorder = { isTypeSupported: () => false };
+    assert.equal(pickRecordingMimeType(), null);
+
+    assert.equal(RECORDING_MIME_CANDIDATES[0], 'audio/webm;codecs=opus');
+  } finally {
+    if (original === undefined) delete globalWithRecorder.MediaRecorder;
+    else globalWithRecorder.MediaRecorder = original;
+  }
 });
