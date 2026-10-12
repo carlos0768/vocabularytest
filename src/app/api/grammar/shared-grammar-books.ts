@@ -1,5 +1,11 @@
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import type { PublicGrammarBookCard, PublicGrammarBookListPayload } from '@/lib/grammar/types';
+import {
+  decodeOffsetCursor,
+  encodeOffsetCursor,
+  includesSearchText,
+  normalizeHandleSearchQuery,
+} from '@/lib/api/listing';
 
 /**
  * 共有ページに公開された語法問題集の読み出しヘルパー。
@@ -41,30 +47,6 @@ export type PublicGrammarBookListOptions = {
 function clampPageSize(limit?: number): number {
   if (!Number.isFinite(limit)) return DEFAULT_PAGE_SIZE;
   return Math.max(1, Math.min(MAX_PAGE_SIZE, Math.floor(Number(limit))));
-}
-
-function encodeOffsetCursor(offset: number): string {
-  return Buffer.from(JSON.stringify({ offset }), 'utf8').toString('base64url');
-}
-
-function decodeOffsetCursor(cursor: string | null | undefined): number {
-  if (!cursor) return 0;
-  try {
-    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as { offset?: unknown };
-    return typeof parsed.offset === 'number' && Number.isFinite(parsed.offset) && parsed.offset > 0
-      ? Math.floor(parsed.offset)
-      : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function normalizeSearchQuery(query?: string | null): string {
-  return (query ?? '').trim().replace(/^@+/, '').toLowerCase();
-}
-
-function includesSearchText(value: string | null | undefined, query: string): boolean {
-  return value?.toLowerCase().includes(query) ?? false;
 }
 
 function rowMatchesSearch(row: PublicGrammarBookRow, profile: ProfileSummary | undefined, query: string): boolean {
@@ -162,7 +144,7 @@ export async function listPublicGrammarBooks(
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<PublicGrammarBookListPayload> {
   const limit = clampPageSize(options.limit);
-  const query = normalizeSearchQuery(options.query);
+  const query = normalizeHandleSearchQuery(options.query);
   const offset = decodeOffsetCursor(options.cursor);
   const fetchSize = query ? Math.max(SEARCH_FETCH_SIZE, (offset + limit + 1) * 4) : offset + limit + 1;
 

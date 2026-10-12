@@ -26,6 +26,7 @@ import type {
 } from '@/lib/shared-projects/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../../shared/db';
 import { getSharedProjectMetrics } from '../shared';
+import { includesSearchText, normalizeSearchQuery } from '@/lib/api/listing';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -1662,14 +1663,6 @@ function normalizeStudyGroupRole(role: string | null | undefined): StudyGroupMem
 
 function normalizeStudyGroupVisibility(value: string | null | undefined): StudyGroupVisibility {
   return value === 'public' ? 'public' : 'private';
-}
-
-function normalizeSearchQuery(query?: string | null): string {
-  return (query ?? '').trim().toLowerCase();
-}
-
-function includesSearchText(value: string | null | undefined, query: string): boolean {
-  return value?.toLowerCase().includes(query) ?? false;
 }
 
 function clampPublicGroupPageSize(limit?: number): number {
