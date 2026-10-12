@@ -26,6 +26,7 @@ import type {
 } from '@/lib/shared-projects/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../../shared/db';
 import { getSharedProjectMetrics } from '../shared';
+import { isUniqueViolationOrDuplicateKey } from '@/lib/supabase/postgres-errors';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -269,7 +270,7 @@ export async function createStudyGroup(
       .single<StudyGroupRow>();
 
     if (groupError) {
-      if (isUniqueViolation(groupError) && attempt < CREATE_INVITE_CODE_RETRIES - 1) {
+      if (isUniqueViolationOrDuplicateKey(groupError) && attempt < CREATE_INVITE_CODE_RETRIES - 1) {
         continue;
       }
       throw new Error(groupError.message || 'study_group_create_failed');
@@ -1453,7 +1454,7 @@ async function ensureProjectShareId(
       .maybeSingle<ProjectRow>();
 
     if (error) {
-      if (isUniqueViolation(error) && attempt < CREATE_INVITE_CODE_RETRIES - 1) {
+      if (isUniqueViolationOrDuplicateKey(error) && attempt < CREATE_INVITE_CODE_RETRIES - 1) {
         continue;
       }
       throw new Error(error.message || 'study_group_project_share_id_failed');
@@ -1723,10 +1724,4 @@ function generateCompactCode(length: number): string {
     .map((byte) => byte.toString(36).padStart(2, '0'))
     .join('')
     .slice(0, length);
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const maybeError = error as { code?: string | null; message?: string | null };
-  const message = maybeError.message?.toLowerCase() ?? '';
-  return maybeError.code === '23505' || message.includes('duplicate key');
 }

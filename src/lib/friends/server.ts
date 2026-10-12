@@ -10,6 +10,7 @@ import type {
   FriendTimelineSession,
   QuizSessionWordSummary,
 } from '@/lib/friends/types';
+import { isUniqueViolation } from '@/lib/supabase/postgres-errors';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -111,10 +112,6 @@ function normalizeSearchText(input: string): string {
     .replace(/[%_,]/g, ' ')
     .replace(/\s+/g, ' ')
     .slice(0, 50);
-}
-
-function isUniqueViolation(error: { code?: string | null } | null | undefined): boolean {
-  return error?.code === '23505';
 }
 
 export function normalizeFriendErrorText(error: unknown): string {

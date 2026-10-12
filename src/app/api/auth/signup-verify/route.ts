@@ -13,6 +13,7 @@ import {
   normalizeOtpEmail,
 } from '@/lib/auth/otp-lifecycle';
 import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_API_ERROR } from '@/lib/auth/signup-feature-flag';
+import { isUniqueViolation } from '@/lib/supabase/postgres-errors';
 
 const requestSchema = z.object({
   email: z.string().trim().email().max(254),
@@ -52,10 +53,6 @@ function isMissingAccountIdError(error: { code?: string | null; message?: string
   if (!error || error.code !== '23502') return false;
   const text = `${error.message ?? ''} ${error.details ?? ''}`;
   return text.includes('account_id');
-}
-
-function isUniqueViolation(error: { code?: string | null } | null): boolean {
-  return error?.code === '23505';
 }
 
 // account_id column: NOT NULL, lowercase, ^[a-z0-9_]{4,24}$ (see profiles_account_id_format).

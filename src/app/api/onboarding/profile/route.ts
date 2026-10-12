@@ -4,6 +4,7 @@ import { resolveAuthenticatedUser } from '@/lib/api/route-auth';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { seedDefaultOfficialWordbooksForUser } from '@/lib/official-wordbooks/import-default';
+import { isUniqueViolation } from '@/lib/supabase/postgres-errors';
 
 /**
  * Applies onboarding profile fields (display name / handle / eiken level)
@@ -41,10 +42,6 @@ const ACCOUNT_ID_FORMAT = /^[a-z0-9_]{4,24}$/;
 // Matches ids minted by generate_profile_account_id() (SQL trigger) and
 // buildDefaultAccountId() (signup-verify fallback): "mk" + 10-12 hex chars.
 const AUTO_ACCOUNT_ID = /^mk[0-9a-f]{10,12}$/;
-
-function isUniqueViolation(error: { code?: string | null } | null | undefined): boolean {
-  return error?.code === '23505';
-}
 
 export async function handleOnboardingProfilePost(
   request: NextRequest,
