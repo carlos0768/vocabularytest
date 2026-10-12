@@ -8,6 +8,7 @@ import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { getStats, type CachedStats } from '@/lib/stats-cache';
 import type { FriendProfile, FriendTimelineSession } from '@/lib/friends/types';
+import { displayName } from '@/lib/profile/display-name';
 import { thumbColor } from '@/lib/ui/thumb-color';
 
 const HEAT_COLORS = [
@@ -33,10 +34,6 @@ function heatLevel(count: number): number {
   if (count < 5) return 1;
   if (count < 15) return 2;
   return 3;
-}
-
-function displayName(profile: FriendProfile): string {
-  return profile.username?.trim() || `@${profile.accountId}`;
 }
 
 function formatSessionTime(value: string): string {
