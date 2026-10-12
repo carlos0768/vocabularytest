@@ -43,7 +43,7 @@ import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
 import { isProjectPageFlowStage } from '@/lib/onboarding/tutorial-stage';
-import { getGuestUserId } from '@/lib/utils';
+import { getGuestUserId, shuffleArray } from '@/lib/utils';
 import {
   buildProjectWordOrderSnapshot,
   countProjectWordStats,
@@ -121,15 +121,6 @@ type RecommendedWordSuggestion = {
 
 const RECOMMENDATION_SOURCE_PROJECT_LIMIT = 8;
 const RECOMMENDATION_LIMIT = 10;
-
-function shuffleArray<T>(items: T[]): T[] {
-  const arr = [...items];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
-  }
-  return arr;
-}
 
 /**
  * ローカルで0語だった単語帳の単語をサーバーから取り直す。
