@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/toast';
 import { VocabularyTypeButton } from '@/components/project/VocabularyTypeButton';
 // マス目 + 習得度ラベルは単語一覧の行と同じものを使う (ここで作り直すと文言や
 // 段階の見た目が一覧とずれる)。
-import { StatusSquares } from '@/components/project/WordRow';
+import { StatusSquares, posShort } from '@/components/project/WordRow';
 import { getMasteryLevel } from '@/lib/words/mastery-level';
 import { getWordStatusStep } from '@/lib/words/status-cycle';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
@@ -27,18 +27,6 @@ import { thumbColor } from '@/lib/ui/thumb-color';
 
 function isOwnedBy(project: Project | undefined | null, expectedUserId: string): project is Project {
   return Boolean(project && project.userId === expectedUserId);
-}
-
-const POS_JP: Record<string, string> = {
-  noun: '名詞', verb: '動詞', adjective: '形容詞', adverb: '副詞',
-  preposition: '前置詞', conjunction: '接続詞', pronoun: '代名詞',
-  interjection: '感動詞', determiner: '限定詞', auxiliary: '助動詞',
-  phrase: '句', idiom: 'イディオム', phrasal_verb: '句動詞', other: 'その他',
-};
-
-function posShort(tag: string): string {
-  const jp = POS_JP[tag] ?? tag;
-  return `(${jp[0]})`;
 }
 
 function StackedBar({ total, m, a, l, n }: { total: number; m: number; a: number; l: number; n: number }) {
