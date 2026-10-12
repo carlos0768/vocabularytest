@@ -116,3 +116,10 @@ export function desktopUpdatedLabel(iso?: string | null) {
   if (days < 31) return `${Math.floor(days / 7)}週間前`;
   return `${Math.floor(days / 30)}ヶ月前`;
 }
+
+/**
+ * 写真・ドロップ領域の空き地に敷く斜めストライプ。
+ * Two ink washes over the page ground, so the hatch stays a hatch in both themes.
+ */
+export const STRIPE_BG =
+  'repeating-linear-gradient(135deg, color-mix(in srgb, var(--solid-ink) 5%, var(--color-background)), color-mix(in srgb, var(--solid-ink) 5%, var(--color-background)) 10px, color-mix(in srgb, var(--solid-ink) 9%, var(--color-background)) 10px, color-mix(in srgb, var(--solid-ink) 9%, var(--color-background)) 20px)';

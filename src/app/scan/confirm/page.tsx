@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DesktopScanConfirmView } from '@/components/desktop/DesktopScan';
+import { DesktopScanConfirmView } from '@/components/desktop/DesktopScanConfirm';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useToast } from '@/components/ui/toast';
