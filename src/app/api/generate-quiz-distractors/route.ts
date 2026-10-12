@@ -15,6 +15,7 @@ import {
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
 import { withoutPlaceholderDistractors } from '@/lib/quiz/placeholder-distractors';
+import { hasPronunciation } from '@/lib/scan/quiz-prefill';
 
 interface WordInput {
   id: string;
@@ -57,10 +58,6 @@ function hasExampleSentence(value: unknown): boolean {
 
 function hasPartOfSpeechTags(value: unknown): boolean {
   return Array.isArray(value) && value.some((item) => typeof item === 'string' && item.trim().length > 0);
-}
-
-function hasPronunciation(value: unknown): boolean {
-  return typeof value === 'string' && value.trim().length > 0;
 }
 
 const requestSchema = z.object({

@@ -25,6 +25,7 @@ import { filterWordsForProjectKind, inferProjectKindFromWords } from '@/lib/clas
 import { formatMorphologyFormula, hasDisplayableMorphology } from '@/lib/morphology/format';
 import { ensureSourceLabels, mergeSourceLabels } from '../../../../shared/source-labels';
 import { collectKnownTranslations } from '@/lib/quiz/background-distractors';
+import { hasPronunciation, hasValidDistractors } from '@/lib/scan/quiz-prefill';
 
 interface EditableWord extends AIWordExtraction {
   tempId: string;
@@ -35,23 +36,12 @@ interface EditableWord extends AIWordExtraction {
 const QUIZ_PREFILL_BATCH_SIZE = 30;
 const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
 
-function hasValidDistractors(value: unknown): boolean {
-  if (!Array.isArray(value)) return false;
-  if (value.length < 3) return false;
-  if (value.length === 3 && value[0] === '選択肢1') return false;
-  return value.every((item) => typeof item === 'string' && item.trim().length > 0);
-}
-
 function hasExampleSentence(value: unknown): boolean {
   return typeof value === 'string' && (value as string).trim().length > 0;
 }
 
 function hasPartOfSpeechTags(value: unknown): boolean {
   return Array.isArray(value) && value.some((item) => typeof item === 'string' && item.trim().length > 0);
-}
-
-function hasPronunciation(value: unknown): boolean {
-  return typeof value === 'string' && value.trim().length > 0;
 }
 
 async function getAuthHeaders(): Promise<HeadersInit> {
