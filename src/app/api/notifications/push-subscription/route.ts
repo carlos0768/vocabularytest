@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { readSingleLineEnv } from '@/lib/env';
-
-let supabaseAdmin: SupabaseClient | null = null;
-
-function getSupabaseAdmin(): SupabaseClient {
-  if (!supabaseAdmin) {
-    const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
-    const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
-    supabaseAdmin = createClient(
-      url.startsWith('http') ? url : `https://${url}`,
-      key
-    );
-  }
-  return supabaseAdmin;
-}
 
 async function authenticateUser(request: NextRequest): Promise<{ userId: string } | null> {
   const authHeader = request.headers.get('authorization');

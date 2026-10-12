@@ -1,9 +1,8 @@
 import { after, NextRequest, NextResponse } from 'next/server';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { z } from 'zod';
 import { PROJECT_KINDS } from '@/types';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { readSingleLineEnv } from '@/lib/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { consumeScanGate } from '@/lib/coins/scan-gate';
 import { refundScanCoinsForJob } from '@/lib/coins/refund';
@@ -24,21 +23,6 @@ import { randomUUID } from 'crypto';
 import { processJobById } from '../process/route';
 
 export const maxDuration = 300;
-
-// Lazy initialization to avoid build-time errors
-let supabaseAdmin: SupabaseClient | null = null;
-
-function getSupabaseAdmin(): SupabaseClient {
-  if (!supabaseAdmin) {
-    const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
-    const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
-    supabaseAdmin = createClient(
-      url.startsWith('http') ? url : `https://${url}`,
-      key
-    );
-  }
-  return supabaseAdmin;
-}
 
 function scheduleScanJobProcessing(jobId: string, scanModesOverride?: ExtractMode[]) {
   after(async () => {

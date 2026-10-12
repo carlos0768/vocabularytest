@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { readSingleLineEnv } from '@/lib/env';
 import {
   buildOtpInsertPayload,
   findAuthUserByNormalizedEmail,
@@ -12,15 +11,6 @@ import {
 } from '@/lib/auth/otp-lifecycle';
 import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_API_ERROR } from '@/lib/auth/signup-feature-flag';
 
-// Service Role client for admin operations
-function getAdminClient() {
-  const supabaseUrl = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const serviceRoleKey = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
-
 const requestSchema = z.object({
   email: z.string().trim().email().max(254),
 }).strict();
@@ -28,7 +18,7 @@ const requestSchema = z.object({
 export type SendOtpRouteDeps = {
   /** テスト用。省略時は `NEW_USER_SIGNUP_ENABLED` */
   signupEnabled?: boolean;
-  getAdminClient?: typeof getAdminClient;
+  getAdminClient?: typeof getSupabaseAdmin;
   generateOtpCode?: typeof generateOtpCode;
   sendOtpEmail?: typeof sendOtpEmail;
 };
@@ -59,7 +49,7 @@ export async function handleSendOtpPost(
     }
     const { email } = parsed.data;
 
-    const supabase = (deps.getAdminClient ?? getAdminClient)();
+    const supabase = (deps.getAdminClient ?? getSupabaseAdmin)();
     const normalizedEmail = normalizeOtpEmail(email);
 
     // 既存ユーザーチェック
