@@ -5,25 +5,21 @@ import { createBrowserClient } from '@/lib/supabase';
 import { bytesToBase64, passthroughEncodingFor, toLinear16 } from '@/lib/speech/recorded-audio';
 
 /**
- * 単語をまとめて読み上げて追加するための録音。
+ * 音声で単語を1語ずつ追加するための録音。
  *
- * ボタンで録音を始め、もう一度押すと止めて書き起こしに回す。
- * 録音・送信の作りは音読チャレンジと同じで (MediaRecorder → GCP)、
- * iOS のPWAでも動く。違いは長さで、こちらは何十語も続けて話すぶん
- * 1回あたり最大 `VOICE_DICTATION_MAX_MS` まで録る。
+ * ボタンで録音を始め、もう一度押すと止めて認識に回す。1回の録音で
+ * 追加されるのは1語 (熟語なら1つ) だけ。録音・送信の作りは音読チャレンジと
+ * 同じで (MediaRecorder → GCP)、iOS のPWAでも動く。
  */
 
 /**
- * 1回の録音の上限。GCPの同期認識が受け付けるのは1分までなので、
- * 余裕を残して自動で止める。止めた時点までの録音はそのまま使う。
+ * 1回の録音の上限。1語を言うには十分な長さで、押し忘れても
+ * ここで自動的に止まる。止めた時点までの録音はそのまま使う。
  */
-export const VOICE_DICTATION_MAX_MS = 55_000;
+export const VOICE_DICTATION_MAX_MS = 10_000;
 
-/**
- * iOS (生PCMに直して送る端末) の上限。16kHzの生PCMは1秒32KBあり、
- * これ以上はリクエストの上限に近づく。前後の無音は落としてから測る。
- */
-const LINEAR16_MAX_SECONDS = 45;
+/** iOS (生PCMに直して送る端末) で送る長さの上限。前後の無音は落としてから測る。 */
+const LINEAR16_MAX_SECONDS = 10;
 
 /** 録音に使う MIME の候補。音読チャレンジと同じ並び。 */
 const CANDIDATE_MIME_TYPES = [
@@ -36,7 +32,8 @@ const CANDIDATE_MIME_TYPES = [
 export type VoiceDictationPhase = 'idle' | 'starting' | 'recording' | 'processing';
 
 export interface VoiceDictationResult {
-  words: string[];
+  /** 聞き取った見出し語。英単語として判断できなかったときは null。 */
+  word: string | null;
   transcript: string;
 }
 
@@ -113,7 +110,7 @@ export function useVoiceWordDictation(onResult: (result: VoiceDictationResult) =
         }),
       });
       const data = await response.json().catch(() => null) as
-        | { success?: boolean; error?: string; words?: unknown; transcript?: unknown }
+        | { success?: boolean; error?: string; word?: unknown; transcript?: unknown }
         | null;
       if (runRef.current !== run) return;
 
@@ -125,12 +122,10 @@ export function useVoiceWordDictation(onResult: (result: VoiceDictationResult) =
         );
       }
 
-      const words = Array.isArray(data.words)
-        ? data.words.filter((word): word is string => typeof word === 'string')
-        : [];
+      const word = typeof data.word === 'string' && data.word.trim() ? data.word.trim() : null;
       setPhase('idle');
       onResultRef.current({
-        words,
+        word,
         transcript: typeof data.transcript === 'string' ? data.transcript : '',
       });
     } catch (transcribeError) {
