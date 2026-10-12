@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MERKEN — スキャン後のデータ経路（API視点）</title>
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --paper:#faf7f1;
+    --client:#e8f0ff;
+    --client-bd:#3b6fd4;
+    --server:#fff3e0;
+    --server-bd:#d4860f;
+    --ext:#eafff0;
+    --ext-bd:#1c9a4b;
+    --supa:#f3e8ff;
+    --supa-bd:#8b3bd4;
+    --muted:#7a7a72;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    padding:32px 20px 80px;
+    line-height:1.5;
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+  h1{
+    font-size:26px;font-weight:800;margin:0 0 6px;
+    letter-spacing:-0.01em;
+  }
+  .sub{color:var(--muted);font-size:14px;margin:0 0 28px;}
+  .mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;}
+
+  /* Legend */
+  .legend{
+    display:flex;flex-wrap:wrap;gap:10px;margin:0 0 32px;
+    font-size:12px;font-weight:600;
+  }
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:5px 11px;border-radius:999px;border:1.5px solid var(--ink);
+    background:#fff;
+  }
+  .dot{width:11px;height:11px;border-radius:3px;border:1.5px solid var(--ink);}
+  .dot.client{background:var(--client);border-color:var(--client-bd);}
+  .dot.server{background:var(--server);border-color:var(--server-bd);}
+  .dot.ext{background:var(--ext);border-color:var(--ext-bd);}
+  .dot.supa{background:var(--supa);border-color:var(--supa-bd);}
+
+  /* Flow card */
+  .flow{
+    background:#fff;border:2px solid var(--ink);border-radius:18px;
+    box-shadow:5px 5px 0 var(--ink);
+    margin:0 0 44px;overflow:hidden;
+  }
+  .flow-head{
+    padding:16px 22px;border-bottom:2px solid var(--ink);
+    display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+  }
+  .flow-head .tag{
+    font-family:"SF Mono",ui-monospace,monospace;font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.08em;
+    padding:3px 9px;border-radius:5px;color:#fff;
+  }
+  .flow-free .tag{background:var(--client-bd);}
+  .flow-pro .tag{background:var(--supa-bd);}
+  .flow-head h2{margin:0;font-size:19px;font-weight:800;}
+  .flow-head .route{
+    color:var(--muted);font-size:12.5px;
+    font-family:"SF Mono",ui-monospace,monospace;
+  }
+  .flow-body{padding:24px 22px 8px;}
+
+  /* Step row */
+  .step{
+    display:grid;
+    grid-template-columns:34px 1fr;
+    gap:14px;
+    position:relative;
+    padding-bottom:20px;
+  }
+  .step:last-child{padding-bottom:6px;}
+  /* connector line */
+  .step:not(:last-child)::before{
+    content:"";position:absolute;left:16px;top:34px;bottom:-2px;
+    width:2px;background:repeating-linear-gradient(to bottom,var(--ink) 0 5px,transparent 5px 10px);
+  }
+  .num{
+    width:34px;height:34px;border-radius:50%;
+    border:2px solid var(--ink);background:var(--paper);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:14px;z-index:1;
+  }
+  .step.api .num{background:var(--ink);color:#fff;}
+  .step.noapi .num{background:#fff;border-style:dashed;color:var(--muted);}
+
+  .card{
+    border:1.5px solid var(--ink);border-radius:11px;
+    padding:11px 14px;background:#fff;
+  }
+  .card.client{background:var(--client);border-color:var(--client-bd);}
+  .card.server{background:var(--server);border-color:var(--server-bd);}
+  .card.ext{background:var(--ext);border-color:var(--ext-bd);}
+  .card.supa{background:var(--supa);border-color:var(--supa-bd);}
+  .card.plain{background:#f6f5f2;border-style:dashed;}
+
+  .arrow{
+    font-size:11px;font-weight:700;color:var(--muted);
+    margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  }
+  .arrow .ep{
+    font-family:"SF Mono",ui-monospace,monospace;
+    background:rgba(26,26,26,0.08);padding:2px 7px;border-radius:5px;
+    font-size:11.5px;color:var(--ink);font-weight:700;
+  }
+  .card .desc{font-size:13.5px;font-weight:600;margin:2px 0 0;}
+  .card .loc{
+    font-family:"SF Mono",ui-monospace,monospace;
+    font-size:11px;color:var(--muted);margin-top:5px;
+  }
+  .badge{
+    display:inline-block;font-size:10px;font-weight:700;
+    padding:1px 7px;border-radius:999px;margin-left:6px;
+    vertical-align:middle;
+  }
+  .badge.ret{background:#1c9a4b;color:#fff;}
+  .badge.gate{background:#d4860f;color:#fff;}
+  .badge.err{background:#c0392b;color:#fff;}
+
+  /* highlight return step */
+  .step.return .card{box-shadow:3px 3px 0 var(--ink);}
+
+  .note{
+    margin-top:30px;padding:16px 20px;border-radius:12px;
+    background:#fffbe9;border:1.5px dashed var(--ink);
+    font-size:13.5px;
+  }
+  .note b{font-weight:800;}
+  @media(max-width:560px){
+    .flow-head h2{font-size:17px;}
+    h1{font-size:21px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MERKEN — スキャン後、クライアントにデータが返るまで</h1>
+  <p class="sub">APIに触れる部分だけに注目した経路図。Free（即時抽出）と Pro（バックグラウンドジョブ）で経路が分かれます。</p>
+
+  <div class="legend">
+    <span class="chip"><span class="dot client"></span>クライアント</span>
+    <span class="chip"><span class="dot server"></span>自サーバー（Next.js API）</span>
+    <span class="chip"><span class="dot ext"></span>外部AI（Gemini 2.5 Flash）</span>
+    <span class="chip"><span class="dot supa"></span>Supabase（Auth / DB / Storage）</span>
+    <span class="chip"><span class="dot" style="background:#fff;border-style:dashed;"></span>API非経由</span>
+  </div>
+
+  <!-- ===================== FREE ===================== -->
+  <div class="flow flow-free">
+    <div class="flow-head">
+      <span class="tag">Free</span>
+      <h2>即時抽出フロー</h2>
+      <span class="route">/api/extract → sessionStorage → /scan/confirm</span>
+    </div>
+    <div class="flow-body">
+
+      <div class="step api">
+        <div class="num">1</div>
+        <div class="card client">
+          <div class="arrow">クライアント <span>→</span> 自サーバー <span class="ep">POST /api/extract</span></div>
+          <p class="desc">base64画像 + mode + scanModes + eikenLevel を送信（画像1枚ごとにループ）</p>
+          <p class="loc">src/components/home/ScanCaptureModal.tsx:136</p>
+        </div>
+      </div>
+
+      <div class="step api">
+        <div class="num">2</div>
+        <div class="card supa">
+          <div class="arrow">サーバー <span>→</span> Supabase Auth <span class="ep">auth.getUser()</span></div>
+          <p class="desc">認証チェック<span class="badge err">401で拒否</span></p>
+          <p class="loc">src/app/api/extract/route.ts:125</p>
+        </div>
+      </div>
+
+      <div class="step api">
+        <div class="num">3</div>
+        <div class="card supa">
+          <div class="arrow">サーバー <span>→</span> Supabase RPC <span class="ep">check_and_increment_scan</span></div>
+          <p class="desc">スキャン回数のサーバー側制限<span class="badge gate">429 / Pro限定は403</span></p>
+          <p class="loc">src/app/api/extract/route.ts:210</p>
+        </div>
+      </div>
+
+      <div class="step api">
+        <div class="num">4</div>
+        <div class="card ext">
+          <div class="arrow">サーバー <span>→</span> Gemini 2.5 Flash <span class="ep">CLOUD_RUN_URL設定時は /generate 経由</span></div>
+          <p class="desc">OCR + 単語抽出。応答は Zod で検証</p>
+          <p class="loc">src/lib/ai/extract-words.ts / providers/index.ts:58</p>
+        </div>
+      </div>
+
+      <div class="step api">
+        <div class="num">5</div>
+        <div class="card supa">
+          <div class="arrow">サーバー <span>→</span> Supabase DB <span class="ep">lexicon マスター照会</span></div>
+          <p class="desc">訳語のマスター先行解決。未ヒット分は AI 翻訳にフォールバック</p>
+          <p class="loc">src/lib/lexicon/master-first-scan.ts（route.ts:309）</p>
+        </div>
+      </div>
+
+      <div class="step api">
+        <div class="num">6</div>
+        <div class="card supa">
+          <div class="arrow">サーバー <span>→</span> Supabase DB <span class="ep">fetchExampleGenres</span></div>
+          <p class="desc">ユーザーの例文ジャンル設定を取得</p>
+          <p class="loc">src/app/api/extract/route.ts:358</p>
+        </div>
+      </div>
+
+      <div class="step api">
+        <div class="num">7</div>
+        <div class="card ext">
+          <div class="arrow">サーバー <span>→</span> Gemini 2.5 Flash <span class="ep">例文生成</span></div>
+          <p class="desc">例文のない単語に1語ずつ同期生成。設定キーは <code>AI_CONFIG.defaults.openai</code> だが <code>provider:'gemini'</code> なので実体は Gemini</p>
+          <p class="loc">src/lib/ai/generate-example-sentences.ts:380（route.ts:359）</p>
+        </div>
+      </div>
+
+      <div class="step api">
+        <div class="num">8</div>
+        <div class="card supa">
+          <div class="arrow">サーバー <span>→</span> Supabase DB <span class="ep">saveExamplesToLexicon</span></div>
+          <p class="desc">生成例文をマスターへ保存（ベストエフォート / 失敗しても続行）</p>
+          <p class="loc">src/app/api/extract/route.ts:413</p>
+        </div>
+      </div>
+
+      <div class="step api return">
+        <div class="num">9</div>
+        <div class="card server">
+          <div class="arrow">サーバー <span>→</span> クライアント <span class="ep">JSON レスポンス</span></div>
+          <p class="desc">{ success, words, sourceLabels, lexiconEntries, scanInfo }<span class="badge ret">ここで返る</span></p>
+          <p class="loc">src/app/api/extract/route.ts:426</p>
+        </div>
+      </div>
+
+      <div class="step noapi">
+        <div class="num">10</div>
+        <div class="card plain">
+          <div class="arrow">クライアント内 <span>（API非経由）</span></div>
+          <p class="desc">sessionStorage 保存 → /scan/confirm へ遷移。確認画面は API を経由しない</p>
+          <p class="loc">ScanCaptureModal.tsx:165–173, 210</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===================== PRO ===================== -->
+  <div class="flow flow-pro">
+    <div class="flow-head">
+      <span class="tag">Pro</span>
+      <h2>バックグラウンドジョブフロー</h2>
+      <span class="route">確認画面スキップ・ポーリングで結果取得</span>
+    </div>
+    <div class="flow-body">
+
+      <div class="step api">
+        <div class="num">1</div>
+        <div class="card supa">
+          <div class="arrow">クライアント <span>→</span> Supabase Storage <span class="ep">scan-images.upload()</span></div>
+          <p class="desc">画像を直接アップロード（API ルートを通さない）</p>
+          <p class="loc">src/lib/home/home-background-scan-upload.ts:72</p>
+        </div>
+      </div>
+
+      <div class="step api">
+        <div class="num">2</div>
+        <div class="card client">
+          <div class="arrow">クライアント <span>→</span> 自サーバー <span class="ep">POST /api/scan-jobs/create</span></div>
+          <p class="desc">Bearer トークン + imagePaths でジョブ作成依頼</p>
+          <p class="loc">home-background-scan-upload.ts:96</p>
+        </div>
+      </div>
+
+      <div class="step api return">
+        <div class="num">3</div>
+        <div class="card server">
+          <div class="arrow">サーバー <span>→</span> Supabase + クライアント <span class="ep">INSERT scan_jobs</span></div>
+          <p class="desc">認証 + check_and_increment_scan RPC + ジョブ行INSERT → { jobId } を即返す（処理完了は待たない）<span class="badge ret">jobIdが返る</span></p>
+          <p class="loc">src/app/api/scan-jobs/create/route.ts</p>
+        </div>
+      </div>
+
+      <div class="step api">
+        <div class="num">4</div>
+        <div class="card ext">
+          <div class="arrow">サーバー内 <span>after()</span> <span class="ep">processJobById()</span></div>
+          <p class="desc">プロセス内で直接呼出（HTTP self-fetch ではない）。Storage取得 → Gemini抽出 → Gemini例文生成 → Project/Words を Supabase 保存 → ジョブを completed に更新</p>
+          <p class="loc">create/route.ts:36–39 → scan-jobs/process/route.ts</p>
+        </div>
+      </div>
+
+      <div class="step api">
+        <div class="num">5</div>
+        <div class="card client">
+          <div class="arrow">クライアント <span>→</span> 自サーバー <span class="ep">GET /api/scan-jobs（2秒ポーリング）</span></div>
+          <p class="desc">Bearer トークンでジョブの status を監視</p>
+          <p class="loc">src/app/page.tsx:375</p>
+        </div>
+      </div>
+
+      <div class="step api return">
+        <div class="num">6</div>
+        <div class="card supa">
+          <div class="arrow">クライアント <span>→</span> Supabase <span class="ep">loadHome()</span></div>
+          <p class="desc">completed 検知後に単語帳データを再取得<span class="badge ret">ここで届く</span></p>
+          <p class="loc">src/app/page.tsx:422–424</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="note">
+    <b>2つの違い：</b> Free は <b>/api/extract の1本のリクエスト内で</b> Gemini（OCR抽出・訳語・例文）と Supabase 呼び出しがすべて同期的に完結し、レスポンス本文がそのまま結果データになります。
+    Pro は <b>/api/scan-jobs/create が jobId だけ返して after() で非同期処理</b>し、クライアントはポーリング + Supabase 再取得で結果を受け取る分離構造です。
+    <b>※ このスキャン経路で OpenAI は呼ばれません</b>（例文生成も含め全て Gemini。設定キー名 <code>openai</code> は実体 gemini）。
+  </div>
+
+</div>
+</body>
+</html>
