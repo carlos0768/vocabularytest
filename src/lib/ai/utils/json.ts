@@ -5,6 +5,27 @@
  */
 
 /**
+ * AIレスポンスからJSON部分の文字列だけを取り出す（パースはしない）
+ *
+ * ```json ... ``` フェンスがあればその中身、無ければ最初の `{` から最後の `}` まで。
+ * どちらも無ければ入力をそのまま返す。
+ */
+export function extractJsonContent(content: string): string {
+  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (jsonMatch) {
+    return jsonMatch[1].trim();
+  }
+
+  const jsonStartIndex = content.indexOf('{');
+  const jsonEndIndex = content.lastIndexOf('}');
+  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+    return content.slice(jsonStartIndex, jsonEndIndex + 1);
+  }
+
+  return content;
+}
+
+/**
  * AIレスポンスからJSONを抽出してパース
  *
  * AIはMarkdownコードブロック（```json ... ```）で返すことがあるため、

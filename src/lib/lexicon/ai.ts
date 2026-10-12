@@ -1,5 +1,6 @@
 import { AI_CONFIG, type AIModelConfig, type ResponseSchema, getAPIKeys } from '@/lib/ai/config';
 import { getProviderFromConfig, isCloudRunConfigured } from '@/lib/ai/providers';
+import { extractJsonContent } from '@/lib/ai/utils/json';
 import {
   LEXICON_POS_VALUES,
   normalizeHeadword,
@@ -240,21 +241,6 @@ export function buildPosClassificationKey(
   japaneseHint?: string | null,
 ): string {
   return `${normalizeHeadword(english)}::${normalizeLexiconTranslation(japaneseHint) ?? ''}`;
-}
-
-export function extractJsonContent(content: string): string {
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-
-  const jsonStartIndex = content.indexOf('{');
-  const jsonEndIndex = content.lastIndexOf('}');
-  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-    return content.slice(jsonStartIndex, jsonEndIndex + 1);
-  }
-
-  return content;
 }
 
 function chunkArray<T>(items: T[], size: number): T[][] {

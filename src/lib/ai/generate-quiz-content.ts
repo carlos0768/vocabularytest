@@ -1,5 +1,6 @@
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
+import { extractJsonContent } from '@/lib/ai/utils/json';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { buildExampleGenreGuidance } from '@/lib/preferences/example-genres';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
@@ -170,21 +171,6 @@ export const BATCH_DISTRACTOR_PROMPT = `あなたは英語学習教材の作成�
     ...
   ]
 }`;
-
-function extractJsonContent(content: string): string {
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-
-  const jsonStartIndex = content.indexOf('{');
-  const jsonEndIndex = content.lastIndexOf('}');
-  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-    return content.slice(jsonStartIndex, jsonEndIndex + 1);
-  }
-
-  return content;
-}
 
 /**
  * 出題語が持つ「正解以外の訳」をプロンプト用に整える。

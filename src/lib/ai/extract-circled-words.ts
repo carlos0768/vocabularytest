@@ -7,6 +7,7 @@ import {
 } from './prompts';
 import { AI_CONFIG } from './config';
 import { getProviderFromConfig } from './providers';
+import { extractJsonContent } from './utils/json';
 import { JAPANESE_PARENTHESIS_RULES } from './prompts/japanese-format';
 
 export type CircledExtractionResult =
@@ -23,21 +24,6 @@ export interface CircledExtractionOptions {
 }
 
 const CIRCLED_VERIFICATION_THRESHOLD = 10;
-
-function extractJsonContent(content: string): string {
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-
-  const jsonStartIndex = content.indexOf('{');
-  const jsonEndIndex = content.lastIndexOf('}');
-  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-    return content.slice(jsonStartIndex, jsonEndIndex + 1);
-  }
-
-  return content;
-}
 
 function parseValidatedResponse(content: string): CircledExtractionResult {
   let parsed: unknown;

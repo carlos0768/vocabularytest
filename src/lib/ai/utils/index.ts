@@ -16,6 +16,7 @@ export {
 } from './image';
 
 export {
+  extractJsonContent,
   parseJsonResponse,
   safeParseJson,
   isEmptyObject,
