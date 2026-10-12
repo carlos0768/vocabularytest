@@ -567,6 +567,12 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+// Keeps only the string items that are not blank (items are returned untrimmed).
+export function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+}
+
 export function chunkArray<T>(items: T[], size: number): T[][] {
   if (items.length === 0) return [];
   const chunks: T[][] = [];

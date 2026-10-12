@@ -23,6 +23,7 @@ import {
 import { lookupLexiconCefrLevels } from '@/lib/lexicon/eiken-cefr-filter';
 import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
 import { getCachedMorphologyByHeadword } from '@/lib/morphology/lexicon';
+import { toStringArray } from '@/lib/utils';
 import {
   normalizeSnapshotTranslations,
   snapshotTranslationsFromWordTranslationRows,
@@ -94,11 +95,6 @@ type OfficialWordRow = {
 };
 
 // ---------- small helpers ----------
-
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-}
 
 function firstOrNull<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null;
