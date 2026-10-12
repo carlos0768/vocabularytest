@@ -22,6 +22,7 @@
     "test:security:routes": "tsx --test src/app/api/**/*.security.test.ts",
     "test:security": "npm run test:security:sql && npm run test:security:secrets && npm run test:security:deps && npm run test:security:routes",
     "qa:stripe:webhook-e2e": "tsx scripts/qa-stripe-webhook-e2e.ts",
+    "qa:gmo:paypay": "tsx scripts/qa-gmo-paypay.ts",
     "audio:voice-quiz": "tsx scripts/generate-voice-quiz-audio.mjs",
     "audio:voice-quiz:check": "tsx scripts/check-voice-quiz-audio.mjs",
     "test": "npm run test:web",

@@ -148,3 +148,90 @@ IPだけに頼らないのは、IPが詐称されうることと、プロキシ�
 GMO には決済手段をまたぐ `SearchTradeMulti` もある。PayPay の取引が `SearchTrade` で
 引けない場合は `spec.ts` の `GMO_RECURRING_SEARCH_API` を `'SearchTradeMulti'` に変え、
 `searchGmoTrade` に `PayType` を足す。それ以外の変更は要らない。
+
+
+## テスト決済の通し方
+
+### 現状の制約
+
+**決済を起こす側（契約作成ルート）はまだ実装していない。** PayPay の EntryTran / ExecTran
+系のAPI名が仕様書待ちのため。したがって「アプリの画面から課金ボタンを押してテスト」は
+まだできない。
+
+ただし **未確定項目の確認には決済の起こし方は関係ない**。取引が1件でも存在すれば、
+`SearchTrade` を直接叩くだけで必要な値がすべて判明する。結果通知もIP許可リストも不要。
+
+### 手順1: 疎通確認（決済なしで可）
+
+`.env.local` に設定したうえで:
+
+```bash
+npm run qa:gmo:paypay
+```
+
+存在しない OrderID で `SearchTrade` を叩く。期待する結果:
+
+```
+--- GMO 業務エラー (HTTP 200 で返る) ---
+  ErrCode=E01  ErrInfo=E01040010   ← 実際の値は環境により異なる
+✅ 疎通OK。
+```
+
+これが出れば **エンドポイント到達・資格情報・応答パーサ** が揃っている。
+ShopPass は意図的に出力しない（ログやスクリーンショット経由の漏洩を防ぐため）。
+
+`❌ 通信失敗` の場合は `GMO_API_BASE_URL` の誤りか、**接続元IPがGMO側で許可されていない**
+可能性がある。GMO は API の接続元IPの事前申請を求める場合がある。
+
+### 手順2: 取引を1件作る
+
+決済を起こす手段は2つ。どちらでもよい。
+
+1. **GMO管理画面のテスト取引機能** — あれば最短。管理画面から1件作る
+2. **API を直接叩く** — EntryTran → ExecTran の API名が必要なので仕様書待ち
+
+OrderID さえ分かればよい。金額は Pro 月額の **¥300** にしておくと、金額検証
+(`EXPECTED_PRO_AMOUNT_JPY`) まで同時に確認できる。
+
+### 手順3: 照会して未確定項目を回収する
+
+```bash
+npm run qa:gmo:paypay -- --order <OrderID>
+```
+
+**応答の全キーを出力する。** これで3つが同時に分かる:
+
+| 分かること | 入れる先 |
+|---|---|
+| `Status` の実値 | `spec.ts` の `GMO_STATUS_TO_NOTIFICATION_TYPE` |
+| 継続課金契約IDの項目名 | `spec.ts` の `GMO_NOTIFICATION_FIELDS.recurringId` |
+| `SearchTrade` で PayPay が引けるか | 引けなければ `GMO_RECURRING_SEARCH_API` を `SearchTradeMulti` へ |
+
+`SearchTradeMulti` を試す場合:
+
+```bash
+npm run qa:gmo:paypay -- --order <OrderID> --api SearchTradeMulti --paytype <コード>
+```
+
+### 手順4: Status を埋めてフラグを立てる
+
+`GMO_STATUS_TO_NOTIFICATION_TYPE` が埋まると `isGmoRecurringSpecConfigured()` が true になり、
+通知処理が有効になる。このとき `search-trade.test.ts` の
+「the status map is still empty」テストは**削除する**（空であることを固定しているため）。
+
+状態ごとの対応付けは1種類ずつ確認したい。最低限、課金成功 (`subscription_renewed`) と
+解約 (`subscription_cancelled`) の2つが分かればフラグを立てられる。
+
+### 手順5: 結果通知の受信確認
+
+ここで初めて通知経路とIP許可リストが必要になる。`GMO_NOTIFICATION_IP_ALLOWLIST` が
+空だと**全拒否**なので、GMOから通知元IPをもらうか、ログの `clientIp` から拾う。
+
+通知URLが生きているかは GMO を待たずに確認できる:
+
+```bash
+curl -i -X POST https://www.merken.jp/api/subscription/paypay/notifications
+```
+
+- `404` → デプロイ済み・正常（`PAYPAY_SUBSCRIPTION_ENABLED=false` で経路を隠している）
+- `403` → フラグ有効・IP許可リストで拒否（＝正常動作。経路は機能している）
