@@ -21,13 +21,7 @@ export type TodayActivitySessionRow = {
   answer_count: number | string | null;
 };
 
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-/** `now` が属する JST 暦日の 0:00 を UTC の ISO 文字列で返す。 */
-export function jstDayStartIso(now: Date = new Date()): string {
-  const jstMidnight = Math.floor((now.getTime() + JST_OFFSET_MS) / 86_400_000) * 86_400_000;
-  return new Date(jstMidnight - JST_OFFSET_MS).toISOString();
-}
+export { jstDayStartIso } from '@/lib/date/jst';
 
 /**
  * セッション行をユーザーごとに合算し、問題数が1以上の人だけを

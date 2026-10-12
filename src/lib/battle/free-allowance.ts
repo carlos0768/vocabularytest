@@ -11,14 +11,13 @@
  * （適用ずみのマイグレーションは書き換えない）。
  */
 
-export const FREE_DAILY_BATTLE_LIMIT = 3;
+import { JST_OFFSET_MS, jstDayKey } from '@/lib/date/jst';
 
-/** JST は UTC+9 固定（サマータイム無し）なので単純な加算で足りる。 */
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+export const FREE_DAILY_BATTLE_LIMIT = 3;
 
 /** サーバー側の `battle_day_key()` と同じ「JST暦日」キー（YYYY-MM-DD）。 */
 export function getBattleDayKey(at: Date = new Date()): string {
-  return new Date(at.getTime() + JST_OFFSET_MS).toISOString().slice(0, 10);
+  return jstDayKey(at);
 }
 
 /** 次に枠が戻る瞬間（JSTの翌0時）。UIの「明日0時にリセット」表示に使う。 */
