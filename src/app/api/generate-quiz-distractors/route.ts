@@ -15,6 +15,7 @@ import {
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
 import { withoutPlaceholderDistractors } from '@/lib/quiz/placeholder-distractors';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 interface WordInput {
   id: string;
@@ -106,8 +107,7 @@ export async function handleGenerateQuizDistractorsPost(
   try {
     const { createClient, generate, fetchExampleGenres, fetchLexiconContent, saveToLexicon } = getDeps(deps);
     const supabase = await createClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();

@@ -5,6 +5,7 @@ import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { requireProUser } from '@/lib/api/pro-auth';
 import { incrementGrammarBookImportCount } from '../../shared-grammar-books';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 /**
  * GET  /api/grammar/share/[shareId] — 共有された語法問題集の閲覧 (ログイン必須)
@@ -67,8 +68,7 @@ async function resolveSharedBook(shareId: string): Promise<{ book: SharedBook; q
 
 async function resolveAuthenticatedUser(request: NextRequest): Promise<{ id: string } | null> {
   const supabase = await createRouteHandlerClient(request);
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const bearerToken = getBearerToken(request);
   const { data: { user }, error } = bearerToken
     ? await supabase.auth.getUser(bearerToken)
     : await supabase.auth.getUser();

@@ -21,6 +21,7 @@ import {
   normalizeWordForTranslationPersistence,
 } from '@/lib/words/translation-persistence';
 import { z } from 'zod';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 const relatedWordSchema = z.object({
   term: z.string().trim().min(1).max(80),
@@ -155,8 +156,7 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
       backfillWords,
     } = getDeps(deps);
     const supabase = await createClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();

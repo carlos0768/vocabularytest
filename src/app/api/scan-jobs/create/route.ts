@@ -21,6 +21,7 @@ import {
 } from '@/lib/scan/custom-modes';
 import { randomUUID } from 'crypto';
 import { processJobById } from '../process/route';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 export const maxDuration = 300;
 
@@ -73,8 +74,7 @@ export async function POST(request: NextRequest) {
   try {
     console.log('[scan-jobs/create] Request received');
     const supabase = await createRouteHandlerClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     if (!bearerToken) {
       console.warn('[scan-jobs/create] Missing bearer token');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

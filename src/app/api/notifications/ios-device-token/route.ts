@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 async function authenticateUser(request: NextRequest): Promise<{ userId: string } | null> {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
+  const token = getBearerToken(request);
+  if (token === null) {
     return null;
   }
 
-  const token = authHeader.substring(7);
   const { data: { user }, error } = await getSupabaseAdmin().auth.getUser(token);
 
   if (error || !user) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 export type CustomScanModeAuth =
   | { ok: true; supabase: SupabaseClient; userId: string }
@@ -14,8 +15,7 @@ export async function authenticateCustomScanModeRequest(
   request: NextRequest,
 ): Promise<CustomScanModeAuth> {
   const supabase = await createRouteHandlerClient(request);
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const bearerToken = getBearerToken(request);
   const { data: { user }, error } = bearerToken
     ? await supabase.auth.getUser(bearerToken)
     : await supabase.auth.getUser();

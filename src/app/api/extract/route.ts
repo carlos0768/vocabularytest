@@ -45,6 +45,7 @@ import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { normalizeHeadword } from '../../../../shared/lexicon';
 import { toUserFacingScanErrorMessage } from '@/lib/scan/scan-error-message';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 export type { ExtractMode } from '@/lib/scan/mode-provider';
 
@@ -162,8 +163,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // 1. AUTHENTICATION CHECK
     // ============================================
     const supabase = await createClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();

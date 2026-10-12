@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 export type AuthenticatedUser = {
   id: string;
@@ -59,8 +60,7 @@ export function extractRepresentativeEnglish(text: string): { english: string; w
 
 export async function resolveAuthenticatedUser(request: NextRequest): Promise<AuthenticatedUser | null> {
   const supabase = await createRouteHandlerClient(request);
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const bearerToken = getBearerToken(request);
 
   const { data: { user }, error } = bearerToken
     ? await supabase.auth.getUser(bearerToken)

@@ -18,6 +18,7 @@ import {
   MAX_EXAMPLE_GENRE_LENGTH,
   normalizeExampleGenres,
 } from '@/lib/preferences/example-genres';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 const updateSchema = z.object({
   aiEnabled: z.boolean().optional(),
@@ -111,8 +112,7 @@ function normalizeLegacyPreferenceResponse(data: LegacyPreferenceRow | null) {
 
 async function resolveUserId(request: NextRequest): Promise<string | null> {
   const supabase = await createRouteHandlerClient(request);
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const bearerToken = getBearerToken(request);
 
   if (bearerToken) {
     const { data: { user }, error } = await supabase.auth.getUser(bearerToken);
