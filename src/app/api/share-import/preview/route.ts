@@ -12,8 +12,8 @@ import {
 import {
   containsSentencePunctuation,
   extractRepresentativeEnglish,
-  resolveAuthenticatedUser,
 } from '@/app/api/share-import/shared';
+import { resolveAuthenticatedUser } from '@/lib/api/route-auth';
 import { normalizeLexiconTranslation } from '../../../../../shared/lexicon';
 
 const requestSchema = z.object({

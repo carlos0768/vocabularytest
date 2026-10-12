@@ -2,22 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { getBearerToken } from '@/lib/api/bearer-token';
-
-async function authenticateUser(request: NextRequest): Promise<{ userId: string } | null> {
-  const token = getBearerToken(request);
-  if (token === null) {
-    return null;
-  }
-
-  const { data: { user }, error } = await getSupabaseAdmin().auth.getUser(token);
-
-  if (error || !user) {
-    return null;
-  }
-
-  return { userId: user.id };
-}
+import { authenticateBearerUser } from '@/lib/api/route-auth';
 
 const registerSchema = z.object({
   deviceToken: z.string().trim().min(1).max(200),
@@ -33,7 +18,7 @@ const deleteSchema = z.object({
 // POST: Register or update device token
 export async function POST(request: NextRequest) {
   try {
-    const auth = await authenticateUser(request);
+    const auth = await authenticateBearerUser(request);
     if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -76,7 +61,7 @@ export async function POST(request: NextRequest) {
 // DELETE: Unregister device token (e.g. on logout)
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await authenticateUser(request);
+    const auth = await authenticateBearerUser(request);
     if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

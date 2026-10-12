@@ -1,21 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { getBearerToken } from '@/lib/api/bearer-token';
-
-async function resolveUserId(request: NextRequest): Promise<string | null> {
-  const supabase = await createRouteHandlerClient(request);
-  const bearerToken = getBearerToken(request);
-
-  if (bearerToken) {
-    const { data: { user }, error } = await supabase.auth.getUser(bearerToken);
-    if (error || !user) return null;
-    return user.id;
-  }
-
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  return user.id;
-}
+import { resolveUserId } from '@/lib/api/route-auth';
 
 export async function POST(request: NextRequest) {
   try {

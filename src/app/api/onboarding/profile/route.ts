@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { resolveAuthenticatedUser } from '@/app/api/share-import/shared';
+import { resolveAuthenticatedUser } from '@/lib/api/route-auth';
 import { parseJsonWithSchema } from '@/lib/api/validation';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { seedDefaultOfficialWordbooksForUser } from '@/lib/official-wordbooks/import-default';

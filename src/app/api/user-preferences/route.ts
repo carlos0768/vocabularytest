@@ -18,7 +18,7 @@ import {
   MAX_EXAMPLE_GENRE_LENGTH,
   normalizeExampleGenres,
 } from '@/lib/preferences/example-genres';
-import { getBearerToken } from '@/lib/api/bearer-token';
+import { resolveUserId } from '@/lib/api/route-auth';
 
 const updateSchema = z.object({
   aiEnabled: z.boolean().optional(),
@@ -108,21 +108,6 @@ function normalizeLegacyPreferenceResponse(data: LegacyPreferenceRow | null) {
     study_reminder_times: DEFAULT_STUDY_REMINDER_TIMES,
     study_reminder_timezone: DEFAULT_STUDY_REMINDER_TIMEZONE,
   });
-}
-
-async function resolveUserId(request: NextRequest): Promise<string | null> {
-  const supabase = await createRouteHandlerClient(request);
-  const bearerToken = getBearerToken(request);
-
-  if (bearerToken) {
-    const { data: { user }, error } = await supabase.auth.getUser(bearerToken);
-    if (error || !user) return null;
-    return user.id;
-  }
-
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  return user.id;
 }
 
 export async function GET(request: NextRequest) {
