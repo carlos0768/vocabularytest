@@ -38,6 +38,7 @@ import {
   readManualMorphologyPref,
   writeManualMorphologyPref,
 } from '@/lib/preferences/manual-morphology-pref';
+import { MANUAL_TRANSLATION_INPUT_LIMIT, buildManualTranslations } from '@/lib/words/manual-translations';
 import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import type { StudyGroupSummary } from '@/lib/shared-projects/types';
 import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
@@ -248,7 +249,8 @@ export default function ProjectPage() {
   const [showScanCaptureModal, setShowScanCaptureModal] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [manualWordEnglish, setManualWordEnglish] = useState('');
-  const [manualWordJapanese, setManualWordJapanese] = useState('');
+  // 日本語訳は欄ごとに1訳。「＋ 訳を追加」で欄を増やして複数の訳を登録できる。
+  const [manualWordTranslations, setManualWordTranslations] = useState<string[]>(['']);
   const [manualWordPartOfSpeech, setManualWordPartOfSpeech] = useState('');
   const [manualWordExampleSentence, setManualWordExampleSentence] = useState('');
   const [manualWordSaving, setManualWordSaving] = useState(false);
@@ -1214,7 +1216,7 @@ export default function ProjectPage() {
 
   const resetManualWordForm = () => {
     setManualWordEnglish('');
-    setManualWordJapanese('');
+    setManualWordTranslations(['']);
     setManualWordPartOfSpeech('');
     setManualWordExampleSentence('');
   };
@@ -1250,12 +1252,16 @@ export default function ProjectPage() {
    */
   const addEnrichedManualWord = async (input: {
     english: string;
-    japanese?: string;
+    /** ユーザーが入力した日本語訳 (欄ごとに1訳)。空なら enrich-manual が補完する。 */
+    translations?: string[];
     partOfSpeech?: string;
     exampleSentence?: string;
   }): Promise<'added' | 'no_japanese'> => {
     const english = input.english.trim();
-    const japaneseInput = input.japanese?.trim() ?? '';
+    // 入力訳が複数あれば訳ごとの word_translations にする。補完 AI には第一訳だけを
+    // 渡し、例文・マスターの語義合わせは第一訳に合わせる。
+    const userTranslations = buildManualTranslations(input.translations ?? []);
+    const japaneseInput = userTranslations.japanese;
     const userPos = input.partOfSpeech?.trim() ?? '';
     const userExample = input.exampleSentence?.trim() ?? '';
 
@@ -1319,8 +1325,8 @@ export default function ProjectPage() {
 
     if (!japanese) return 'no_japanese';
 
-    // 補完された全訳を訳ごとの WordTranslation レコードに展開する
-    const enrichedTranslations: WordTranslation[] | undefined = enrichedTranslationTexts.length > 0
+    // 入力された複数訳、または補完された全訳を訳ごとの WordTranslation レコードに展開する
+    const aiTranslations: WordTranslation[] | undefined = enrichedTranslationTexts.length > 0
       ? enrichedTranslationTexts.map((text, index) => ({
           translationJa: text,
           normalizedTranslationJa: text,
@@ -1330,13 +1336,17 @@ export default function ProjectPage() {
           isPrimary: index === 0,
         }))
       : undefined;
+    const enrichedTranslations = userTranslations.translations ?? aiTranslations;
+    // japaneseSource: 'ai' は AI 補完の訳だけに付ける (ユーザーが入力した訳には付けない)
+    const translationsFromAi = !userTranslations.translations && Boolean(aiTranslations);
 
     const optimisticWord: Word = {
       id: crypto.randomUUID(),
       projectId,
       english,
       japanese,
-      ...(enrichedTranslations ? { translations: enrichedTranslations, japaneseSource: 'ai' as const } : {}),
+      ...(enrichedTranslations ? { translations: enrichedTranslations } : {}),
+      ...(translationsFromAi ? { japaneseSource: 'ai' as const } : {}),
       distractors: ['選択肢1', '選択肢2', '選択肢3'],
       pronunciation: enrichedPronunciation || undefined,
       partOfSpeechTags: enrichedPartOfSpeechTags.length > 0 ? enrichedPartOfSpeechTags : undefined,
@@ -1360,7 +1370,8 @@ export default function ProjectPage() {
           projectId,
           english,
           japanese,
-          ...(enrichedTranslations ? { translations: enrichedTranslations, japaneseSource: 'ai' as const } : {}),
+          ...(enrichedTranslations ? { translations: enrichedTranslations } : {}),
+          ...(translationsFromAi ? { japaneseSource: 'ai' as const } : {}),
           distractors: ['選択肢1', '選択肢2', '選択肢3'],
           ...(enrichedPronunciation ? { pronunciation: enrichedPronunciation } : {}),
           ...(enrichedPartOfSpeechTags.length > 0 ? { partOfSpeechTags: enrichedPartOfSpeechTags } : {}),
@@ -1400,7 +1411,7 @@ export default function ProjectPage() {
 
     const outcome = await addEnrichedManualWord({
       english,
-      japanese: manualWordJapanese,
+      translations: manualWordTranslations,
       partOfSpeech: manualWordPartOfSpeech,
       exampleSentence: manualWordExampleSentence,
     });
@@ -1956,14 +1967,14 @@ export default function ProjectPage() {
         loadingMessage={manualWordSavingMessage}
         addedCount={manualWordAddedCount}
         english={manualWordEnglish}
-        japanese={manualWordJapanese}
+        translations={manualWordTranslations}
         partOfSpeech={manualWordPartOfSpeech}
         exampleSentence={manualWordExampleSentence}
         morphologyEnabled={manualWordMorphologyEnabled}
         exampleEnabled={manualWordExampleEnabled}
         setExampleEnabled={handleManualWordExampleChange}
         onEnglishChange={setManualWordEnglish}
-        onJapaneseChange={setManualWordJapanese}
+        onTranslationsChange={setManualWordTranslations}
         onPartOfSpeechChange={setManualWordPartOfSpeech}
         onExampleSentenceChange={setManualWordExampleSentence}
         onMorphologyEnabledChange={handleManualWordMorphologyChange}
@@ -2388,14 +2399,14 @@ function ManualWordModal({
   loadingMessage,
   addedCount,
   english,
-  japanese,
+  translations,
   partOfSpeech,
   exampleSentence,
   morphologyEnabled,
   exampleEnabled,
   setExampleEnabled,
   onEnglishChange,
-  onJapaneseChange,
+  onTranslationsChange,
   onPartOfSpeechChange,
   onExampleSentenceChange,
   onMorphologyEnabledChange,
@@ -2407,7 +2418,8 @@ function ManualWordModal({
   loadingMessage?: string;
   addedCount: number;
   english: string;
-  japanese: string;
+  /** 日本語訳の欄 (1欄 = 1訳)。少なくとも1欄ある。 */
+  translations: string[];
   partOfSpeech: string;
   exampleSentence: string;
   morphologyEnabled: boolean;
@@ -2415,7 +2427,7 @@ function ManualWordModal({
   exampleEnabled: boolean;
   setExampleEnabled: (enabled: boolean) => void;
   onEnglishChange: (value: string) => void;
-  onJapaneseChange: (value: string) => void;
+  onTranslationsChange: (values: string[]) => void;
   onPartOfSpeechChange: (value: string) => void;
   onExampleSentenceChange: (value: string) => void;
   onMorphologyEnabledChange: (enabled: boolean) => void;
@@ -2424,7 +2436,17 @@ function ManualWordModal({
 }) {
   const [showOptional, setShowOptional] = useState(false);
   const englishInputRef = useRef<HTMLInputElement>(null);
+  const translationInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // 「＋ 訳を追加」で増やした欄にフォーカスを移すための印
+  const focusTranslationIndexRef = useRef<number | null>(null);
   const wasLoadingRef = useRef(loading);
+
+  useEffect(() => {
+    const index = focusTranslationIndexRef.current;
+    if (index === null) return;
+    focusTranslationIndexRef.current = null;
+    translationInputRefs.current[index]?.focus();
+  }, [translations.length]);
 
   // After each save the form clears and stays open for the next word —
   // refocus the english field so batch entry flows without extra taps.
@@ -2490,18 +2512,55 @@ function ManualWordModal({
             </div>
             <div>
               <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
-                日本語訳（任意）
+                日本語訳（任意・複数可）
               </label>
-              <input
-                type="text"
-                value={japanese}
-                onChange={(e) => onJapaneseChange(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) onConfirm(); }}
-                placeholder="例: 美しい（未入力なら自動補完）"
-                disabled={loading}
-                maxLength={100}
-                className="w-full rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
-              />
+              <div className="space-y-2">
+                {translations.map((translation, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      ref={(el) => { translationInputRefs.current[index] = el; }}
+                      type="text"
+                      value={translation}
+                      onChange={(e) => {
+                        const next = [...translations];
+                        next[index] = e.target.value;
+                        onTranslationsChange(next);
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) onConfirm(); }}
+                      placeholder={index === 0 ? '例: 美しい（未入力なら自動補完）' : `訳${index + 1}`}
+                      aria-label={`日本語訳${index + 1}`}
+                      disabled={loading}
+                      maxLength={100}
+                      className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[15px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
+                    />
+                    {translations.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => onTranslationsChange(translations.filter((_, i) => i !== index))}
+                        disabled={loading}
+                        aria-label={`日本語訳${index + 1}を削除`}
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--color-border)] text-[var(--color-muted)] transition-colors hover:border-[var(--solid-ink)] hover:text-[var(--solid-ink)] disabled:opacity-50"
+                      >
+                        <Icon name="close" size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {translations.length < MANUAL_TRANSLATION_INPUT_LIMIT && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    focusTranslationIndexRef.current = translations.length;
+                    onTranslationsChange([...translations, '']);
+                  }}
+                  disabled={loading}
+                  className="mt-2 flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)] transition-colors hover:text-[var(--solid-ink)] disabled:opacity-50"
+                >
+                  <Icon name="add" size={12} />
+                  訳を追加
+                </button>
+              )}
             </div>
 
             {/* 語源解析トグル（スキャンパネルと同じチェックカード型） */}

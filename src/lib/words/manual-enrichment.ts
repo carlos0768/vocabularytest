@@ -41,6 +41,12 @@ export interface ManualMasterEnrichment {
   partOfSpeechTags: string[];
   exampleSentence: string;
   exampleSentenceJa: string;
+  /**
+   * 選んだエントリがユーザー入力の日本語訳と一致したか。入力が無ければ false。
+   * 一致しないエントリは別の語義なので、そこへ入力訳に合わせた例文を
+   * 書き戻してはいけない。
+   */
+  matchedJapaneseHint: boolean;
 }
 
 /**
@@ -107,8 +113,12 @@ export function pickManualMasterEnrichment(
     || normalizeText(rows.find((row) => normalizeText(row.pronunciation))?.pronunciation);
   const japanese = normalizeText(best.translation_ja)
     || normalizeText(rows.find((row) => normalizeText(row.translation_ja))?.translation_ja);
-  const exampleSentence = normalizeText(best.example_sentence);
-  const exampleSentenceJa = normalizeText(best.example_sentence_ja);
+  // 日本語訳が入力されたのに一致する行が無いなら、マスターの例文は別の語義の
+  // もの（run を「経営する」で入れたのに「毎日走る」の例文が付く）。例文は
+  // 採らず、入力訳の意味で AI に作らせる。
+  const exampleMatchesHint = !hint || hintMatched.length > 0;
+  const exampleSentence = exampleMatchesHint ? normalizeText(best.example_sentence) : '';
+  const exampleSentenceJa = exampleMatchesHint ? normalizeText(best.example_sentence_ja) : '';
   const pos = normalizeText(best.pos);
 
   // 全訳リスト: 第一訳 → 選ばれたエントリの他sense → 他エントリ（品詞違い）の訳。
@@ -131,6 +141,7 @@ export function pickManualMasterEnrichment(
     // 例文は英日ペアが揃っている場合のみ採用する
     exampleSentence: exampleSentence && exampleSentenceJa ? exampleSentence : '',
     exampleSentenceJa: exampleSentence && exampleSentenceJa ? exampleSentenceJa : '',
+    matchedJapaneseHint: hintMatched.length > 0,
   };
 }
 
@@ -207,5 +218,11 @@ export function buildManualEnrichPrompt(
   if (fields.pronunciation) targets.push('pronunciation');
   if (fields.pos) targets.push('partOfSpeechTags');
   if (fields.example) targets.push('exampleSentence', 'exampleSentenceJa');
-  return `"${english}"${japanese ? ` (${japanese})` : ''}\n生成: ${targets.join(', ')}`;
+  const lines = [`"${english}"${japanese ? ` (${japanese})` : ''}`, `生成: ${targets.join(', ')}`];
+  // ユーザーが訳を入れたなら、例文はその語義で使ったものにする（多義語で
+  // 別の意味の例文が付くと、訳と例文が食い違う）。
+  if (fields.example && japanese) {
+    lines.push(`例文は"${english}"を「${japanese}」の意味で使った文にし、exampleSentenceJaでもその訳語を使うこと`);
+  }
+  return lines.join('\n');
 }
