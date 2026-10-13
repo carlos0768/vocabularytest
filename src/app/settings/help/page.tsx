@@ -14,6 +14,14 @@ import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
 export default function SettingsHelpPage() {
   const router = useRouter();
 
+  // 戻るは履歴を 1 つ戻す。push('/settings') だと履歴に「設定」が積まれ、
+  // ブラウザの戻るで使い方ガイドへ、またガイドの戻るで設定へ…と往復し続ける。
+  // 履歴が無い (直接開いた) ときだけ設定へ遷移する。
+  const goBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.replace('/settings');
+  };
+
   return (
     <>
       <div className="hidden h-full min-h-0 flex-col desktop:flex">
@@ -21,7 +29,7 @@ export default function SettingsHelpPage() {
           <button
             type="button"
             className="ds-iconbtn"
-            onClick={() => router.push('/settings')}
+            onClick={goBack}
             style={{ width: 38, height: 38 }}
             aria-label="設定へ戻る"
           >
@@ -44,7 +52,7 @@ export default function SettingsHelpPage() {
           eyebrow="HELP"
           title="使い方ガイド"
           backLabel="設定へ戻る"
-          onBack={() => router.push('/settings')}
+          onBack={goBack}
           className="mb-3"
         />
 
