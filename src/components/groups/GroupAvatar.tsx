@@ -8,15 +8,8 @@
  */
 
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
+import { thumbColor } from '@/lib/ui/thumb-color';
 
-// Site-wide avatar palette (matches home, shared, feed).
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-
-export function groupThumbColor(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
-  return THUMBS[Math.abs(hash) % THUMBS.length];
-}
 
 export function GroupAvatar({
   group,
@@ -33,7 +26,7 @@ export function GroupAvatar({
     <ProfileAvatar
       avatarUrl={group.iconImage ?? null}
       initial={(group.name.trim() || 'G').charAt(0).toUpperCase()}
-      color={groupThumbColor(group.id)}
+      color={thumbColor(group.id)}
       size={size}
       radius={size / 2}
       borderWidth={borderWidth}

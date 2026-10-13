@@ -149,7 +149,7 @@ export function collectMetricProjectIds(
  * 「グループ検索まで戻れない」状態になっていた。タブを `?tab=` に写しておけば
  * 戻ったときに同じタブを復元できる。
  */
-export const SHARED_TAB_PARAM = 'tab';
+const SHARED_TAB_PARAM = 'tab';
 
 export type SharedPageTab = 'all' | 'users' | 'projects' | 'official' | 'groups';
 

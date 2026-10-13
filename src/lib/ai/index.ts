@@ -1,27 +1,9 @@
 // AI module exports
-export { extractWordsFromImage, type ExtractionResult } from './extract-words';
-export { extractCircledWordsFromImage, type CircledExtractionResult } from './extract-circled-words';
-export { extractHighlightedWordsFromImage, type HighlightedExtractionResult } from './extract-highlighted-words';
-export { extractIdiomsFromImage, type IdiomExtractionResult } from './extract-idioms';
-export { extractCompositeWordsFromImage, type CompositeExtractionResult } from './extract-composite-words';
-export { extractCustomWordsFromImage, type CustomExtractionResult } from './extract-custom-words';
+export { extractWordsFromImage } from './extract-words';
+export { extractCircledWordsFromImage } from './extract-circled-words';
+export { extractIdiomsFromImage } from './extract-idioms';
+export { extractCompositeWordsFromImage } from './extract-composite-words';
+export { extractCustomWordsFromImage } from './extract-custom-words';
 export {
-  extractTextForEiken,
-  analyzeWordsForEiken,
-  extractEikenWordsFromImage,
-  type EikenOCRResult,
-  type EikenWordAnalysisResult,
-  type EikenExtractionResult,
+  extractEikenWordsFromImage
 } from './extract-eiken-words';
-export {
-  extractTestFromImage,
-  analyzeWrongAnswers,
-  extractWrongAnswersFromImage,
-  type WrongAnswerOCRResult,
-  type WrongAnswerAnalysisResult,
-  type WrongAnswerExtractionResult,
-  type TestOCRData,
-  type TestQuestion,
-  type WrongAnswerSummary,
-} from './extract-wrong-answers';
-export { WORD_EXTRACTION_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE } from './prompts';

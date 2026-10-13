@@ -77,7 +77,7 @@ type NormalizeParams = {
   renewal: JWSRenewalInfoDecodedPayload | null;
 };
 
-export function normalizeVerifiedAppStoreNotification({
+function normalizeVerifiedAppStoreNotification({
   notification,
   transaction,
   renewal,

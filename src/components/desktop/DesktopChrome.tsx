@@ -331,12 +331,3 @@ export function DesktopDonut({
     </div>
   );
 }
-
-export function DesktopLoading({ label = '読み込み中...' }: { label?: string }) {
-  return (
-    <div className="ds-scroll" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-muted)' }}>
-      <Icon name="progress_activity" className="animate-spin" />
-      <span style={{ marginLeft: 8, fontSize: 14 }}>{label}</span>
-    </div>
-  );
-}

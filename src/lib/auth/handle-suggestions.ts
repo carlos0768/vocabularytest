@@ -7,8 +7,7 @@
 // /api/auth/suggest-handle before any candidate reaches the user.
 
 export const HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/;
-export const HANDLE_MIN_LENGTH = 3;
-export const HANDLE_MAX_LENGTH = 20;
+const HANDLE_MAX_LENGTH = 20;
 
 /** Seeds shorter than this carry no recognizable trace of the name. */
 const MIN_SEED_LENGTH = 2;

@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getCachedMorphologyByHeadword } from '@/lib/morphology/lexicon';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { normalizeHeadword } from '../../../../../shared/lexicon';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 /**
  * GET /api/words/morphology?english=<word>
@@ -24,8 +25,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const supabase = await createRouteHandlerClient(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DesktopScanConfirmView } from '@/components/desktop/DesktopScan';
+import { DesktopScanConfirmView } from '@/components/desktop/DesktopScanConfirm';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useToast } from '@/components/ui/toast';
@@ -12,7 +12,7 @@ import { useOnboarding } from '@/hooks/use-onboarding';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { getRepository } from '@/lib/db';
 import { getDb } from '@/lib/db/dexie';
-import { FREE_WORD_LIMIT, getGuestUserId } from '@/lib/utils';
+import { chunkArray, FREE_WORD_LIMIT, getGuestUserId, sleep } from '@/lib/utils';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { createBrowserClient } from '@/lib/supabase';
 import {
@@ -25,6 +25,7 @@ import { filterWordsForProjectKind, inferProjectKindFromWords } from '@/lib/clas
 import { formatMorphologyFormula, hasDisplayableMorphology } from '@/lib/morphology/format';
 import { ensureSourceLabels, mergeSourceLabels } from '../../../../shared/source-labels';
 import { collectKnownTranslations } from '@/lib/quiz/background-distractors';
+import { hasPronunciation, hasValidDistractors } from '@/lib/scan/quiz-prefill';
 
 interface EditableWord extends AIWordExtraction {
   tempId: string;
@@ -35,34 +36,12 @@ interface EditableWord extends AIWordExtraction {
 const QUIZ_PREFILL_BATCH_SIZE = 30;
 const QUIZ_PREFILL_MAX_ATTEMPTS = 3;
 
-function chunkArray<T>(items: T[], size: number): T[][] {
-  if (items.length === 0) return [];
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
-  return chunks;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function hasValidDistractors(value: unknown): boolean {
-  if (!Array.isArray(value)) return false;
-  if (value.length < 3) return false;
-  if (value.length === 3 && value[0] === '選択肢1') return false;
-  return value.every((item) => typeof item === 'string' && item.trim().length > 0);
-}
-
 function hasExampleSentence(value: unknown): boolean {
   return typeof value === 'string' && (value as string).trim().length > 0;
 }
 
 function hasPartOfSpeechTags(value: unknown): boolean {
   return Array.isArray(value) && value.some((item) => typeof item === 'string' && item.trim().length > 0);
-}
-
-function hasPronunciation(value: unknown): boolean {
-  return typeof value === 'string' && value.trim().length > 0;
 }
 
 async function getAuthHeaders(): Promise<HeadersInit> {

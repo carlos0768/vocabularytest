@@ -9,45 +9,10 @@ import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/utils';
 
 /* ---------- Solid primitives (Tailwind thick-border flavor) ---------- */
-const SOLID_BASE =
-  'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]';
 const SOLID_INTERACTIVE =
   'transition-all duration-100 active:translate-x-px active:translate-y-px';
 const SOLID_BTN_BASE =
   'rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)]';
-
-export function Solid({
-  children,
-  className,
-  interactive,
-  variant,
-  as: Component = 'div',
-}: {
-  children: ReactNode;
-  className?: string;
-  interactive?: boolean;
-  variant?: 'sm' | 'tile' | 'inverse' | 'accent';
-  as?: 'div' | 'article' | 'section' | 'li';
-}) {
-  return (
-    <Component
-      className={cn(
-        SOLID_BASE,
-        interactive && SOLID_INTERACTIVE,
-        variant === 'sm' && '!rounded-[var(--solid-radius-sm)]',
-        variant === 'tile' && '!rounded-[var(--solid-radius-tile)] aspect-[3/4] overflow-hidden',
-        // ダークでは --solid-ink が明色に反転するので、前景は白固定ではなく
-        // 背景色トークンを使う (ライトでは #fff のまま = 見た目は不変)。
-        variant === 'inverse' && 'bg-[var(--solid-ink)] text-[var(--color-surface)]',
-        variant === 'accent' && 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent-ink)]',
-        className,
-      )}
-    >
-      {children}
-    </Component>
-  );
-}
-
 type SolidButtonBase = {
   children: ReactNode;
   className?: string;
@@ -139,45 +104,6 @@ export const SolidButton = forwardRef<HTMLElement, SolidButtonProps>(function So
     </button>
   );
 });
-
-/**
- * Tile — square-ish 3:4 surface (used for bookshelf thumbnails).
- */
-export function SolidTile({
-  children,
-  className,
-  href,
-  onClick,
-  interactive = true,
-}: {
-  children: ReactNode;
-  className?: string;
-  href?: string;
-  onClick?: () => void;
-  interactive?: boolean;
-}) {
-  const wrapperClass = cn(
-    'block aspect-[3/4] overflow-hidden rounded-[var(--solid-radius-tile)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]',
-    interactive && SOLID_INTERACTIVE,
-    className,
-  );
-  if (href) {
-    return (
-      <Link href={href} className={wrapperClass}>
-        {children}
-      </Link>
-    );
-  }
-  if (onClick) {
-    return (
-      <button type="button" onClick={onClick} className={cn(wrapperClass, 'w-full text-left')}>
-        {children}
-      </button>
-    );
-  }
-  return <div className={wrapperClass}>{children}</div>;
-}
-
 /* ---------- Page primitives ---------- */
 
 export function SolidPage({
@@ -292,95 +218,6 @@ export function SolidSectionTitle({
       )}
     </div>
   );
-}
-
-export function SolidStatCard({
-  icon,
-  label,
-  value,
-  suffix,
-  tone = 'default',
-}: {
-  icon: string;
-  label: string;
-  value: ReactNode;
-  suffix?: string;
-  tone?: 'default' | 'success' | 'warning' | 'accent';
-}) {
-  const toneClass = {
-    default: 'bg-[var(--color-surface-secondary)] text-[var(--solid-ink)]',
-    success: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
-    warning: 'bg-[var(--color-warning-light)] text-[var(--color-warning)]',
-    accent: 'bg-[var(--color-accent-subtle)] text-[var(--color-accent)]',
-  }[tone];
-
-  return (
-    <SolidPanel faceClassName="p-4">
-      <div className={cn('mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] border-2 border-[var(--solid-ink)]', toneClass)}>
-        <Icon name={icon} size={22} />
-      </div>
-      <p className="text-xs font-bold text-[var(--color-muted)]">{label}</p>
-      <p className="mt-1 text-3xl font-black leading-none text-[var(--solid-ink)]">
-        {value}
-        {suffix && <span className="ml-1 text-base font-black">{suffix}</span>}
-      </p>
-    </SolidPanel>
-  );
-}
-
-export function SolidRow({
-  icon,
-  title,
-  detail,
-  children,
-  href,
-  danger,
-  onClick,
-}: {
-  icon?: string;
-  title: string;
-  detail?: ReactNode;
-  children?: ReactNode;
-  href?: string;
-  danger?: boolean;
-  onClick?: () => void;
-}) {
-  const content = (
-    <>
-      {icon && (
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] bg-[color-mix(in_srgb,_var(--solid-ink)_5%,_transparent)]">
-          <Icon name={icon} size={16} className={danger ? 'text-[var(--color-error)]' : 'text-[var(--solid-ink)]'} />
-        </span>
-      )}
-      <span className="min-w-0 flex-1">
-        <span className={cn('block text-sm font-bold', danger ? 'text-[var(--color-error)]' : 'text-[var(--solid-ink)]')}>
-          {title}
-        </span>
-        {detail && <span className="mt-0.5 block text-xs leading-5 text-[var(--color-muted)]">{detail}</span>}
-      </span>
-      {children}
-      {(href || onClick) && <Icon name="chevron_right" size={20} className="text-[var(--color-muted)]" />}
-    </>
-  );
-  const className = 'flex w-full items-center gap-3 border-b border-[var(--color-border-light)] px-5 py-4 text-left last:border-b-0 transition-colors active:bg-[var(--color-surface-secondary)]';
-
-  if (href) {
-    return (
-      <Link href={href} className={className}>
-        {content}
-      </Link>
-    );
-  }
-
-  if (onClick) {
-    return (
-      <button type="button" onClick={onClick} className={className}>
-        {content}
-      </button>
-    );
-  }
-
-  return <div className={className}>{content}</div>;
 }
 
 export function SolidEmpty({

@@ -8,41 +8,25 @@ export type {
   WordStatus,
   CustomSection,
   CustomColumn,
-  CustomColumnType,
-  ProjectBlock,
-  ProjectBlockType,
-  ProjectBlockData,
-  RichTextBlockData,
-  CachedPassageMatch,
-  WordListBlockData,
-  DatabaseBlockData,
   RelatedWord,
   UsagePattern,
   WordMorphology,
-  WordMorphologyPart,
   WordTranslation,
   WordTranslationSource,
-  AIJapaneseTranslation,
   LexiconEntry,
   Word,
   Project,
   ProjectShareScope,
   ProjectKind,
   AIWordExtraction,
-  AIResponse,
   MultipleChoiceQuizQuestion,
   QuizQuestion,
-  QuizResult,
   WordOrderQuizCache,
   WordOrderQuizQuestion,
   WordRepository,
-  ScanProgress,
-  ProgressStep,
   SubscriptionStatus,
   SubscriptionPlan,
   Subscription,
-  UserState,
-  AuthUser,
   // Collection types
   Collection,
   CollectionProject,
@@ -53,16 +37,3 @@ export type {
 // Stripe Payment types (Web only - payment handled on web)
 // 値の再輸出（上のブロックは type-only なので別立てにする）。
 export { PROJECT_KINDS, normalizeProjectKind } from '../../shared/types';
-
-export interface StripeSubscriptionPlan {
-  id: string;
-  name: string;
-  price: number;
-  currency: string;
-  interval: 'month' | 'year';
-}
-
-export interface StripeCheckoutSession {
-  sessionId: string;
-  checkoutUrl: string;
-}

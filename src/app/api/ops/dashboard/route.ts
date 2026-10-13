@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getApiCostDashboardSummary } from '@/lib/api-cost/dashboard';
 import { requireAdminSecret } from '@/lib/ops/admin-auth';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { jstDayStartIso } from '@/lib/date/jst';
 
 // /ops 管理ダッシュボードの集計API。DB・GCPのコンソールを個別に開かなくても
 // 「今日のスキャン数/失敗数」「スキャン毎のトークン消費」「ユーザー数」を
@@ -9,21 +10,13 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
-// JSTの「今日」の開始時刻(UTC ISO文字列)
-function startOfTodayJstIso(): string {
-  const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
-  const nowJst = new Date(Date.now() + JST_OFFSET_MS);
-  nowJst.setUTCHours(0, 0, 0, 0);
-  return new Date(nowJst.getTime() - JST_OFFSET_MS).toISOString();
-}
-
 export async function GET(request: NextRequest) {
   const denied = requireAdminSecret(request);
   if (denied) return denied;
 
   try {
     const supabase = getSupabaseAdmin();
-    const todayStart = startOfTodayJstIso();
+    const todayStart = jstDayStartIso();
 
     const [scanTotal, scanFailed, usersTotal, usersToday, apiCosts] = await Promise.all([
       supabase

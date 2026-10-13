@@ -25,7 +25,7 @@ export interface ManualEnrichmentSenseRow {
 }
 
 /** 手動追加の全訳補完で保持する訳語数の上限（単語帳の一覧性を守る）。 */
-export const MANUAL_ENRICH_MAX_TRANSLATIONS = 8;
+const MANUAL_ENRICH_MAX_TRANSLATIONS = 8;
 
 export interface ManualMasterEnrichment {
   /** 例文・発音の書き戻し先。マスターにエントリが無い場合は null。 */

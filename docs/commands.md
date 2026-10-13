@@ -48,11 +48,17 @@ All commands should be run from the project root directory.
 
 ### `npm test`
 
-- **What it does**: Runs `npm run test:web`, a fixed list of Web/shared unit and contract tests using Node.js built-in test runner with `tsx`
+- **What it does**: Runs `npm run test:web` (`scripts/run-unit-tests.mjs`), which discovers every `*.test.ts(x)` under `src/` and `shared/` (except `*.security.test.ts`) and runs them with the Node.js built-in test runner via `tsx`. Pass a path to narrow it: `npm test -- src/lib/quiz`
 - **Prerequisites**: None (tests mock external dependencies)
 - **Danger level**: Safe -- no external API calls, no database writes
 - **Coverage**: Auth OTP/signup, scan/extract contracts, scan helpers, Stripe/reconcile, App Store, sync queue, AI prompt contracts, Home/Project/Quiz helpers, shared project fallback, and repository helpers.
-- **Notes**: New test files must be manually added to `test:web` in `package.json`.
+- **Notes**: Tests are auto-discovered; there is no list to update.
+
+### `npm run typecheck`
+
+- **What it does**: `tsc --noEmit -p .` over the whole project, test files included.
+- **Danger level**: Safe -- read-only analysis
+- **Notes**: Runs in CI (`.github/workflows/ci.yml`) together with `npm run lint` and `npm test`.
 
 ### `npm run verify`
 

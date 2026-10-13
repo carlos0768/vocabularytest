@@ -94,9 +94,6 @@ export function useBattleRoom(roomId: string, userId: string | null): UseBattleR
   }, []);
 
   useEffect(() => {
-    // `refresh` awaits the fetch before it touches state, so nothing is set
-    // synchronously here -- the rule cannot see through the async boundary.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 

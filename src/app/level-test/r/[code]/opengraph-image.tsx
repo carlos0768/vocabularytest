@@ -1,11 +1,12 @@
 import { ImageResponse } from 'next/og';
+import { loadJapaneseFont } from '@/lib/og/japanese-font';
 import { EIKEN_LEVEL_LABELS } from '@/lib/level-test/engine';
 import { decodeLevelTestResult } from '@/lib/level-test/result-code';
 import { vocabSizeTextFor } from '@/lib/level-test/share';
 
 // 診断結果の動的シェアカード(OG/Twitter)。結果はURLのcodeから復元するので
 // DBアクセスなし。share/[shareId]/opengraph-image.tsx と同じ構成で、
-// loadJapaneseFont(グリフサブセット読込)もそのまま踏襲している。
+// loadJapaneseFont(グリフサブセット読込)も共通のものを使う。
 
 export const runtime = 'nodejs';
 export const alt = 'MERKEN 語彙レベル診断の結果';
@@ -16,29 +17,6 @@ const INK = '#1a1a1a';
 
 // レベルが上がるほど「昇格」感の出る色(結果カードと同じ並び)。
 const LEVEL_ACCENTS = ['#228B22', '#15803d', '#137FEC', '#2E66BF', '#664DB3', '#7C3AED', '#B8860B'];
-
-async function loadJapaneseFont(text: string): Promise<ArrayBuffer | null> {
-  try {
-    const family = 'Noto+Sans+JP:wght@700';
-    const url = `https://fonts.googleapis.com/css2?family=${family}&text=${encodeURIComponent(text)}`;
-    const cssResponse = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/534.30 (KHTML, like Gecko)',
-      },
-    });
-    if (!cssResponse.ok) return null;
-    const css = await cssResponse.text();
-    const match = css.match(/src:\s*url\(([^)]+)\)\s*format\(['"]?(?:opentype|truetype)['"]?\)/);
-    if (!match) return null;
-    const fontResponse = await fetch(match[1]);
-    if (!fontResponse.ok) return null;
-    return await fontResponse.arrayBuffer();
-  } catch (error) {
-    console.warn('OGP font load failed:', error);
-    return null;
-  }
-}
 
 export default async function Image({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;

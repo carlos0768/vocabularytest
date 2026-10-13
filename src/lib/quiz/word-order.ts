@@ -3,8 +3,8 @@ import { shuffleArray } from '@/lib/utils';
 
 export const WORD_ORDER_BLANK_TOKEN = '___';
 export const WORD_ORDER_CACHE_VERSION = 1;
-export const WORD_ORDER_MAX_ANSWER_TOKENS = 3;
-export const WORD_ORDER_DECOY_COUNT = 3;
+const WORD_ORDER_MAX_ANSWER_TOKENS = 3;
+const WORD_ORDER_DECOY_COUNT = 3;
 
 type ShuffleFn = <T>(items: T[]) => T[];
 
@@ -126,8 +126,4 @@ export function buildWordOrderQuestion(
     decoyTokens: cache.decoyTokens,
     options: shuffle([...cache.answerTokens, ...cache.decoyTokens]),
   };
-}
-
-export function isMultipleChoiceQuestion(question: { type?: string }): boolean {
-  return question.type === undefined || question.type === 'multiple-choice';
 }

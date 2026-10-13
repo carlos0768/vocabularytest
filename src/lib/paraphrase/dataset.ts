@@ -49,7 +49,7 @@ export interface ParaphraseMaterial {
 
 const POS_VALUES: readonly ParaphrasePos[] = ['n', 'v', 'a', 'r'];
 
-export function isParaphrasePos(value: unknown): value is ParaphrasePos {
+function isParaphrasePos(value: unknown): value is ParaphrasePos {
   return typeof value === 'string' && (POS_VALUES as readonly string[]).includes(value);
 }
 

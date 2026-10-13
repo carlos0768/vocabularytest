@@ -65,8 +65,6 @@ export const officialWordbookScanRequestSchema = z
     }
   });
 
-export type OfficialWordbookScanRequest = z.infer<typeof officialWordbookScanRequestSchema>;
-
 function truncatedString(value: unknown, max: number): string {
   if (typeof value !== 'string') return '';
   return value.trim().slice(0, max);

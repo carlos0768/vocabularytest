@@ -18,7 +18,24 @@ const eslintConfig = defineConfig([
     ".claude/**",
   ]),
   {
-    files: ["scripts/**/*.js"],
+    // `_` で始まる名前は「わざと使わない引数・分割代入」の印 (インターフェース
+    // を満たすだけの実装や、テストのスタブで使う)。
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  {
+    // CommonJS: scripts/ helpers and the gcp-budget-guard Cloud Function
+    // (its own package, deployed separately from the Next.js app).
+    files: ["scripts/**/*.js", "gcp-budget-guard/**/*.js"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },

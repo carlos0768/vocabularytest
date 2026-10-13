@@ -1,4 +1,4 @@
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+import { JST_OFFSET_MS } from '@/lib/date/jst';
 
 /**
  * Returns the UTC instant corresponding to Monday 00:00 JST of the week

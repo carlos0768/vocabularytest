@@ -33,7 +33,7 @@ import {
 // チェックサムは改ざん防止ではなく「URLの手打ちミス・切り詰めを弾く」ためのもの。
 // クライアント側で符号化する以上、偽造は原理的に防げない(低リスクと割り切る)。
 
-export const RESULT_CODE_VERSION = 2;
+const RESULT_CODE_VERSION = 2;
 const V1_PAYLOAD_BYTES = 18;
 const V2_PAYLOAD_BYTES = 21;
 const LEVEL_COUNT = 7;

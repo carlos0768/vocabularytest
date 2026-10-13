@@ -7,6 +7,7 @@ import {
 } from '@/lib/reels/eiken-cefr';
 import { lookupLexiconCefrLevels } from '@/lib/lexicon/eiken-cefr-filter';
 import { EIKEN_LEVEL_TAG_LABELS } from '@/lib/shared-projects/eiken-level-tag';
+import { toStringArray } from '@/lib/utils';
 import type {
   HomeRecommendedBook,
   HomeRecommendationsPayload,
@@ -28,17 +29,12 @@ const BOOK_CEFR_WORDS_FETCH_LIMIT = 1200;
 
 // ---------- helpers ----------
 
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-}
-
 const EIKEN_LEVEL_BY_TAG = new Map(
   Object.entries(EIKEN_LEVEL_TAG_LABELS).map(([level, label]) => [label, level]),
 );
 
 /** shared_tags から英検級タグを引く（例: "#英検準2級" → { level: 'pre2', tag: '英検準2級' }）。 */
-export function eikenLevelFromTags(tags: readonly string[]): { level: string | null; tag: string | null } {
+function eikenLevelFromTags(tags: readonly string[]): { level: string | null; tag: string | null } {
   for (const raw of tags) {
     const tag = raw.trim().replace(/^[#＃]/, '');
     const level = EIKEN_LEVEL_BY_TAG.get(tag);
@@ -66,7 +62,7 @@ type HomeSharedBookRow = {
  * levelFit は「単語帳内の単語の CEFR × ユーザーの志望英検級」から実測した
  * 値（cefrLevelFit）があればそれを優先し、無ければ英検タグから推定する。
  */
-export function scoreSharedBookForHome(
+function scoreSharedBookForHome(
   row: { sharedTags: string[]; likeCount: number; createdAt: string | null },
   userEikenLevel: string | null,
   nowMs: number,
@@ -89,7 +85,7 @@ export function scoreSharedBookForHome(
  * 0〜1 のフィット値を返す。CEFR が引けた語の割合（coverage）が低い場合は
  * 信頼できないので null（呼び出し側でタグ推定にフォールバック）。
  */
-export function cefrFitForBand(
+function cefrFitForBand(
   band: readonly CefrLevel[],
   wordCefrLevels: readonly (string | null)[],
 ): number | null {

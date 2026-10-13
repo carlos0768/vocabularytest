@@ -136,14 +136,6 @@ export function speakEnglish(text: string | null | undefined, options: SpeakOpti
   speakInternal(trimmed, 'en', options);
 }
 
-/** 日本語テキストを読み上げる。再生中の音声はキャンセルして置き換える。 */
-export function speakJapanese(text: string | null | undefined, options: SpeakOptions = {}): void {
-  if (!isSupported()) return;
-  const trimmed = text?.trim();
-  if (!trimmed) return;
-  speakInternal(trimmed, 'ja', options);
-}
-
 /**
  * 読み上げが終わるまで待つ版。音読チャレンジのように「出題文の読み上げが
  * 終わってからリスニング(タイマー+録音)を開始する」といった逐次制御に使う。

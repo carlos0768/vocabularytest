@@ -97,10 +97,6 @@ function revalidate(groupId: string): Promise<GroupOverviewPayload> {
   return promise;
 }
 
-export function getCachedGroupOverview(groupId: string): GroupOverviewPayload | null {
-  return cache.get(groupId)?.payload ?? null;
-}
-
 /**
  * stale-while-revalidate ローダー。
  * - キャッシュがあれば即座に onData(payload, {fromCache:true}) を呼ぶ

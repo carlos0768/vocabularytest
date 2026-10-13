@@ -9,6 +9,7 @@ import {
   readBooleanEnv,
   readNumberEnv,
 } from '@/lib/ai/feature-usage';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 const DEFAULT_PRIMARY_MODEL = 'gpt-4o';
 const DEFAULT_FALLBACK_MODEL = 'gpt-4o';
@@ -57,8 +58,7 @@ export async function POST(request: NextRequest) {
     const fallbackModel = process.env.DICTATION_FALLBACK_MODEL?.trim() || DEFAULT_FALLBACK_MODEL;
 
     const supabase = await createRouteHandlerClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();

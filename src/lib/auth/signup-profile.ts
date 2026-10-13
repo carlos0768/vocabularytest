@@ -43,7 +43,7 @@ function isAccountIdUniqueViolation(error: SignupProfileError | null): boolean {
   return text.includes('account_id');
 }
 
-export function buildSignupProfilePayload(
+function buildSignupProfilePayload(
   userId: string,
   fields: SignupProfileFields,
   accountId: string | undefined,

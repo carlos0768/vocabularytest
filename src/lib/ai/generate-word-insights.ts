@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { RelatedWord, UsagePattern } from '@/types';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getProviderFromConfig } from '@/lib/ai/providers';
+import { extractJsonContent } from '@/lib/ai/utils/json';
 
 export interface WordInsightWordInput {
   id: string;
@@ -184,21 +185,6 @@ function toDictionaryContext(entry: DictionaryEntry) {
     partOfSpeechTags,
     meanings,
   };
-}
-
-function extractJsonContent(content: string): string {
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-
-  const jsonStartIndex = content.indexOf('{');
-  const jsonEndIndex = content.lastIndexOf('}');
-  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-    return content.slice(jsonStartIndex, jsonEndIndex + 1);
-  }
-
-  return content;
 }
 
 async function fetchDictionaryEntry(english: string): Promise<DictionaryEntry | null> {

@@ -54,7 +54,7 @@ export const MASTERY_LEVEL_FILLS: readonly string[] = [
 ];
 
 /** 不正値を 0 以上の整数に丸める。 */
-export function normalizeMasteryLevel(value: unknown): number {
+function normalizeMasteryLevel(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
   return Math.max(0, Math.floor(value));
 }

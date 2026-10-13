@@ -31,6 +31,7 @@ import {
   shouldRefreshRemoteWordbooks,
 } from '@/lib/home-cache';
 import type { Project, SubscriptionStatus } from '@/types';
+import { thumbColor } from '@/lib/ui/thumb-color';
 
 const SORTS = [
   { k: 'newest',   label: '新しい順',     icon: 'schedule' },
@@ -38,19 +39,11 @@ const SORTS = [
   { k: 'lastUsed', label: '最近使った順', icon: 'history' },
 ] as const;
 
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-
 type SortKey = (typeof SORTS)[number]['k'];
 type ProjectRowStats = ProjectWithStats & {
   reviewWords: number;
   newWords: number;
 };
-
-function thumbColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return THUMBS[Math.abs(h) % THUMBS.length];
-}
 
 async function addStatsToProjects(
   projects: Project[],

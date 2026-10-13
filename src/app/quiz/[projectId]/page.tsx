@@ -16,6 +16,7 @@ import {
   type QuizMode,
 } from '@/lib/quiz/quiz-mode-preference';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
+import { DSDesktopWordOrderPanel, DSWordOrderPanel } from '@/components/quiz/WordOrderPanels';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
 import { QuizOptionReportPanel } from '@/components/quiz/QuizOptionReportPanel';
 import { useToast } from '@/components/ui/toast';
@@ -29,7 +30,7 @@ import {
   recordActivity,
   getGuestUserId,
   getWrongAnswers,
-  type WrongAnswer,
+  sleep,
 } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { selectDailyReviewWords } from '@/lib/quiz/daily-review-selection';
@@ -59,11 +60,17 @@ import {
   filterWordsForAnswerFormat,
 } from '@/lib/quiz/answer-format-words';
 import {
-  WORD_ORDER_BLANK_TOKEN,
   buildWordOrderQuestion,
   isWordOrderEligible,
   normalizeWordOrderQuizCache,
 } from '@/lib/quiz/word-order';
+import {
+  isMultipleChoiceQuestion,
+  isWordOrderQuestion,
+  normalizeDisplayText,
+  wordOrderTokensMatch,
+} from '@/lib/quiz/word-order-answer';
+import { buildFallbackWordFromWrongAnswer } from '@/lib/quiz/wrong-answer-word';
 import {
   calculateQuizScorePercentage,
   getQuizAdvanceState,
@@ -101,12 +108,10 @@ import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { PwaInstallPromptModal } from '@/components/onboarding/PwaInstallPromptModal';
 import { Modal } from '@/components/ui/modal';
 import type {
-  MultipleChoiceQuizQuestion,
   QuizQuestion,
   SubscriptionStatus,
   Word,
-  WordOrderQuizCache,
-  WordOrderQuizQuestion,
+  WordOrderQuizCache
 } from '@/types';
 
 const DEFAULT_QUESTION_COUNT = 10;
@@ -117,10 +122,6 @@ const DISTRACTOR_FETCH_TIMEOUT_MS = 25000;
 const WORD_ORDER_API_CHUNK_SIZE = 30;
 /** 単語帳をまたぐ出題では音読チャレンジを選ばせない (向こうが1冊ぶんしか出せない)。 */
 const VOICE_MODE_HIDDEN = ['voice'] as const;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 type QuizAnswerResult = boolean | 'skip' | null;
 
@@ -138,322 +139,6 @@ interface QuizPersistState {
   /** この回で選んだ解き方。中断から戻ったときに選び直させないため。 */
   answerFormat?: QuizAnswerFormat;
   timestamp: number;
-}
-
-function isWordOrderQuestion(question: QuizQuestion | undefined): question is WordOrderQuizQuestion {
-  return question?.type === 'word-order';
-}
-
-function isMultipleChoiceQuestion(question: QuizQuestion | undefined): question is MultipleChoiceQuizQuestion {
-  return question !== undefined && question.type !== 'word-order';
-}
-
-function chipKey(token: string): string {
-  return token.trim().toLowerCase();
-}
-
-function tokensMatch(left: string[], right: string[]): boolean {
-  if (left.length !== right.length) return false;
-  return left.every((token, index) => chipKey(token) === chipKey(right[index] ?? ''));
-}
-
-function normalizeDisplayText(value: string | null | undefined): string | null {
-  const text = value?.trim().replace(/\s+/g, ' ');
-  return text ? text : null;
-}
-
-function buildCompletedWordOrderSentence(question: WordOrderQuizQuestion): string {
-  let answerIndex = 0;
-  const tokens = question.sentenceTokens
-    .map((token) => {
-      if (token !== WORD_ORDER_BLANK_TOKEN) return token;
-      const answerToken = question.answerTokens[answerIndex];
-      answerIndex += 1;
-      return answerToken ?? '';
-    })
-    .filter(Boolean);
-
-  return tokens
-    .join(' ')
-    .replace(/\s+([.,!?;:])/g, '$1')
-    .replace(/\(\s+/g, '(')
-    .replace(/\s+\)/g, ')');
-}
-
-function getWordOrderExample(question: WordOrderQuizQuestion): { sentence: string; translation: string | null } | null {
-  const sentence =
-    normalizeDisplayText(question.word.exampleSentence) ??
-    normalizeDisplayText(buildCompletedWordOrderSentence(question));
-  if (!sentence) return null;
-
-  return {
-    sentence,
-    translation:
-      normalizeDisplayText(question.word.exampleSentenceJa) ??
-      normalizeDisplayText(question.word.japanese),
-  };
-}
-
-function getUsedWordOrderOptionIndexes(options: string[], selectedTokens: string[]): Set<number> {
-  const usedIndexes = new Set<number>();
-  for (const selectedToken of selectedTokens) {
-    const selectedKey = chipKey(selectedToken);
-    const optionIndex = options.findIndex((option, index) => (
-      !usedIndexes.has(index) && chipKey(option) === selectedKey
-    ));
-    if (optionIndex >= 0) usedIndexes.add(optionIndex);
-  }
-  return usedIndexes;
-}
-
-function buildFallbackWordFromWrongAnswer(wrongAnswer: WrongAnswer): Word {
-  const timestamp = Number.isFinite(wrongAnswer.lastWrongAt) ? wrongAnswer.lastWrongAt : Date.now();
-
-  return {
-    id: wrongAnswer.wordId,
-    projectId: wrongAnswer.projectId,
-    english: wrongAnswer.english,
-    japanese: wrongAnswer.japanese,
-    distractors: wrongAnswer.distractors,
-    status: 'review',
-    createdAt: new Date(timestamp).toISOString(),
-    lastReviewedAt: new Date(timestamp).toISOString(),
-    nextReviewAt: new Date(0).toISOString(),
-    easeFactor: 2.5,
-    intervalDays: 0,
-    repetition: 0,
-    isFavorite: false,
-  };
-}
-
-function DSDesktopWordOrderPanel({
-  question,
-  selectedTokens,
-  result,
-  isRevealed,
-  onSelectToken,
-  onRemoveToken,
-}: {
-  question: WordOrderQuizQuestion;
-  selectedTokens: string[];
-  result: 'correct' | 'wrong' | null;
-  isRevealed: boolean;
-  onSelectToken: (token: string) => void;
-  onRemoveToken: (index: number) => void;
-}) {
-  const usedOptionIndexes = getUsedWordOrderOptionIndexes(question.options, selectedTokens);
-  const answerStateClass = isRevealed ? (result === 'correct' ? ' correct' : ' wrong') : '';
-  const answerIsFull = selectedTokens.length >= question.answerTokens.length;
-  const example = getWordOrderExample(question);
-  // モバイル版と同様に、文中の固定単語（デフォルト表示）と空欄を並べて表示する
-  const sentenceItems = question.sentenceTokens.map((token, index) => ({
-    token,
-    index,
-    answerIndex: token === WORD_ORDER_BLANK_TOKEN
-      ? question.sentenceTokens
-        .slice(0, index + 1)
-        .filter((item) => item === WORD_ORDER_BLANK_TOKEN).length - 1
-      : null,
-  }));
-
-  return (
-    <div className="ds-word-order-stage">
-      <div className="ds-word-order-prompt">
-        <span className="ds-tag plain">日本語訳</span>
-        <div className="ds-word-order-meaning"><TranslationDisplay word={question.word} /></div>
-        <div className="muted ds-word-order-help">単語をクリックして正しい順に並べてください</div>
-      </div>
-
-      <div className={`ds-wo-answer${answerStateClass}`}>
-        {sentenceItems.map(({ token, index, answerIndex }) => {
-          if (token !== WORD_ORDER_BLANK_TOKEN) {
-            return (
-              <span key={`${token}-${index}`} className="ds-wo-fixed">
-                {token}
-              </span>
-            );
-          }
-
-          const selected = answerIndex === null ? undefined : selectedTokens[answerIndex];
-
-          if (!selected) {
-            return <span key={`blank-${index}`} className="ds-wo-blank" aria-label="空欄" />;
-          }
-
-          return (
-            <button
-              key={`blank-${index}`}
-              type="button"
-              className="ds-tile in-answer"
-              onClick={() => answerIndex !== null && onRemoveToken(answerIndex)}
-              disabled={isRevealed}
-            >
-              {selected}
-              {!isRevealed && (
-                <Icon
-                  name="close"
-                  style={{ fontSize: 14, marginLeft: 6, verticalAlign: '-2px', opacity: 0.7 }}
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="ds-wo-bank">
-        {question.options.map((token, index) => {
-          const isUsed = usedOptionIndexes.has(index);
-          return (
-            <button
-              key={`${token}-${index}`}
-              type="button"
-              className={`ds-tile${isUsed ? ' used' : ''}`}
-              onClick={() => onSelectToken(token)}
-              disabled={isRevealed || isUsed || answerIsFull}
-            >
-              {token}
-            </button>
-          );
-        })}
-      </div>
-
-      {isRevealed && example && (
-        <div className="w-full max-w-[860px] rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px] text-left">
-          <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-          <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
-            {example.sentence}
-          </div>
-          {example.translation && (
-            <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{example.translation}</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DSWordOrderPanel({
-  question,
-  selectedTokens,
-  result,
-  isRevealed,
-  onSelectToken,
-  onRemoveToken,
-  onSubmit,
-}: {
-  question: WordOrderQuizQuestion;
-  selectedTokens: string[];
-  result: 'correct' | 'wrong' | null;
-  isRevealed: boolean;
-  onSelectToken: (token: string) => void;
-  onRemoveToken: (index: number) => void;
-  onSubmit: () => void;
-}) {
-  const usedOptionIndexes = getUsedWordOrderOptionIndexes(question.options, selectedTokens);
-  const isReady = selectedTokens.length === question.answerTokens.length;
-  const example = getWordOrderExample(question);
-  const sentenceItems = question.sentenceTokens.map((token, index) => ({
-    token,
-    index,
-    answerIndex: token === WORD_ORDER_BLANK_TOKEN
-      ? question.sentenceTokens
-        .slice(0, index + 1)
-        .filter((item) => item === WORD_ORDER_BLANK_TOKEN).length - 1
-      : null,
-  }));
-
-  return (
-    <div className="mt-[18px] space-y-4">
-      <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
-        <div className="flex min-h-[76px] flex-wrap items-center gap-2">
-          {sentenceItems.map(({ token, index, answerIndex }) => {
-            if (token !== WORD_ORDER_BLANK_TOKEN) {
-              return (
-                <span
-                  key={`${token}-${index}`}
-                  className="inline-flex min-h-10 items-center rounded-xl border border-[var(--color-border)] bg-[color-mix(in_srgb,_var(--solid-ink)_4%,_transparent)] px-3 text-[15px] font-bold text-[var(--solid-ink)]"
-                >
-                  {token}
-                </span>
-              );
-            }
-
-            const selected = answerIndex === null ? undefined : selectedTokens[answerIndex];
-
-            return (
-              <button
-                key={`blank-${index}`}
-                type="button"
-                onClick={() => selected && answerIndex !== null && onRemoveToken(answerIndex)}
-                disabled={isRevealed || !selected}
-                className="inline-flex min-h-10 min-w-[74px] items-center justify-center rounded-xl border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-default"
-              >
-                {selected || ''}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        {/* 選んだ選択肢は取り除かずに透明にして場所を残す。詰めると残りの位置がずれて押し間違える */}
-        {question.options.map((token, index) => {
-          const isUsed = usedOptionIndexes.has(index);
-          return (
-            <button
-              key={`${token}-${index}`}
-              type="button"
-              onClick={() => onSelectToken(token)}
-              disabled={isRevealed || isUsed || selectedTokens.length >= question.answerTokens.length}
-              aria-hidden={isUsed || undefined}
-              tabIndex={isUsed ? -1 : undefined}
-              className={`relative min-h-12 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 text-center text-[15px] font-black text-[var(--solid-ink)] disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-muted)]${isUsed ? ' invisible' : ''}`}
-            >
-              {token}
-            </button>
-          );
-        })}
-      </div>
-
-      {!isRevealed && (
-        <SolidButton
-          variant="accent"
-          onClick={onSubmit}
-          disabled={!isReady}
-          className="w-full justify-center"
-        >
-          回答する
-        </SolidButton>
-      )}
-
-      {isRevealed && (
-        <div
-          className="rounded-xl border-2 p-3 text-center"
-          style={{
-            borderColor: result === 'correct' ? 'var(--color-accent-ink)' : '#b91c1c',
-            background: result === 'correct' ? 'var(--color-accent)' : 'var(--color-error)',
-          }}
-        >
-          <p className="text-sm font-bold text-white/85">
-            {result === 'correct' ? '正解' : '不正解'}
-          </p>
-          <p className="mt-1 text-lg font-black text-white">{question.word.english}</p>
-        </div>
-      )}
-
-      {isRevealed && example && (
-        <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px]">
-          <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-          <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
-            {example.sentence}
-          </div>
-          {example.translation && (
-            <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{example.translation}</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function QuizPage() {
@@ -1528,7 +1213,7 @@ export default function QuizPage() {
   const handleWordOrderSubmit = async () => {
     if (isRevealed || !isWordOrderQuestion(currentQuestion)) return;
     if (wordOrderSelectedTokens.length !== currentQuestion.answerTokens.length) return;
-    const isCorrect = tokensMatch(wordOrderSelectedTokens, currentQuestion.answerTokens);
+    const isCorrect = wordOrderTokensMatch(wordOrderSelectedTokens, currentQuestion.answerTokens);
     setWordOrderResult(isCorrect ? 'correct' : 'wrong');
     setIsRevealed(true);
     await applyAnswerOutcome(currentQuestion.word, isCorrect);

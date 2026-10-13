@@ -6,6 +6,12 @@ import {
   ADSENSE_DISPLAY_ADS_ENABLED,
 } from '@/lib/adsense';
 
+declare global {
+  interface Window {
+    adsbygoogle?: unknown[];
+  }
+}
+
 const REELS_INFEED_SLOT =
   process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_REELS_INFEED_SLOT?.trim() ?? '';
 const SHOW_PLACEHOLDER =

@@ -85,7 +85,7 @@ function getStatusFill(status: WordStatus, masteryLevel: number): string {
  * マスが示しているので、ここで色を増やすと行の情報量が上がるだけで、
  * ダークモードでのコントラストも取りづらい。
  */
-export function WordStatusLabel({ status, masteryLevel = 0 }: { status: WordStatus; masteryLevel?: number }) {
+function WordStatusLabel({ status, masteryLevel = 0 }: { status: WordStatus; masteryLevel?: number }) {
   // 習得の先は「習得」ではなく「Lv.N」。段階は status が、進みはレベルが示す。
   const label = status === 'mastered' ? getMasteryLevelLabel(masteryLevel) : STATUS_LABELS[status];
   return (
@@ -98,7 +98,7 @@ export function WordStatusLabel({ status, masteryLevel = 0 }: { status: WordStat
   );
 }
 
-export function StatusSquares({
+function StatusSquares({
   wordId,
   status,
   masteryLevel = 0,
@@ -477,7 +477,7 @@ export function WordRow({
   );
 }
 
-export function VocabularyTypeBadge({
+function VocabularyTypeBadge({
   vocabularyType,
 }: {
   vocabularyType: VocabularyType | null | undefined;
@@ -500,7 +500,7 @@ export function VocabularyTypeBadge({
   );
 }
 
-export function BookmarkBadge({ active }: { active: boolean }) {
+function BookmarkBadge({ active }: { active: boolean }) {
   return (
     <span
       className={`inline-flex h-7 w-7 shrink-0 items-center justify-center ${

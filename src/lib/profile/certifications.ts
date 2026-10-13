@@ -146,7 +146,7 @@ export function certificationKey(cert: ProfileCertification): string {
 const KEY_ORDER = ['eiken', 'toefl:ibt', 'toefl:band', 'toeic:lr', 'toeic:sw'];
 
 /** 表示順(英検 → TOEFL → TOEIC)に並べる。 */
-export function sortCertifications(list: ProfileCertification[]): ProfileCertification[] {
+function sortCertifications(list: ProfileCertification[]): ProfileCertification[] {
   return [...list].sort((a, b) => KEY_ORDER.indexOf(certificationKey(a)) - KEY_ORDER.indexOf(certificationKey(b)));
 }
 

@@ -7,7 +7,7 @@ import { remoteRepository } from './remote-repository';
 
 const READONLY_ERROR = 'このデータは読み取り専用です。編集するにはProプランに再登録してください。';
 
-export class ReadonlyRemoteRepository implements WordRepository {
+class ReadonlyRemoteRepository implements WordRepository {
   // ============ Projects (read-only) ============
 
   async createProject(

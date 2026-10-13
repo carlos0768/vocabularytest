@@ -37,21 +37,6 @@ export function markProjectVisited(projectId: string) {
   upsertRecentProjectVisit(projectId);
 }
 
-export function hasVisitedProject(projectId: string): boolean {
-  if (!projectId) return false;
-  return readVisitedProjectIds().has(projectId);
-}
-
-export function isRunningAsStandalonePwa(): boolean {
-  if (typeof window === 'undefined') return false;
-  const nav = navigator as Navigator & { standalone?: boolean };
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.matchMedia('(display-mode: fullscreen)').matches ||
-    nav.standalone === true
-  );
-}
-
 function readRecentProjectVisits(): RecentProjectVisit[] {
   if (typeof localStorage === 'undefined') return [];
   try {

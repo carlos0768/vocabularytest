@@ -30,7 +30,7 @@ export function isTranslationQuizTarget(word: Pick<Word, 'quizTarget'>): boolean
   return word.quizTarget?.kind === 'translation';
 }
 
-export function isDistinctQuizTranslation(translation: WordTranslation): boolean {
+function isDistinctQuizTranslation(translation: WordTranslation): boolean {
   return Boolean(normalizeKeyPart(translation.distinctKey)) && !translation.isPrimary;
 }
 
@@ -121,7 +121,7 @@ export function hasUnmasteredQuizTarget(
   return expandWordForQuizTargets(word, options).some((target) => target.status !== 'mastered');
 }
 
-export function isQuizTargetDueForReview(word: Word, now: Date = new Date()): boolean {
+function isQuizTargetDueForReview(word: Word, now: Date = new Date()): boolean {
   if (!word.nextReviewAt) {
     return Boolean(word.lastReviewedAt) || word.status !== 'new';
   }

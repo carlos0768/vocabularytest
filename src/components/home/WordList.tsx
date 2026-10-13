@@ -15,7 +15,7 @@ import type { Word, WordStatus } from '@/types';
 
 const STATUS_ARIA: Record<WordStatus, string> = { new: '未学習', review: '学習中', active: '定着中', mastered: '習得済' };
 
-export function NotionCheckbox({
+function NotionCheckbox({
   wordId,
   status,
   onStatusChange,

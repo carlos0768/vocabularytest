@@ -9,7 +9,7 @@ import { normalizeOAuthRedirectPath } from '@/lib/auth/oauth';
  * decides, from the profile row alone, whether a signed-in user still has to
  * go through the onboarding screens at /onboarding.
  */
-export const ONBOARDING_PATH = '/onboarding';
+const ONBOARDING_PATH = '/onboarding';
 
 export type OnboardingProfileRow = {
   username?: string | null;

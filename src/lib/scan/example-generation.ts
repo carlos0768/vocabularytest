@@ -204,16 +204,3 @@ export function buildServerCloudClassicalExampleSeedWords(
       ...(word.reading ? { reading: word.reading } : {}),
     }));
 }
-
-/**
- * 古典語の例文のDB更新ペイロード。
- * 英語版と違い part_of_speech_tags を含めない（古典語には当たらないため）。
- */
-export function buildServerCloudClassicalExampleUpdatePayload(
-  example: GeneratedClassicalExample,
-): { example_sentence: string; example_sentence_ja: string } {
-  return {
-    example_sentence: example.exampleSentence,
-    example_sentence_ja: example.exampleSentenceJa,
-  };
-}

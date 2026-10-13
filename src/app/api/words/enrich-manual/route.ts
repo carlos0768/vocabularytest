@@ -24,6 +24,7 @@ import { normalizeHeadword } from '../../../../../shared/lexicon';
 import type { WordMorphology, WordTranslation } from '../../../../../shared/types';
 import { looksLikeClassicalJapanese } from '@/lib/classical/normalize';
 import { applyClassicalDictionary, type ClassicalApplicableWord } from '@/lib/classical/apply';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 /**
  * POST /api/words/enrich-manual
@@ -288,8 +289,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. 認証チェックを AI と並列で実行
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const supabase = await createRouteHandlerClient(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)

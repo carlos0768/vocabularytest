@@ -24,6 +24,10 @@ const proGate = (async () => ({
   ),
 })) as unknown as typeof requireProUser;
 
+const mustNotCountImport = async () => {
+  throw new Error('countImport must not be called when the gate rejects');
+};
+
 const mustNotResolve = async () => {
   throw new Error('shared book must not be resolved for rejected requests');
 };
@@ -44,7 +48,7 @@ test('grammar/share/[shareId] GET rejects unauthenticated requests with 401', as
   const response = await handleGrammarShareGet(
     new NextRequest('http://localhost/api/grammar/share/some-share-id', { method: 'GET' }),
     { params: Promise.resolve({ shareId: 'some-share-id' }) },
-    { resolveUser: async () => null, requirePro: proGate, resolveShared: mustNotResolve },
+    { resolveUser: async () => null, requirePro: proGate, resolveShared: mustNotResolve, countImport: mustNotCountImport },
   );
   assert.equal(response.status, 401);
 });
@@ -53,7 +57,7 @@ test('grammar/share/[shareId] import rejects non-Pro users with 403', async () =
   const response = await handleGrammarShareImportPost(
     new NextRequest('http://localhost/api/grammar/share/some-share-id', { method: 'POST' }),
     { params: Promise.resolve({ shareId: 'some-share-id' }) },
-    { resolveUser: async () => ({ id: 'user-1' }), requirePro: proGate, resolveShared: mustNotResolve },
+    { resolveUser: async () => ({ id: 'user-1' }), requirePro: proGate, resolveShared: mustNotResolve, countImport: mustNotCountImport },
   );
   assert.equal(response.status, 403);
 });

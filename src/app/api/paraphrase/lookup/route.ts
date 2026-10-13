@@ -9,6 +9,7 @@ import {
   type ParaphraseLookupWord,
 } from '@/lib/paraphrase/server';
 import type { ParaphraseDatasetSource } from '@/lib/paraphrase/dataset';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 /**
  * POST /api/paraphrase/lookup
@@ -49,8 +50,7 @@ export async function handleParaphraseLookupPost(request: NextRequest, deps?: Pa
   try {
     const { createClient, lookup, sources } = getDeps(deps);
     const supabase = await createClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();

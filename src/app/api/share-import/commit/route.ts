@@ -10,8 +10,8 @@ import {
   buildDefaultProjectTitle,
   normalizeEnglish,
   normalizeJapanese,
-  resolveAuthenticatedUser,
 } from '@/app/api/share-import/shared';
+import { resolveAuthenticatedUser } from '@/lib/api/route-auth';
 
 const requestSchema = z.object({
   targetProjectId: z.string().uuid().nullable().optional(),

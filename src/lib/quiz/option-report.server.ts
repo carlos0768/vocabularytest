@@ -30,7 +30,7 @@ const judgementResponseSchema = z.object({
 });
 
 /** Gemini Controlled Generation schema mirroring `judgementResponseSchema`. */
-export const OPTION_REPORT_RESPONSE_SCHEMA: ResponseSchema = {
+const OPTION_REPORT_RESPONSE_SCHEMA: ResponseSchema = {
   type: 'OBJECT',
   properties: {
     verdict: { type: 'STRING', enum: [...OPTION_REPORT_VERDICTS] },

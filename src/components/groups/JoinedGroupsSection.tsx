@@ -64,7 +64,7 @@ export function JoinedGroupsSection({ groups }: { groups: StudyGroupSummary[] })
   );
 }
 
-export function JoinedGroupCard({ group, className }: { group: StudyGroupSummary; className?: string }) {
+function JoinedGroupCard({ group, className }: { group: StudyGroupSummary; className?: string }) {
   const handlePress = () => {
     triggerHaptic();
     // タップ時点で概要をシード+先読みし、グループページのヘッダーを
@@ -153,51 +153,5 @@ export function JoinedGroupCard({ group, className }: { group: StudyGroupSummary
         </div>
       </div>
     </Link>
-  );
-}
-
-/**
- * デスクトップ向けグリッド。モバイルの新UI（JoinedGroupCard: 今週のランキング
- * 上位3人つきのリッチカード）をそのままグリッドで並べる。
- */
-export function JoinedGroupGrid({
-  groups,
-  columns = 3,
-  title = '参加中のグループ',
-}: {
-  groups: StudyGroupSummary[];
-  columns?: number;
-  title?: string;
-}) {
-  if (groups.length === 0) return null;
-  return (
-    <section style={{ marginBottom: 26 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 17 }}>{title}</span>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minWidth: 20,
-            height: 20,
-            padding: '0 6px',
-            borderRadius: 999,
-            background: 'var(--solid-ink)',
-            color: 'var(--color-on-ink)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            fontWeight: 800,
-          }}
-        >
-          {groups.length}
-        </span>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 16, alignItems: 'stretch' }}>
-        {groups.map((group) => (
-          <JoinedGroupCard key={group.id} group={group} className="h-full [&>div]:h-full" />
-        ))}
-      </div>
-    </section>
   );
 }

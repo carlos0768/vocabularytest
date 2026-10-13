@@ -13,7 +13,7 @@ import {
   loadGroupOverview,
 } from '@/lib/shared-projects/group-overview-cache';
 import type { SharedProjectCard, StudyGroupSummary } from '@/lib/shared-projects/types';
-import { thumbColor } from '../member-ui';
+import { thumbColor } from '@/lib/ui/thumb-color';
 import { ShareToGroupSheet } from '../share-to-group-sheet';
 
 export default function GroupBookshelfClient() {

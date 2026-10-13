@@ -10,6 +10,7 @@ import {
 } from './prompts';
 import { AI_CONFIG } from './config';
 import { AIError, getProviderFromConfig } from './providers';
+import { extractJsonContent } from './utils/json';
 import { extractWordsFromImage as extractWordsFromImageBase } from './extract-words';
 import { filterWordsByLexiconCefrLevel } from '@/lib/lexicon/eiken-cefr-filter';
 import type { EikenLevel } from '@/app/api/extract/route';
@@ -84,21 +85,6 @@ function parseImageInput(imageBase64: string): ParsedImageInput {
   return { success: true, base64Data, mimeType };
 }
 
-function extractJsonContent(content: string): string {
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-
-  const jsonStartIndex = content.indexOf('{');
-  const jsonEndIndex = content.lastIndexOf('}');
-  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-    return content.slice(jsonStartIndex, jsonEndIndex + 1);
-  }
-
-  return content;
-}
-
 function parseEikenOCRContent(content: string): { text: string; sourceLabels: string[] } {
   const trimmed = content.trim();
   const jsonContent = extractJsonContent(trimmed);
@@ -129,7 +115,7 @@ function parseEikenOCRContent(content: string): { text: string; sourceLabels: st
 /**
  * Step 1: Extract text from image
  */
-export async function extractTextForEiken(
+async function extractTextForEiken(
   imageBase64: string,
   apiKeys: ProviderApiKeys,
   deps: EikenDeps = {}
@@ -336,7 +322,7 @@ async function finalizeEikenAnalysis(
  * Single-pass extraction (experimental): image -> level-filtered words in one call.
  * Enabled via EIKEN_SINGLE_PASS_EXTRACTION=1 or deps.singlePassExtraction.
  */
-export async function extractEikenWordsSinglePass(
+async function extractEikenWordsSinglePass(
   imageBase64: string,
   apiKeys: ProviderApiKeys,
   eikenLevel: NonNullable<EikenLevel>,

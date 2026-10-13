@@ -13,7 +13,7 @@ export function normalizeInternalWorkerValue(value: string | null | undefined): 
   return value.replace(/[\r\n]+/g, '').trim();
 }
 
-export function getAvailableInternalWorkerTokens(
+function getAvailableInternalWorkerTokens(
   env: InternalWorkerEnv = process.env,
 ): Array<{ source: InternalWorkerTokenEnvName; token: string }> {
   const tokens: Array<{ source: InternalWorkerTokenEnvName; token: string }> = [];
@@ -32,7 +32,7 @@ export function getAvailableInternalWorkerTokens(
   return tokens;
 }
 
-export function getInternalWorkerToken(
+function getInternalWorkerToken(
   env: InternalWorkerEnv = process.env,
 ): { source: InternalWorkerTokenEnvName; token: string } | null {
   return getAvailableInternalWorkerTokens(env)[0] ?? null;

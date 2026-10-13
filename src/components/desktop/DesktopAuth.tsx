@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
@@ -252,22 +251,5 @@ export function DesktopAuthOAuth({
         })}
       </div>
     </>
-  );
-}
-
-export function DesktopAuthFooterLink({
-  children,
-  href,
-}: {
-  children: ReactNode;
-  href: string;
-}) {
-  return (
-    <div className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 24 }}>
-      {children}{' '}
-      <Link href={href} style={{ color: 'var(--color-accent)', fontWeight: 700, textDecoration: 'none' }}>
-        こちら
-      </Link>
-    </div>
   );
 }

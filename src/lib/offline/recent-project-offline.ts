@@ -91,19 +91,3 @@ export async function prefetchRecentProjectsForOffline(userId: string, limit: nu
     console.error('[OfflinePrefetch] Failed to prefetch recent projects:', error);
   }
 }
-
-export async function cacheProjectForOffline(userId: string, projectId: string): Promise<void> {
-  if (typeof window === 'undefined' || !navigator.onLine || !userId || !projectId) return;
-  const now = Date.now();
-  if (!shouldRefreshProject(userId, projectId, now)) return;
-
-  try {
-    const project = await remoteRepository.getProject(projectId);
-    if (!project || project.userId !== userId) return;
-    const words = await remoteRepository.getWords(projectId);
-    await cacheProjectsToIndexedDb([project], { [projectId]: words });
-    markProjectsRefreshed(userId, [projectId], now);
-  } catch (error) {
-    console.error('[OfflinePrefetch] Failed to cache project:', error);
-  }
-}

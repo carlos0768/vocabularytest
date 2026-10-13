@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveAuthenticatedUser } from '@/app/api/share-import/shared';
+import { resolveAuthenticatedUser } from '@/lib/api/route-auth';
 import {
   OFFICIAL_WORDBOOK_GUEST_PREVIEW_WORDS,
   getPublicOfficialWordbook,

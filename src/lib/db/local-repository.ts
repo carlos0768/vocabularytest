@@ -10,7 +10,7 @@ import { DEFAULT_SCANNED_VOCABULARY_TYPE } from '@/lib/vocabulary-type';
 // Local implementation of WordRepository using Dexie (IndexedDB)
 // Used for Free tier users - data stays on device
 
-export class LocalWordRepository implements WordRepository {
+class LocalWordRepository implements WordRepository {
   // ============ Projects ============
 
   async createProject(

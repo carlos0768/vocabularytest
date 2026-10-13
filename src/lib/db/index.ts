@@ -1,17 +1,12 @@
 // Database layer exports
 // Repository Pattern: UI layer imports from here without knowing the storage backend
 
-export { db, getDb } from './dexie';
-export { LocalWordRepository, localRepository } from './local-repository';
-export { RemoteWordRepository, remoteRepository } from './remote-repository';
+export { getDb } from './dexie';
 export {
-  HybridWordRepository,
   hybridRepository,
-  FULL_SYNC_INTERVAL_MS,
   shouldRunFullSync,
 } from './hybrid-repository';
-export { ReadonlyRemoteRepository, readonlyRemoteRepository } from './readonly-remote-repository';
-export { SyncQueue, syncQueue } from './sync-queue';
+export { syncQueue } from './sync-queue';
 
 import type { WordRepository, SubscriptionStatus } from '@/types';
 import { hybridRepository } from './hybrid-repository';

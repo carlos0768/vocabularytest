@@ -63,9 +63,3 @@ export function getAppStoreClientBundle(): AppStoreClientBundle {
   cachedKey = key;
   return cachedBundle;
 }
-
-export function resetAppStoreClientCacheForTests() {
-  cachedBundle = null;
-  cachedKey = null;
-}
-

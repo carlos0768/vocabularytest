@@ -9,6 +9,7 @@ import {
   readBooleanEnv,
   readNumberEnv,
 } from '@/lib/ai/feature-usage';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 // API Route: POST /api/translate
 // Translates an English word/phrase to Japanese using AI
@@ -22,8 +23,7 @@ export async function POST(request: NextRequest) {
     const requireAuth = readBooleanEnv('REQUIRE_AUTH_TRANSLATE', true);
     const enableUsageLimits = isAiUsageLimitsEnabled();
     const supabase = await createRouteHandlerClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();

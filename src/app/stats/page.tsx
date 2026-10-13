@@ -8,6 +8,8 @@ import { SolidPanel } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { getStats, type CachedStats } from '@/lib/stats-cache';
 import type { FriendProfile, FriendTimelineSession } from '@/lib/friends/types';
+import { displayName } from '@/lib/profile/display-name';
+import { thumbColor } from '@/lib/ui/thumb-color';
 
 const HEAT_COLORS = [
   'color-mix(in srgb, var(--solid-ink) 7%, transparent)',
@@ -15,17 +17,6 @@ const HEAT_COLORS = [
   'rgba(61,122,78,0.7)',
   'var(--color-success)',
 ];
-
-// Site-wide avatar/thumbnail palette (matches home, collections, shared, feed).
-const THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-
-function avatarColor(identifier: string): string {
-  let hash = 0;
-  for (let i = 0; i < identifier.length; i++) {
-    hash = ((hash << 5) - hash + identifier.charCodeAt(i)) | 0;
-  }
-  return THUMBS[Math.abs(hash) % THUMBS.length];
-}
 
 type StatsLoadState = {
   authKey: string;
@@ -43,10 +34,6 @@ function heatLevel(count: number): number {
   if (count < 5) return 1;
   if (count < 15) return 2;
   return 3;
-}
-
-function displayName(profile: FriendProfile): string {
-  return profile.username?.trim() || `@${profile.accountId}`;
 }
 
 function formatSessionTime(value: string): string {
@@ -141,7 +128,7 @@ export default function StatsPage() {
   const masteryPercent = totalWords > 0 ? Math.round((mastered / totalWords) * 100) : 0;
 
   const userInitial = (user?.email || '?').charAt(0).toUpperCase();
-  const userColor = avatarColor(user?.id ?? 'guest');
+  const userColor = thumbColor(user?.id ?? 'guest');
 
   return (
     <>
@@ -376,7 +363,7 @@ function TimelineItem({
 
 function FeedAvatar({ profile }: { profile: Pick<FriendProfile, 'username' | 'accountId'> }) {
   const label = (profile.username || profile.accountId || '?').charAt(0).toUpperCase();
-  const color = avatarColor(profile.accountId);
+  const color = thumbColor(profile.accountId);
   return (
     <div
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border-2 border-[var(--solid-ink)] font-display text-[16px] font-extrabold text-white"

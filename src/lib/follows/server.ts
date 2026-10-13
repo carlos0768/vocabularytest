@@ -2,9 +2,9 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import {
   ensureFriendProfile,
   normalizeAccountIdInput,
-  buildDefaultAccountId,
   getFriendSchemaIssue,
 } from '@/lib/friends/server';
+import { buildDefaultAccountId } from '@/lib/auth/signup-profile';
 import { normalizeStoredAvatarUrl } from '@/lib/profile/avatar';
 import { sendFollowPushNotification } from '@/lib/notifications/web-push';
 import type { FriendProfile, FriendTimelineSession, QuizSessionWordSummary } from '@/lib/friends/types';
@@ -23,6 +23,7 @@ import type {
   FollowsHomePayload,
   FollowNotification,
 } from './types';
+import { isUniqueViolation } from '@/lib/supabase/postgres-errors';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -104,10 +105,6 @@ function toProfile(row: ProfileRow): FriendProfile {
 
 function fallbackProfile(userId: string): FriendProfile {
   return { userId, username: null, accountId: buildDefaultAccountId(userId), avatarUrl: null };
-}
-
-function isUniqueViolation(error: { code?: string | null } | null | undefined): boolean {
-  return error?.code === '23505';
 }
 
 export async function getProfilesByUserIds(

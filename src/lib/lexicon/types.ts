@@ -28,5 +28,3 @@ export interface LexiconResolveMetrics {
   runtimeCreatedCount: number;
   resolverElapsedMs: number;
 }
-
-export type LexiconEnrichmentJobSource = 'scan' | 'manual';

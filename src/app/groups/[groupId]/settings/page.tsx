@@ -20,7 +20,8 @@ import type {
   StudyGroupMember,
   StudyGroupSummary,
 } from '@/lib/shared-projects/types';
-import { ProfileTapTarget, memberInitial, memberLabel, profileHref, thumbColor } from '../member-ui';
+import { ProfileTapTarget, memberInitial, memberLabel, profileHref } from '../member-ui';
+import { thumbColor } from '@/lib/ui/thumb-color';
 
 export default function GroupSettingsPage() {
   const params = useParams<{ groupId: string }>();

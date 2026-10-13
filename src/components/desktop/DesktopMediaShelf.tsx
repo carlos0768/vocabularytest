@@ -11,53 +11,6 @@ import Link from 'next/link';
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 
-export function DesktopShelf({
-  title,
-  count,
-  seeAllHref,
-  onSeeAll,
-  columns,
-  children,
-}: {
-  title: string;
-  count?: number;
-  seeAllHref?: string;
-  onSeeAll?: () => void;
-  /** 1 行に表示する枚数。省略時は CSS の既定値（4枚） */
-  columns?: number;
-  children: ReactNode;
-}) {
-  return (
-    <section className="ds-shelf">
-      <div className="ds-shelf-head">
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-          <h2>{title}</h2>
-          {typeof count === 'number' && (
-            <span className="mono muted" style={{ fontSize: 12 }}>{count}</span>
-          )}
-        </div>
-        {seeAllHref ? (
-          <Link href={seeAllHref} className="see-all">
-            すべて表示
-            <Icon name="chevron_right" style={{ fontSize: 15 }} />
-          </Link>
-        ) : onSeeAll ? (
-          <button type="button" className="see-all" onClick={onSeeAll}>
-            すべて表示
-            <Icon name="chevron_right" style={{ fontSize: 15 }} />
-          </button>
-        ) : null}
-      </div>
-      <div
-        className="ds-shelf-row"
-        style={columns ? ({ '--shelf-cols': columns } as CSSProperties) : undefined}
-      >
-        {children}
-      </div>
-    </section>
-  );
-}
-
 export function DesktopMediaCard({
   href,
   onClick,

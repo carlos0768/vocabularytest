@@ -54,7 +54,7 @@ function parseAppAppleId(raw: string | undefined): number | undefined {
   return parsed;
 }
 
-export function loadAppStoreConfig(): AppStoreConfig {
+function loadAppStoreConfig(): AppStoreConfig {
   const environment = parseEnvironment(requireEnv('APPLE_IAP_ENV'));
   const appAppleId = parseAppAppleId(process.env.APPLE_IAP_APP_APPLE_ID?.trim());
 
@@ -84,8 +84,3 @@ export function getAppStoreConfig(): AppStoreConfig {
   }
   return cachedConfig;
 }
-
-export function resetAppStoreConfigCacheForTests() {
-  cachedConfig = null;
-}
-

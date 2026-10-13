@@ -41,7 +41,7 @@ export function isAiUsageLimitsEnabled(): boolean {
   return readBooleanEnv('ENABLE_AI_USAGE_LIMITS', true);
 }
 
-export function normalizeFeatureUsageResult(raw: unknown): FeatureUsageCheckResult {
+function normalizeFeatureUsageResult(raw: unknown): FeatureUsageCheckResult {
   const value = raw && typeof raw === 'object'
     ? raw as Record<string, unknown>
     : {};

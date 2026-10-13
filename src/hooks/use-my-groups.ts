@@ -50,14 +50,6 @@ function loadMyGroups(force = false): Promise<StudyGroupSummary[]> {
   return inflight;
 }
 
-/** 参加/退会後に呼ぶとキャッシュを破棄して再取得する。 */
-export function refreshMyGroups(): void {
-  cachedGroups = null;
-  void loadMyGroups(true).catch((error) => {
-    console.warn('Failed to refresh joined groups:', error);
-  });
-}
-
 export function useMyGroups(): { groups: StudyGroupSummary[]; loading: boolean } {
   const { isAuthenticated, loading: authLoading } = useAuth();
   // null = 未取得。表示値は認証状態から導出する（effect内の同期setStateを避ける）。

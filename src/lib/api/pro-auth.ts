@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { isActiveProSubscription } from '@/lib/subscription/status';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 type ProAuthSuccess = {
   ok: true;
@@ -17,8 +18,7 @@ type ProAuthFailure = {
 
 export async function requireProUser(request: NextRequest): Promise<ProAuthSuccess | ProAuthFailure> {
   const supabase = await createRouteHandlerClient(request);
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const bearerToken = getBearerToken(request);
   const { data: { user }, error: authError } = bearerToken
     ? await supabase.auth.getUser(bearerToken)
     : await supabase.auth.getUser();

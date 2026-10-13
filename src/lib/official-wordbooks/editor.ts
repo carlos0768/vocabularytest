@@ -26,7 +26,7 @@ export const OFFICIAL_WORDBOOK_EIKEN_LEVEL_LABELS: Record<OfficialWordbookEikenL
 export const MAX_OFFICIAL_WORDBOOK_WORDS = 2000;
 
 /** PostgREST のバルクinsertは1回あたりを分割して投げる(巨大ボディ対策)。 */
-export const OFFICIAL_WORDBOOK_WORD_INSERT_CHUNK_SIZE = 500;
+const OFFICIAL_WORDBOOK_WORD_INSERT_CHUNK_SIZE = 500;
 
 // DBの official_wordbooks_slug_format CHECK と同じ正規表現。
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9_-]{1,80}$/;
@@ -48,7 +48,7 @@ export const officialWordbookWordInputSchema = z
 
 export type OfficialWordbookWordInput = z.infer<typeof officialWordbookWordInputSchema>;
 
-export const officialWordbookWordsInputSchema = z
+const officialWordbookWordsInputSchema = z
   .array(officialWordbookWordInputSchema)
   .max(MAX_OFFICIAL_WORDBOOK_WORDS);
 
@@ -128,11 +128,6 @@ export type OfficialWordbookSummary = {
   createdAt: string;
   updatedAt: string;
 };
-
-export type OfficialWordbookDetail = OfficialWordbookSummary & {
-  words: OfficialWordbookWordInput[];
-};
-
 export const OFFICIAL_WORDBOOK_COLUMNS =
   'id,slug,title,description,eiken_level,is_default,is_active,source_labels,icon_image,sort_order,created_at,updated_at';
 

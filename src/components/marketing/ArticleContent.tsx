@@ -103,7 +103,7 @@ export function ArticlePage({
   );
 }
 
-export function ArticleCard({ article, href }: { article: Article; href: string }) {
+function ArticleCard({ article, href }: { article: Article; href: string }) {
   return (
     <Link
       href={href}

@@ -11,6 +11,7 @@ import {
   readBooleanEnv,
   readNumberEnv,
 } from '@/lib/ai/feature-usage';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 // リクエストスキーマ
 const requestSchema = z.object({
@@ -40,8 +41,7 @@ export async function POST(request: NextRequest) {
     const requireAuth = readBooleanEnv('REQUIRE_AUTH_GENERATE_EXAMPLES', true);
     const enableUsageLimits = isAiUsageLimitsEnabled();
     const supabase = await createRouteHandlerClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();
