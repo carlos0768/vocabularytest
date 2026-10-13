@@ -318,7 +318,7 @@ function WordRowText({
   // 英語側の赤シートも訳側と同じく、ベタは見出し語の幅だけに敷く (flex の子にして
   // 内容幅に縮め、長い語は truncate で `...` にする)。
   const english = (
-    <div className="flex min-w-0 font-display text-[15px] font-bold text-[var(--solid-ink)] lg:text-[16px]">
+    <div className="flex min-w-0 font-display text-[15px] font-bold text-[var(--solid-ink)] desktop:text-[16px]">
       <RedSheetMask
         hidden={hideEnglish}
         interactive={interactive}
@@ -332,7 +332,7 @@ function WordRowText({
   );
   const meaning = (
     <>
-      {pos && <span className="shrink-0 font-mono text-[9px] lg:text-[11px]">{posShort(pos)}</span>}
+      {pos && <span className="shrink-0 font-mono text-[9px] desktop:text-[11px]">{posShort(pos)}</span>}
       <MaskedTranslation word={word} hidden={hideMeaning} interactive={interactive} stacked={splitMeaning} />
       <WrongCountBadge count={wrongCount} />
     </>
@@ -342,7 +342,7 @@ function WordRowText({
     return (
       <>
         {english}
-        <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)] lg:text-[13px]">{meaning}</div>
+        <div className="mt-px flex items-center gap-1 text-[11px] text-[var(--color-muted)] desktop:text-[13px]">{meaning}</div>
       </>
     );
   }
@@ -355,7 +355,7 @@ function WordRowText({
     <div className="flex min-w-0 flex-1 items-center gap-2">
       <div className="min-w-0 shrink-0 basis-[46%]">{english}</div>
       <span aria-hidden className="-my-2.5 w-px shrink-0 self-stretch bg-[var(--color-border)]" />
-      <div className="flex min-w-0 flex-1 items-baseline gap-1 text-[11px] text-[var(--color-muted)] lg:text-[13.5px] lg:text-[var(--color-secondary-text)]">{meaning}</div>
+      <div className="flex min-w-0 flex-1 items-baseline gap-1 text-[11px] text-[var(--color-muted)] desktop:text-[13.5px] desktop:text-[var(--color-secondary-text)]">{meaning}</div>
     </div>
   );
 }

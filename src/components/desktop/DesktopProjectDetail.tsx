@@ -263,7 +263,7 @@ export function DesktopProjectDetailView({
   };
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       {/* 戻る / BOOK / 共有 / その他: スクロールしても上に固定される */}
       <div className="ds-top" style={{ gap: 10 }}>
         <button type="button" className="ds-iconbtn-round sm" onClick={goBack} aria-label="戻る" title="戻る">

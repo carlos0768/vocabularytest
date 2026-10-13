@@ -224,8 +224,8 @@ function FavoritesPageContent() {
           onBack={() => router.back()}
         />
       ) : (
-        <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
-          <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2 lg:hidden">
+        <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] desktop:hidden">
+          <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2 desktop:hidden">
             <button
               type="button"
               onClick={() => router.back()}
@@ -239,7 +239,7 @@ function FavoritesPageContent() {
             </div>
           </div>
 
-          <div className="px-[18px] pb-3.5 pt-1 lg:pt-4">
+          <div className="px-[18px] pb-3.5 pt-1 desktop:pt-4">
             <div>
               <div className="overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
                 <div className="pointer-events-none absolute -right-3.5 -top-4 opacity-10 text-[var(--color-accent)]">
@@ -464,7 +464,7 @@ function MobileWrongAnswersView({
   const rows = [...wrongAnswers].sort((a, b) => b.wrongCount - a.wrongCount || b.lastWrongAt - a.lastWrongAt);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] desktop:hidden">
       <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2">
         <button
           type="button"

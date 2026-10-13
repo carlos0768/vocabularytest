@@ -99,7 +99,7 @@ export function ProfileWordbooks({
       ) : (
         <>
           {/* 横スクロール。ページの左右余白(18px)ぶんはみ出させて、画面の端までスクロールできるようにする */}
-          <div className="-mx-[18px] mt-3 flex snap-x snap-mandatory scroll-px-[18px] gap-2.5 overflow-x-auto px-[18px] pb-2 [scrollbar-width:none] lg:mx-0 lg:scroll-px-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
+          <div className="-mx-[18px] mt-3 flex snap-x snap-mandatory scroll-px-[18px] gap-2.5 overflow-x-auto px-[18px] pb-2 [scrollbar-width:none] desktop:mx-0 desktop:scroll-px-0 desktop:px-0 [&::-webkit-scrollbar]:hidden">
             {items.map((wordbook) => (
               <WordbookCard key={wordbook.id} wordbook={wordbook} href={wordbookHref?.(wordbook.id)} />
             ))}

@@ -130,7 +130,7 @@ export function DesktopGrammarBooksView({
   const overallPct = totalQuestions > 0 ? Math.round((totalMastered / totalQuestions) * 100) : 0;
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="語法問題集" crumb="文法・語法 / 空欄補充・英語4択">
         <DesktopSearchBox
           placeholder="問題集を検索"
@@ -374,7 +374,7 @@ export function DesktopGrammarPracticeView({
   const showBottomBar = loadState.kind === 'ready' && totalQuestions > 0 && !finished && !!question;
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       {/* ヘッダ: 左端に戻る(左矢印のみ)、中央にタイトルと進捗 */}
       <div className="ds-top">
         <Link href="/grammar" className="ds-btn ghost ds-btn--icon" title="一覧へ戻る" aria-label="一覧へ戻る">
@@ -617,7 +617,7 @@ export function DesktopGrammarQuestionListView({
   const selectedQuestion = selectedIndex !== null ? questions[selectedIndex] : undefined;
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar
         title="問題一覧"
         crumb="文法・語法 / 問題リスト"

@@ -48,7 +48,7 @@ export function DesktopStatsView({
     : EMPTY_DESKTOP_STUDY_SUMMARY;
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="学習の推移" crumb="進歩 / トレンド" />
       <div className="ds-scroll" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start' }}>
         <div>

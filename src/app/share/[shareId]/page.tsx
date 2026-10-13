@@ -706,7 +706,7 @@ export default function SharedDetailPage() {
         onToggleSelectAll={handleToggleSelectAll}
         onAddSelectedToBook={() => void handleOpenBookPicker(selectedWords)}
       />
-      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] lg:hidden">
+      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] desktop:hidden">
       {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
           top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。
           下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}

@@ -37,8 +37,8 @@ export default function CoinsPage() {
   // フラグ状態が未取得の間は購入UIを出さない
   if (enabled === null) {
     return (
-      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:min-h-0 lg:h-full">
-        <div className="flex min-h-[60vh] items-center justify-center lg:min-h-0 lg:h-full">
+      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] desktop:min-h-0 desktop:h-full">
+        <div className="flex min-h-[60vh] items-center justify-center desktop:min-h-0 desktop:h-full">
           <Icon name="progress_activity" size={24} className="animate-spin text-[var(--color-muted)]" />
         </div>
       </div>
@@ -68,7 +68,7 @@ export default function CoinsPage() {
   return (
     <>
     {/* Desktop */}
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="コイン" crumb="アカウント / 残高と購入">
         {!isPro && !authLoading && (
           <DesktopButton href="/subscription" variant="accent" icon="auto_awesome">
@@ -156,7 +156,7 @@ export default function CoinsPage() {
     </div>
 
     {/* Mobile */}
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] desktop:hidden">
       <div className="px-[18px] pb-[14px] pt-1">
         <button
           type="button"

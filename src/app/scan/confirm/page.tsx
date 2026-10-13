@@ -379,7 +379,7 @@ export default function ConfirmPage() {
         onBack={() => router.back()}
         onSaveProject={() => void handleSaveProject()}
       />
-      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] desktop:hidden">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2">
         <button type="button" onClick={() => router.back()} className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px">

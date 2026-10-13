@@ -224,7 +224,7 @@ export function DesktopSharedView({
   ) : null;
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <div className="ds-top" style={{ gap: 10 }}>
         {isCategory && (
           <button type="button" className="ds-iconbtn-round sm" onClick={onBackToAll} aria-label="共有単語帳に戻る" title="戻る">

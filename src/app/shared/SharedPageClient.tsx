@@ -419,7 +419,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         onLoadMore={handleLoadMore}
       />
 
-      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
         {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
             top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。
             下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}

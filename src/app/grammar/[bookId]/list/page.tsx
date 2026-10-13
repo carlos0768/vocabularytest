@@ -179,7 +179,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
         }}
       />
 
-      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 font-[var(--font-body)] lg:hidden">
+      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 font-[var(--font-body)] desktop:hidden">
       {/* Header: 他ページ (単語帳詳細など) と同じ固定ヘッダ。ノッチ帯は全体共通の StatusBarCover が覆う */}
       <header
         className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
@@ -303,7 +303,7 @@ export default function GrammarQuestionListPage({ params }: { params: Promise<{ 
 
       {/* 問題詳細 (正解・解説) のフローティング表示。/project/* の単語詳細と同じ構成 */}
       {selectedQuestion && selectedIndex !== null && (
-        <div className="fixed inset-0 z-[80] lg:hidden" style={{ fontFamily: 'var(--font-body)' }}>
+        <div className="fixed inset-0 z-[80] desktop:hidden" style={{ fontFamily: 'var(--font-body)' }}>
           <div
             className="absolute inset-0"
             style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}

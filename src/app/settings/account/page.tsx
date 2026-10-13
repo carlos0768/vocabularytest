@@ -25,7 +25,7 @@ export default function AccountSettingsPage() {
   const planHint = getPlanHint(subscription, isPro);
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
       <StickyPageHeader
         eyebrow="ACCOUNT"
         title="アカウント"

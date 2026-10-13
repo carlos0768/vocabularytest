@@ -190,8 +190,8 @@ export default function GoalPage() {
   // tablet / desktop はシェルがスクロールを持つので従来どおり。
   useLockPageScroll(layoutMode === 'phone');
   return (
-    <div className="relative flex h-[calc(100dvh-env(safe-area-inset-top,0px))] flex-col overflow-hidden bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1 lg:block lg:h-auto lg:min-h-dvh lg:overflow-visible">
-      <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col lg:block">
+    <div className="relative flex h-[calc(100dvh-env(safe-area-inset-top,0px))] flex-col overflow-hidden bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1 desktop:block desktop:h-auto desktop:min-h-dvh desktop:overflow-visible">
+      <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col desktop:block">
         <div className="shrink-0 px-[18px] pb-3 pt-2 short:pb-2 short:pt-1">
           <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)] short:hidden">
             GOAL

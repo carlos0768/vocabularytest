@@ -768,7 +768,7 @@ export default function FlashcardPage() {
     <>
     {/* 自動再生中、バックグラウンドでも読み上げが止まりにくくするための無音ループ (画面には表示しない) */}
     <audio ref={silentAudioRef} src="/audio/silence-loop.wav" loop playsInline preload="auto" hidden aria-hidden="true" />
-    <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
+    <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:flex">
       <div className="ds-fc-wrap">
         <div className="ds-quiz-head" style={{ maxWidth: 720 }}>
           <button type="button" className="x" onClick={backToProject} aria-label="閉じる">
@@ -902,7 +902,7 @@ export default function FlashcardPage() {
       </div>
     </div>
 
-    <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+    <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden">
       {/* Header: HeaderBtn close | progress | HeaderBtn filter / autoplay */}
       <div
         className="flex shrink-0 items-center justify-between px-4 pb-2.5"

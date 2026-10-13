@@ -192,7 +192,7 @@ export function ProfileView({
       derived={{ recentWeek, weekTotal, maxWeekValue, heat, totalDays, avgPerDay, totalWords, mastered, review, newWords, masteryPercent }}
     />
     <div
-      className={`relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden ${
+      className={`relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] desktop:hidden ${
         withBottomNav ? 'pb-[110px]' : 'pb-[max(24px,env(safe-area-inset-bottom))]'
       }`}
     >
@@ -519,7 +519,7 @@ function DesktopProfileView({
   ];
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title={title} crumb="ACCOUNT" back={Boolean(backHref)} backFallbackHref={backHref ?? '/'}>
         {onShare && (
           <DesktopButton onClick={() => void onShare()} icon="ios_share" className="pill">

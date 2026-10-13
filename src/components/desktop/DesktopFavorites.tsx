@@ -65,7 +65,7 @@ export function DesktopFavoritesView({
   }, [selectedWord, rows]);
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="保存" crumb="コレクション">
         <DesktopButton href={isPro ? `/quiz/all?favorites=1&count=10&from=${returnPath}` : '/subscription'} variant="accent" icon="school">
           クイズ
@@ -198,7 +198,7 @@ export function DesktopWrongAnswersView({
   const rows = [...wrongAnswers].sort((a, b) => b.wrongCount - a.wrongCount || b.lastWrongAt - a.lastWrongAt);
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="間違えた問題" crumb="コレクション">
         <DesktopButton href={`/quiz/all?wrong=1&count=10&from=${returnPath}`} variant="accent" icon="replay">
           もう一度クイズ

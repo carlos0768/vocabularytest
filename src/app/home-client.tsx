@@ -721,10 +721,10 @@ export function HomeClient() {
         showUpgrade={showUpgradeBanner}
         onDismissUpgrade={dismissUpgradeBanner}
       />
-      <div className="relative min-h-screen overflow-x-clip bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen overflow-x-clip bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
       {/* 下スクロールで上へ格納し、上スクロールで戻ってくるヘッダ */}
       <div
-        className={`sticky z-40 flex items-center justify-between border-b-2 bg-[var(--color-background)]/95 px-[18px] pb-4 pt-5 backdrop-blur-md transition-transform duration-200 ease-out lg:hidden ${
+        className={`sticky z-40 flex items-center justify-between border-b-2 bg-[var(--color-background)]/95 px-[18px] pb-4 pt-5 backdrop-blur-md transition-transform duration-200 ease-out desktop:hidden ${
           headerScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'
         }`}
         style={{

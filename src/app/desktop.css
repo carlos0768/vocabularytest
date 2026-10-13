@@ -1363,42 +1363,42 @@ a.ds-feed-avatar:hover { transform: translateY(-1px); }
   display: none;
 }
 
-@media (min-width: 1024px) {
-  .ds-live-shell {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 100dvh;
-    overflow: hidden;
-    font-family: var(--font-body);
-    color: var(--color-foreground);
-    -webkit-font-smoothing: antialiased;
-    --sidebar-width: 0px;
-  }
+/* PC レイアウトのときだけ。幅ではなく <html data-layout="desktop"> で切り替える
+   (判定は src/lib/ui/layout-mode.ts。iPad 横は 1024px 以上でも tablet になる) */
+html[data-layout="desktop"] .ds-live-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  font-family: var(--font-body);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  --sidebar-width: 0px;
+}
 
-  .ds-live-shell > .ds-header {
-    display: flex;
-  }
+html[data-layout="desktop"] .ds-live-shell > .ds-header {
+  display: flex;
+}
 
-  /* 本文。Desktop* ビュー (h-full + 内側の .ds-scroll) はここに収まり、
-     モバイル由来のページ (min-h-screen) はこの要素がスクロールする */
-  .ds-live-main {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-  }
+/* 本文。Desktop* ビュー (h-full + 内側の .ds-scroll) はここに収まり、
+   モバイル由来のページ (min-h-screen) はこの要素がスクロールする */
+html[data-layout="desktop"] .ds-live-main {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
 
-  /* 子はページ本体。縮ませない (min-height:0 + flex-shrink で本体が画面の高さに
-     潰れると、モバイル由来のページの sticky なヘッダ / 絞り込みパネルが途中で
-     基準を失って消える・跳ねる)。Desktop* ビューは h-full なのでそのまま収まる */
-  .ds-live-main > * {
-    flex-shrink: 0;
-  }
+/* 子はページ本体。縮ませない (min-height:0 + flex-shrink で本体が画面の高さに
+   潰れると、モバイル由来のページの sticky なヘッダ / 絞り込みパネルが途中で
+   基準を失って消える・跳ねる)。Desktop* ビューは h-full なのでそのまま収まる */
+html[data-layout="desktop"] .ds-live-main > * {
+  flex-shrink: 0;
+}
 
-  .ds-fixed-main {
-    left: 0;
-  }
+html[data-layout="desktop"] .ds-fixed-main {
+  left: 0;
 }

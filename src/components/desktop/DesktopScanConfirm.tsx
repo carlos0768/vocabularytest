@@ -57,7 +57,7 @@ export function DesktopScanConfirmView({
   onSaveProject: () => void;
 }) {
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="抽出結果の確認" crumb="スキャン / 単語の抽出">
         <DesktopButton variant="ghost" icon="close" onClick={onBack}>キャンセル</DesktopButton>
         <button type="button" className="ds-btn accent" disabled={saving || selectedCount === 0 || (!isPro && excessCount > 0)} onClick={onSaveProject} style={saving || selectedCount === 0 || (!isPro && excessCount > 0) ? { opacity: 0.55 } : undefined}>

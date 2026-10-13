@@ -134,7 +134,7 @@ export function DesktopHomeView({
   const showGroupsSection = true;
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       {/* ホームはタブの起点なので戻るボタンは出さず、右側に通知ベルだけを置く */}
       <DesktopTopbar title="ホーム" crumb="MERKEN" back={false}>
         <FollowNotificationsButton variant="desktop" />

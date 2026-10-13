@@ -61,7 +61,7 @@ export default function CorrectionInputPage() {
   }
 
   return (
-    <div className="relative flex min-h-full flex-col pt-3 font-[var(--font-body)] lg:pt-0" style={{ background: 'var(--color-background)' }}>
+    <div className="relative flex min-h-full flex-col pt-3 font-[var(--font-body)] desktop:pt-0" style={{ background: 'var(--color-background)' }}>
       {submitting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="flex items-center gap-2.5 rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-paper)] px-5 py-3.5">

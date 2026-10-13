@@ -201,10 +201,10 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
   const nameChanged = nameDraft.trim() !== binderName;
 
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-[max(2rem,env(safe-area-inset-bottom))] font-[var(--font-body)] lg:max-w-[720px] lg:px-8">
+    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-[max(2rem,env(safe-area-inset-bottom))] font-[var(--font-body)] desktop:max-w-[720px] desktop:px-8">
       {/* ノッチ帯は全体共通の StatusBarCover が覆うので、ここではヘッダだけ固定する */}
       <header
-        className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md lg:-mx-8 lg:px-8 ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
+        className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md desktop:-mx-8 desktop:px-8 ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <button

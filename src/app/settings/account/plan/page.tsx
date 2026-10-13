@@ -88,7 +88,7 @@ export default function PlanSettingsPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] desktop:hidden">
       <div className="px-[18px] pb-[14px] pt-1">
         <button
           type="button"

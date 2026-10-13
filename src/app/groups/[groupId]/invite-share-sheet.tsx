@@ -72,12 +72,12 @@ export function GroupInviteShareSheet({
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
       <button type="button" aria-label="閉じる" onClick={onClose} className="absolute inset-0 cursor-default" style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }} />
       {/* モバイル: ボトムシート / デスクトップ(lg): 中央モーダル */}
-      <div className="absolute inset-x-0 bottom-0 flex justify-center lg:inset-0 lg:items-center lg:p-6">
+      <div className="absolute inset-x-0 bottom-0 flex justify-center desktop:inset-0 desktop:items-center desktop:p-6">
         <div
-          className="w-full max-w-[520px] animate-fade-in-up overflow-y-auto rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[var(--color-paper)] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_color-mix(in_srgb,_var(--solid-ink)_18%,_transparent)] lg:animate-fade-in lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-shadow)]"
+          className="w-full max-w-[520px] animate-fade-in-up overflow-y-auto rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[var(--color-paper)] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_color-mix(in_srgb,_var(--solid-ink)_18%,_transparent)] desktop:animate-fade-in desktop:rounded-[20px] desktop:border-b-2 desktop:pb-[22px] desktop:shadow-[6px_8px_0_var(--solid-shadow)]"
           style={{ maxHeight: 'min(82vh, 680px)' }}
         >
-          <div className="mb-2.5 flex justify-center lg:hidden">
+          <div className="mb-2.5 flex justify-center desktop:hidden">
             <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
           </div>
           <div className="mb-3 flex items-center justify-between gap-3">

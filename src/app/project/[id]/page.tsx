@@ -1444,12 +1444,12 @@ export default function ProjectPage() {
         onManualAdd={openManualWordModal}
         onVoiceAdd={voiceAddAvailable ? openVoiceWordModal : undefined}
       />
-      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden">
       {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
           top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。
           下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}
       <header
-        className={`sticky z-40 flex items-center gap-2.5 border-b-2 bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md lg:hidden ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
+        className={`sticky z-40 flex items-center gap-2.5 border-b-2 bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md desktop:hidden ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <HeaderBtn
@@ -1492,7 +1492,7 @@ export default function ProjectPage() {
             onClick={() => setMenuOpen(false)}
           />
           <div
-            className="fixed z-[60] w-[170px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] lg:hidden"
+            className="fixed z-[60] w-[170px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] desktop:hidden"
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)', right: 14 }}
           >
             <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
@@ -1508,7 +1508,7 @@ export default function ProjectPage() {
         </>
       )}
 
-      <div className="flex items-start gap-3.5 px-5 pb-2.5 pt-[18px] lg:pt-8">
+      <div className="flex items-start gap-3.5 px-5 pb-2.5 pt-[18px] desktop:pt-8">
         <div
           className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[13px] border-2 bg-center bg-cover font-display text-[28px] font-extrabold text-white"
           style={{
@@ -1746,7 +1746,7 @@ export default function ProjectPage() {
           (20語以下でも赤シートは使えるようにバー自体は出し、矢印だけ無効にする) */}
       {showWordToolbar && (
         <div
-          className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md desktop:hidden"
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
         >
           {/* 語数はバーの中央に固定する。左右を flex-1 で等分し、その間に置くので、
@@ -1832,7 +1832,7 @@ export default function ProjectPage() {
 
       </div>
 
-      {/* Shared overlays: rendered outside the lg:hidden wrapper so the
+      {/* Shared overlays: rendered outside the desktop:hidden wrapper so the
           desktop view's filter / sort / select / add buttons can use them too */}
       <ProjectShareSheet
         open={showShareSheet}

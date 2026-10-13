@@ -136,7 +136,7 @@ function CorrectionResultContent() {
   }
 
   return (
-    <div className="relative min-h-full pt-3 font-[var(--font-body)] lg:pt-0" style={{ background: 'var(--color-background)' }}>
+    <div className="relative min-h-full pt-3 font-[var(--font-body)] desktop:pt-0" style={{ background: 'var(--color-background)' }}>
       {/* Header with HeaderBtn back button */}
       <div className="flex items-center gap-2.5 px-[14px] pb-1.5 pt-1">
         <HeaderBtn onClick={() => router.back()} aria-label="戻る">

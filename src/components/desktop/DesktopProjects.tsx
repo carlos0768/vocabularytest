@@ -85,7 +85,7 @@ export function DesktopProjectsView({
   }, [rows]);
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="単語帳" crumb="ライブラリ / 管理">
         <DesktopSearchBox
           placeholder="単語帳を検索"

@@ -79,7 +79,7 @@ export function DesktopSharedDetailView({
   );
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title={project.title} crumb="共有ライブラリ / 共有単語帳">
         <DesktopButton variant="ghost" icon="thumb_up" onClick={onToggleLike}>
           {liked ? 'いいね済み' : 'いいね'} {likeCount > 0 ? likeCount : ''}

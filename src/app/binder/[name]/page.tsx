@@ -154,7 +154,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
     <>
     {/* Desktop: 上部バー (戻る / アイコン / 名前 / クイズ / カード / 追加 / 設定) +
         本棚タイルのグリッド。右レールに学習度と「追加できる単語帳」 */}
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <div className="ds-top" style={{ gap: 12 }}>
         <DesktopBackButton fallbackHref="/" />
         <div
@@ -311,7 +311,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
     </div>
 
     {/* Mobile */}
-    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 font-[var(--font-body)] lg:hidden">
+    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 font-[var(--font-body)] desktop:hidden">
       {/* Header: スクロールしても上部に固定 (/project/* 等と同じパターン)。
           ノッチ帯は全体共通の StatusBarCover が覆う */}
       <header
@@ -458,7 +458,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
       {addOpen && (
         <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
           <div className="absolute inset-0" style={{ background: 'rgba(26,26,26,0.45)' }} onClick={() => setAddOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[560px] rounded-t-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)] lg:inset-auto lg:left-1/2 lg:top-1/2 lg:w-[480px] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-[20px] lg:shadow-[6px_8px_0_var(--solid-shadow)]" style={{ maxHeight: '78dvh' }}>
+          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[560px] rounded-t-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)] desktop:inset-auto desktop:left-1/2 desktop:top-1/2 desktop:w-[480px] desktop:-translate-x-1/2 desktop:-translate-y-1/2 desktop:rounded-[20px] desktop:shadow-[6px_8px_0_var(--solid-shadow)]" style={{ maxHeight: '78dvh' }}>
             <div className="flex items-center justify-between border-b-2 border-[var(--color-border)] px-4 py-3">
               <span className="font-display text-[15px] font-extrabold text-[var(--solid-ink)]">バインダーに追加</span>
               <button type="button" onClick={() => setAddOpen(false)} aria-label="閉じる" className="flex h-8 w-8 items-center justify-center text-[var(--color-secondary-text)]">
@@ -582,7 +582,7 @@ function BinderProjectRow({
     : 0;
 
   return (
-    <div className="relative flex items-center gap-3 px-[18px] py-3 lg:px-8">
+    <div className="relative flex items-center gap-3 px-[18px] py-3 desktop:px-8">
       <Link href={`/project/${project.id}`} className="flex min-w-0 flex-1 items-center gap-3 no-underline">
         <span
           className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-cover bg-center font-display text-[18px] font-extrabold text-white"
@@ -627,7 +627,7 @@ function BinderProjectRow({
             onClick={() => setMenuOpen(false)}
           />
           {/* 行の高さは進捗バーの有無で変わるので、下端を基準に置く */}
-          <div className="absolute right-[18px] top-full z-[71] w-[190px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)] lg:right-8">
+          <div className="absolute right-[18px] top-full z-[71] w-[190px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)] desktop:right-8">
             <button
               type="button"
               onClick={() => { setMenuOpen(false); onRemove(); }}

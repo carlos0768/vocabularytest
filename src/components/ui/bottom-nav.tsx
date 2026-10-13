@@ -186,7 +186,7 @@ export function BottomNav() {
   return (
     <>
       <div
-        className="lg:hidden"
+        className="desktop:hidden"
         style={{
           position: 'fixed',
           left: 0,
