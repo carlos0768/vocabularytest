@@ -2003,6 +2003,7 @@ export default function QuizPage() {
         header={
           <BattleScreenHeader
             wide
+            bordered={false}
             title={quizScopeLabel ?? quizKindLabel}
             onBack={backToProject}
             right={

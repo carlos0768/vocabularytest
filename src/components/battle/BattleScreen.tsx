@@ -68,6 +68,7 @@ export function BattleScreenHeader({
   right,
   children,
   wide = false,
+  bordered = true,
 }: {
   eyebrow?: string;
   title: ReactNode;
@@ -78,6 +79,8 @@ export function BattleScreenHeader({
   children?: ReactNode;
   /** 最大幅を 760px にする。`BattleScreen` の `wide` と揃えて使う。 */
   wide?: boolean;
+  /** 固定ヘッダの下に区切り線を引くか。 */
+  bordered?: boolean;
 }) {
   const router = useRouter();
   const showBack = Boolean(backHref || onBack);
@@ -95,7 +98,7 @@ export function BattleScreenHeader({
 
   return (
     <header
-      className="shrink-0 border-b-2 border-[var(--color-border)] bg-[var(--color-background)] px-[18px] pb-2.5"
+      className={cn('shrink-0 bg-[var(--color-background)] px-[18px] pb-2.5', bordered && 'border-b-2 border-[var(--color-border)]')}
       style={{ paddingTop: 'max(10px, calc(env(safe-area-inset-top) + 10px))' }}
     >
       <div className={cn('mx-auto w-full', wide ? 'max-w-[760px]' : 'max-w-[560px]')}>
