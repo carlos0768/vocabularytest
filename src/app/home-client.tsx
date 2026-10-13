@@ -32,7 +32,7 @@ import { BattleEntrySection } from '@/components/battle/BattleEntrySection';
 import { HomeGrammarBooksSection } from '@/components/home/HomeGrammarBooks';
 import { useHomeGrammarBooks } from '@/hooks/use-home-grammar-books';
 import { getDailyReviewLimit } from '@/lib/preferences/review-limit';
-import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { useHomeRecommendations } from '@/hooks/use-home-recommendations';
 import { useMyGroups } from '@/hooks/use-my-groups';
 import { useOnboarding } from '@/hooks/use-onboarding';
@@ -275,7 +275,8 @@ export function HomeClient() {
   const { user, subscription, isPro, loading: authLoading } = useAuth();
   useOnboarding();
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
-  const isMobileViewport = useIsMobileViewport();
+  // ガイドツアーのアンカー (data-tour) はスマホ用ツリーにしか無いので phone のときだけ出す
+  const isMobileViewport = useLayoutMode() === 'phone';
   // 前回このユーザーで描画した内容があれば最初のレンダーからそれを出す
   // （ホームへ戻るたびにスケルトンから始めない）。マウント後に IndexedDB を
   // 読み直して上書きする。

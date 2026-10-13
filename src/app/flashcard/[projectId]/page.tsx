@@ -44,7 +44,7 @@ import { createTtsPlayer, type TtsPlayer } from '@/lib/speech/tts-player';
 import type { TtsLang } from '@/lib/speech/cloud-text-to-speech';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
-import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
@@ -159,7 +159,8 @@ export default function FlashcardPage() {
 
   /* Guided tutorial: count forward advances toward the "view N cards" goal */
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
-  const isMobileViewport = useIsMobileViewport();
+  // ガイドツアーのアンカー (data-tour) はスマホ用ツリーにしか無いので phone のときだけ出す
+  const isMobileViewport = useLayoutMode() === 'phone';
   const tutorialActive = tutorialStage === 'view-cards' && isMobileViewport;
   const [tutorialAdvances, setTutorialAdvances] = useState(0);
 

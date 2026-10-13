@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { GoalSetupSheet, type GoalSheetProject } from '@/components/goal/GoalSetupSheet';
 import { useAuth } from '@/hooks/use-auth';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { getRepository } from '@/lib/db';
 import {
   CALENDAR_WEEKDAY_LABELS,
@@ -51,6 +52,7 @@ const ACTIVITY_HISTORY_WEEKS = 26;
 
 export default function GoalPage() {
   const { user, subscription, loading: authLoading } = useAuth();
+  const layoutMode = useLayoutMode();
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(
@@ -185,8 +187,8 @@ export default function GoalPage() {
   // 浮いている下部バー (セーフエリア込み) の高さぶん。以前 h-dvh で閉じていた頃は
   // iPhone SE で下の2つのボタンが下部バーの裏に隠れたので、入りきらないときは
   // ボタンではなくカレンダーの行の高さを縮めて吸収する (GoalCalendar)。
-  // PC (lg) はデスクトップのシェルがスクロールを持つので従来どおり。
-  useLockPageScroll();
+  // tablet / desktop はシェルがスクロールを持つので従来どおり。
+  useLockPageScroll(layoutMode === 'phone');
   return (
     <div className="relative flex h-[calc(100dvh-env(safe-area-inset-top,0px))] flex-col overflow-hidden bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1 lg:block lg:h-auto lg:min-h-dvh lg:overflow-visible">
       <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col lg:block">
@@ -318,29 +320,24 @@ export default function GoalPage() {
 }
 
 /**
- * 表示中はモバイル幅 (lg 未満) でページのスクロールを止める。body は
+ * 表示中はスマホレイアウトでページのスクロールを止める。body は
  * min-height: 100dvh + padding-top: safe-area なので、止めないとノッチ分だけ
- * 常にスクロールできてしまう。
+ * 常にスクロールできてしまう。tablet / desktop はシェル (.ds-live-main) が
+ * スクロールを持つので触らない。
  */
-function useLockPageScroll() {
+function useLockPageScroll(lock: boolean) {
   useEffect(() => {
-    const media = window.matchMedia('(max-width: 1023.98px)');
+    if (!lock) return;
     const root = document.documentElement;
     const body = document.body;
     const prev = { root: root.style.overflow, body: body.style.overflow };
-    const apply = () => {
-      const lock = media.matches;
-      root.style.overflow = lock ? 'hidden' : prev.root;
-      body.style.overflow = lock ? 'hidden' : prev.body;
-    };
-    apply();
-    media.addEventListener('change', apply);
+    root.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
     return () => {
-      media.removeEventListener('change', apply);
       root.style.overflow = prev.root;
       body.style.overflow = prev.body;
     };
-  }, []);
+  }, [lock]);
 }
 
 function GoalCalendar({

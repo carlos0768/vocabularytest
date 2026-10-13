@@ -1,0 +1,3 @@
+/* ── Tablet (iPad) shell ─────────────────────────────────────
+   `html[data-layout="tablet"]` のときだけ効く。判定は src/lib/ui/layout-mode.ts。
+   Tailwind 側は globals.css の `tablet:` / `tablet-compact:` / `tablet-regular:`。 */

@@ -18,6 +18,7 @@ import {
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { DSDesktopWordOrderPanel, DSWordOrderPanel } from '@/components/quiz/WordOrderPanels';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { QuizOptionReportPanel } from '@/components/quiz/QuizOptionReportPanel';
 import { useToast } from '@/components/ui/toast';
 import { describeOptionReportVerdict } from '@/lib/quiz/option-report';
@@ -153,6 +154,7 @@ export default function QuizPage() {
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
+  const layoutMode = useLayoutMode();
   const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
   const [reviewProjectFilter, setReviewProjectFilter] = useState<string[] | null>(() =>
     readReviewProjectFilter(),
@@ -1301,10 +1303,13 @@ export default function QuizPage() {
       void handleSelect(n - 1);
     }
   };
+  // 数字キー / Enter のショートカットは PC レイアウトのときだけ聞く。
+  // レイアウトは途中で変わりうる (ウィンドウ幅・回転) ので ref で最新値を見る。
+  const layoutModeRef = useRef(layoutMode);
+  layoutModeRef.current = layoutMode;
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 1024px)');
     const onKeyDown = (event: KeyboardEvent) => {
-      if (mediaQuery.matches) desktopKeyHandlerRef.current(event);
+      if (layoutModeRef.current === 'desktop') desktopKeyHandlerRef.current(event);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);

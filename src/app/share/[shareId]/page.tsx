@@ -10,7 +10,7 @@ import { Icon } from '@/components/ui/Icon';
 import { SolidButton, SolidPanel } from '@/components/redesign/SolidPage';
 import { useRewardedDownloadAd } from '@/components/ads/useRewardedDownloadAd';
 import { useAuth } from '@/hooks/use-auth';
-import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useToast } from '@/components/ui/toast';
 import { isBillingEnabled } from '@/lib/billing/feature';
@@ -122,7 +122,8 @@ export default function SharedDetailPage() {
   const params = useParams();
   const shareId = params.shareId as string;
   const { user, subscription, loading: authLoading } = useAuth();
-  const isMobileViewport = useIsMobileViewport();
+  // phone はボトムシート、tablet / desktop は中央モーダル
+  const isMobileViewport = useLayoutMode() === 'phone';
   // ページ上端ではヘッダの下線を出さない（スクロールで表示）
   const pageScrolled = usePageScrolled();
   const { showToast } = useToast();

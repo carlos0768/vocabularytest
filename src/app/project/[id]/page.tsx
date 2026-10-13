@@ -18,7 +18,7 @@ import { VoiceWordModal } from '@/components/project/VoiceWordModal';
 import { BinderPickerSheet } from '@/components/desktop/ProjectListSheets';
 import { WordDetailView } from '@/components/word/WordDetailView';
 import { useAuth } from '@/hooks/use-auth';
-import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useTourSeen } from '@/hooks/use-tour-seen';
 import { useTutorialFlow, type TutorialStage } from '@/hooks/use-tutorial-flow';
@@ -181,7 +181,8 @@ export default function ProjectPage() {
     setLeavingForTutorial(true);
     setTutorialStage(next);
   }, [setTutorialStage]);
-  const isMobileViewport = useIsMobileViewport();
+  // ガイドツアーのアンカー (data-tour) はスマホ用ツリーにしか無いので phone のときだけ出す
+  const isMobileViewport = useLayoutMode() === 'phone';
   // ページ上端ではヘッダの下線を出さない（スクロールで表示）
   const pageScrolled = usePageScrolled();
 

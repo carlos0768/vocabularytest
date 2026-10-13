@@ -12,9 +12,9 @@ import type {
 } from '@/lib/shared-projects/types';
 import {
   useDiscoverFeed,
-  useIsDesktop,
   usePublicGroupsPreview,
 } from '@/components/desktop/shared/use-desktop-shared-data';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import {
   CategoryResults,
   DesktopLoadMore,
@@ -123,7 +123,9 @@ export function DesktopSharedView({
     && (isCategory || hasQuery || loading || Boolean(error));
   const showDashboard = category === 'all' && !hasQuery;
 
-  const isDesktop = useIsDesktop();
+  // このビューは desktop 以外では CSS で隠れたまま常駐するので、ダッシュボード用の
+  // 取得は実際に desktop レイアウトのときだけ走らせる
+  const isDesktop = useLayoutMode() === 'desktop';
   const dashboardActive = isDesktop && showDashboard;
   const feed = useDiscoverFeed(dashboardActive);
   const publicGroups = usePublicGroupsPreview(dashboardActive);
