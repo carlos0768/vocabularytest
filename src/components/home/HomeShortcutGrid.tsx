@@ -33,21 +33,27 @@ export function HomeShortcutGrid({
   projects,
   groups,
   recommendations,
+  className = 'grid grid-cols-2 gap-2 px-[18px] pb-3.5',
+  slots = homeShortcutContentSlots(0),
 }: {
   projects: HomeShortcutProject[];
   groups: StudyGroupSummary[];
   recommendations: HomeRecommendedBook[];
+  /** グリッドのラッパのクラス。タブレットは列数を増やして使う */
+  className?: string;
+  /** 埋める枠の数 */
+  slots?: number;
 }) {
   const tiles = buildHomeShortcutTiles({
     projects,
     groups,
     recommendations,
-    slots: homeShortcutContentSlots(0),
+    slots,
   });
   if (tiles.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-2 px-[18px] pb-3.5">
+    <div className={className}>
       {tiles.map((tile) => {
         if (tile.kind === 'project') {
           const project = tile.project;

@@ -76,24 +76,8 @@ type DesktopPendingScan = {
 // 1位/2位/3位のメダル色（グループのランキングページの podium と同じ）
 const MEDALS = ['#FFC800', '#C3CDD6', '#E29C57'];
 
-export function DesktopHomeView({
-  projects,
-  stats,
-  loading,
-  error,
-  pendingScans,
-  completedScans = [],
-  failedScans = [],
-  onDismissCompletedScan,
-  joinedGroups = [],
-  goal,
-  grammarBooks = [],
-  recommendedBooks = [],
-  binderIcons = {},
-  onStartScan,
-  showUpgrade = false,
-  onDismissUpgrade,
-}: {
+/** home-client が渡す props。タブレットのホーム (TabletHomeView) も同じ契約で受ける */
+export type DesktopHomeViewProps = {
   projects: DesktopHomeProject[];
   stats: DesktopHomeStats;
   loading: boolean;
@@ -111,7 +95,26 @@ export function DesktopHomeView({
   onStartScan: () => void;
   showUpgrade?: boolean;
   onDismissUpgrade?: () => void;
-}) {
+};
+
+export function DesktopHomeView({
+  projects,
+  stats,
+  loading,
+  error,
+  pendingScans,
+  completedScans = [],
+  failedScans = [],
+  onDismissCompletedScan,
+  joinedGroups = [],
+  goal,
+  grammarBooks = [],
+  recommendedBooks = [],
+  binderIcons = {},
+  onStartScan,
+  showUpgrade = false,
+  onDismissUpgrade,
+}: DesktopHomeViewProps) {
   const { isPro } = useAuth();
 
   // バインダー (フォルダ) 一覧を binder 名で集計する

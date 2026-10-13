@@ -20,6 +20,9 @@ import {
   type HomeScanFailureNotice,
 } from '@/lib/home/home-scan-completion';
 import { HomeShortcutGrid } from '@/components/home/HomeShortcutGrid';
+import { BinderSquareTile, ProjectSquareTile } from '@/components/home/HomeTiles';
+import { TabletHomeView } from '@/components/tablet/TabletHome';
+import { TabletOnly } from '@/components/tablet/TabletOnly';
 import { HomeWordSearchSheet } from '@/components/home/HomeWordSearchSheet';
 import { PwaInstallBanner } from '@/components/home/PwaInstallBanner';
 import { ProUpgradeBanner, useProUpgradeBannerDismissed } from '@/components/home/ProUpgradeBanner';
@@ -57,7 +60,6 @@ import {
   setHomeViewSnapshot,
   shouldRefreshRemoteWordbooks,
 } from '@/lib/home-cache';
-import { imageToneTextStyle, useImageTone } from '@/lib/ui/image-tone';
 import { getWordsDueForReview } from '@/lib/spaced-repetition';
 import { countHomeWordStatuses } from '@/lib/home/home-page-selectors';
 import { homeShortcutContentSlots, selectHomeShortcutProjects } from '@/lib/home/shortcut-tiles';
@@ -74,7 +76,6 @@ import { useFollowingTodayActivity } from '@/hooks/use-following-today-activity'
 import { FollowingTodayStrip } from '@/components/home/FollowingTodayStrip';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import type { Project, SubscriptionStatus, Word } from '@/types';
-import { thumbColor } from '@/lib/ui/thumb-color';
 
 const HOME_MY_BOOKS_VISIBLE_LIMIT = 5;
 
@@ -721,7 +722,29 @@ export function HomeClient() {
         showUpgrade={showUpgradeBanner}
         onDismissUpgrade={dismissUpgradeBanner}
       />
-      <div className="relative min-h-screen overflow-x-clip bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
+      {/* タブレット (iPad): サイドバー付きのグリッド版。JS でだけマウントする (TabletOnly) */}
+      <TabletOnly>
+        <TabletHomeView
+          projects={listProjects}
+          stats={stats}
+          loading={loading}
+          error={error}
+          pendingScans={displayedPendingScans}
+          completedScans={scanCompletionNotices}
+          failedScans={scanFailureNotices}
+          onDismissCompletedScan={dismissScanCompletion}
+          joinedGroups={myGroups}
+          goal={{ state: goalState, count: goalCount }}
+          grammarBooks={grammarBooks}
+          recommendedBooks={visibleRecommendedBooks}
+          binderIcons={binderIcons}
+          onStartScan={() => setDesktopCreateOpen(true)}
+          showUpgrade={showUpgradeBanner}
+          onDismissUpgrade={dismissUpgradeBanner}
+          followingToday={followingToday}
+        />
+      </TabletOnly>
+      <div className="relative min-h-screen overflow-x-clip bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden tablet:hidden">
       {/* 下スクロールで上へ格納し、上スクロールで戻ってくるヘッダ */}
       <div
         className={`sticky z-40 flex items-center justify-between border-b-2 bg-[var(--color-background)]/95 px-[18px] pb-4 pt-5 backdrop-blur-md transition-transform duration-200 ease-out desktop:hidden ${
@@ -927,116 +950,6 @@ function HomeLoadingScreen() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)] text-[var(--color-muted)]">
       <Icon name="progress_activity" size={22} className="animate-spin" />
-    </div>
-  );
-}
-
-// バインダー (フォルダ) タイル。ProjectSquareTile と同じシェル・配色 (thumbColor) で、
-// キーは binder 名。単語帳タイルと見た目を揃える。アイコン画像が設定されていれば
-// 単語帳タイルと同じように面に敷き、文字色も面の明るさに合わせて反転する。
-function BinderSquareTile({ name, count, iconImage }: { name: string; count: number; iconImage?: string | null }) {
-  const bg = thumbColor(name);
-  const tone = useImageTone(iconImage);
-  const toneStyle = imageToneTextStyle(tone);
-  return (
-    <Link
-      href={`/binder/${encodeURIComponent(name)}`}
-      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-cover bg-center p-3 shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-shadow)]"
-      style={{
-        backgroundColor: bg,
-        backgroundImage: iconImage ? `url(${iconImage})` : undefined,
-        color: toneStyle.color,
-      }}
-    >
-      <div
-        className="absolute inset-y-0 left-0 w-[6px]"
-        style={{ background: tone === 'dark' ? 'rgba(0,0,0,0.14)' : 'rgba(0,0,0,0.22)' }}
-      />
-      <div className="flex items-center gap-1 pl-1.5" style={{ textShadow: toneStyle.textShadow }}>
-        <Icon name="folder" size={15} filled />
-        <span className="font-mono text-[9.5px] font-bold tracking-[0.04em]">BINDER</span>
-      </div>
-      <div className="pl-1.5">
-        <div
-          className="line-clamp-2 font-display text-[13.5px] font-bold leading-snug"
-          style={{ textShadow: toneStyle.textShadow }}
-        >
-          {name}
-        </div>
-        <div className="mt-1 font-mono text-[9px] tracking-[0.04em] opacity-90">{count}冊</div>
-      </div>
-    </Link>
-  );
-}
-
-function ProjectSquareTile({
-  project,
-  tourAnchor = false,
-  onCardOpen,
-}: {
-  project: HomeProjectStats;
-  tourAnchor?: boolean;
-  /** Advances the guided tutorial when the wordbook card is tapped. */
-  onCardOpen?: () => void;
-}) {
-  const bg = thumbColor(project.id);
-  const hasWords = project.totalWords > 0;
-  const masteredPct = hasWords ? Math.round((project.masteredWords / project.totalWords) * 100) : 0;
-  // アイコン画像をそのまま面に使うので、明るい画像の上では文字を黒に反転する
-  // （面と同系色だと題名が読めないため）。画像が無い面は配色が濃色なので白のまま。
-  const tone = useImageTone(project.iconImage);
-  const toneStyle = imageToneTextStyle(tone);
-  const inkOnLight = tone === 'dark';
-  return (
-    <div className="relative">
-      <Link
-        href={`/project/${project.id}`}
-        onClick={onCardOpen}
-        className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-cover bg-center p-3 shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-shadow)]"
-        style={{
-          backgroundColor: bg,
-          backgroundImage: project.iconImage ? `url(${project.iconImage})` : undefined,
-          color: toneStyle.color,
-        }}
-      >
-        <div
-          className="absolute inset-y-0 left-0 w-[6px]"
-          style={{ background: inkOnLight ? 'rgba(0,0,0,0.14)' : 'rgba(0,0,0,0.22)' }}
-        />
-        <div
-          className="line-clamp-2 pl-1.5 font-display text-[13.5px] font-bold leading-snug"
-          style={{ textShadow: toneStyle.textShadow }}
-        >
-          {project.title}
-        </div>
-        <div className="pl-1.5">
-          <div className="flex items-baseline gap-0.5" style={{ textShadow: toneStyle.textShadow }}>
-            <span className="font-display text-[19px] font-extrabold leading-none tabular-nums">{project.totalWords}</span>
-            <span className="text-[10px] font-bold opacity-90">語</span>
-          </div>
-          {hasWords && (
-            <div className="mt-1.5 h-[5px] overflow-hidden rounded-full bg-[rgba(0,0,0,0.22)]">
-              <div
-                className="h-full"
-                style={{
-                  width: `${masteredPct}%`,
-                  background: inkOnLight ? 'color-mix(in srgb, var(--solid-ink) 85%, transparent)' : 'rgba(255,255,255,0.92)',
-                }}
-              />
-            </div>
-          )}
-        </div>
-      </Link>
-      {hasWords && (
-        <Link
-          href={`/quiz/${project.id}?from=${encodeURIComponent('/')}`}
-          aria-label={`${project.title}のクイズを開始`}
-          data-tour={tourAnchor ? 'quiz-start' : undefined}
-          className="absolute bottom-2 right-2 flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-[var(--color-on-accent)] shadow-[2px_2px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
-        >
-          <Icon name="play_arrow" size={18} filled />
-        </Link>
-      )}
     </div>
   );
 }
