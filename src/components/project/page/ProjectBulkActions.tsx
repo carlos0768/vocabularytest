@@ -46,10 +46,10 @@ export function BulkActionBar({
 
   return (
     <div
-      className="pointer-events-none fixed bottom-0 left-0 right-0 z-40 bg-[linear-gradient(to_top,var(--color-background)_70%,transparent)] px-3 pt-3 lg:bg-none"
+      className="pointer-events-none fixed bottom-0 left-0 right-0 z-40 bg-[linear-gradient(to_top,var(--color-background)_70%,transparent)] px-3 pt-3 desktop:bg-none tablet:bg-none"
       style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}
     >
-      <div className="pointer-events-auto mx-auto w-full max-w-lg lg:max-w-4xl">
+      <div className="pointer-events-auto mx-auto w-full max-w-lg desktop:max-w-4xl">
         <div className="relative">
           <div
             className="pointer-events-none absolute inset-0 rounded-[14px] bg-[var(--solid-ink)]"
@@ -85,7 +85,7 @@ export function BulkActionBar({
               </div>
             </div>
             {/* Desktop: bulk actions laid out inline (no "..." menu) */}
-            <div className="hidden shrink-0 items-center gap-2 lg:flex">
+            <div className="hidden shrink-0 items-center gap-2 desktop:flex tablet:flex">
               <BulkInlineActionButton
                 icon="bookmark"
                 label="ブックマーク"
@@ -117,7 +117,7 @@ export function BulkActionBar({
               />
             </div>
             {/* Mobile: compact "..." menu */}
-            <div className="relative shrink-0 lg:hidden">
+            <div className="relative shrink-0 desktop:hidden tablet:hidden">
               {showActionMenu && (
                 <>
                   <button

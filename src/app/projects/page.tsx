@@ -262,7 +262,7 @@ export default function ProjectListPage() {
         binders={existingBinders}
         onApply={(binder) => void applyBinder(binder)}
       />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] desktop:hidden">
       <div className="px-5 pb-3.5 pt-2.5">
         <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-muted)]">
           MY BOOKS

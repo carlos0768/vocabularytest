@@ -116,7 +116,7 @@ export default function SearchPage() {
 
   return (
     <>
-    <div className="min-h-screen pb-24 lg:pb-6">
+    <div className="min-h-screen pb-24 desktop:pb-6">
       {/* Header */}
       <header className="sticky top-0 bg-[var(--color-background)]/95 z-40 px-6 py-4">
         <div className="max-w-lg mx-auto">

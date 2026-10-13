@@ -157,7 +157,7 @@ export default function ParserResultPage() {
   const clauseKindById = new Map(result.clauses.map((clause) => [clause.id, clause.kind]));
 
   return (
-    <div className="relative min-h-full pt-3 font-[var(--font-body)] lg:pt-0" style={{ background: 'var(--color-background)' }}>
+    <div className="relative min-h-full pt-3 font-[var(--font-body)] desktop:pt-0" style={{ background: 'var(--color-background)' }}>
       <div className="flex items-center gap-2.5 px-[14px] pb-1.5 pt-1">
         <button type="button" onClick={() => router.back()} className="inline-flex h-8 w-8 cursor-pointer items-center justify-center border-none bg-transparent p-0 text-[var(--solid-ink)]">
           <Icon name="chevron_left" size={18} />

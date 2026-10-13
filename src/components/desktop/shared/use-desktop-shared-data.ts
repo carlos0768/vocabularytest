@@ -7,22 +7,7 @@ import type { PublicStudyGroupSummary, SharedProjectCard } from '@/lib/shared-pr
 const FEED_PAGE_SIZE = 12;
 
 // ============ Dashboard data hooks ============
-
-// The desktop view stays mounted (CSS-hidden) on mobile, so dashboard-only
-// fetches are gated behind an actual viewport check.
-export function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState(false);
-
-  useEffect(() => {
-    const mql = window.matchMedia('(min-width: 1024px)');
-    const update = () => setIsDesktop(mql.matches);
-    update();
-    mql.addEventListener('change', update);
-    return () => mql.removeEventListener('change', update);
-  }, []);
-
-  return isDesktop;
-}
+// 表示中のレイアウトの判定は useLayoutMode() (src/hooks/use-layout-mode.ts) に寄せた。
 
 export type DiscoverFeedState = {
   projects: SharedProjectCard[];

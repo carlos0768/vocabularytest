@@ -6,9 +6,11 @@ import { useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
 import { Icon } from '@/components/ui/Icon';
+import { NavTabIcon } from '@/components/ui/NavTabIcon';
 import { useAuth } from '@/hooks/use-auth';
 import { useCoins } from '@/hooks/use-coins';
 import { prefetchReelFeed } from '@/hooks/use-reel-feed';
+import { getNavTabs, isNavTabActive } from '@/lib/navigation/tabs';
 import { cn } from '@/lib/utils';
 
 /* ────────────────────────────────────────────────────────────
@@ -16,87 +18,14 @@ import { cn } from '@/lib/utils';
    左: ロゴ / 中央: ピル型タブ (モバイルのボトムナビと同じ並び) / 右: コイン + 検索
    ──────────────────────────────────────────────────────────── */
 
-type TabKey = 'home' | 'goal' | 'create' | 'shared' | 'reels' | 'account';
-
-type TabItem = {
-  k: TabKey;
-  label: string;
-  href?: string;
-  /** 前方一致で判定するパス */
-  matchPaths?: string[];
-  /** 完全一致で判定するパス (例: /profile は自分のプロフィールだけ) */
-  exactPaths?: string[];
-  /** 中央の「＋」ボタン */
-  primary?: boolean;
-  /** アイコンの SVG パス (stroke ベース) */
-  d: string;
-  /** アクティブ時に塗りつぶす */
-  fillWhenActive?: boolean;
-};
-
-const ICON_PATHS = {
-  home: 'M3 10l9-7 9 7V20a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V10z',
-  goal: 'M5 21V4 M5 4h13l-3 4.5 3 4.5H5',
-  shared:
-    'M3.5 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M15.5 6a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M15.5 18a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M8 11l8-4M8 13l8 4',
-  account: 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0 -8 0 M4 21a8 8 0 0116 0',
-  reels: 'M4 3h16v18H4z M4 8h16 M10.5 12.2l4 2.3-4 2.3v-4.6z',
-  create: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 8v8M8 12h8',
-};
-
-const HOME_TAB: TabItem = { k: 'home', label: 'ホーム', href: '/', matchPaths: ['/'], d: ICON_PATHS.home, fillWhenActive: true };
-const GOAL_TAB: TabItem = { k: 'goal', label: '目標', href: '/goal', matchPaths: ['/goal'], d: ICON_PATHS.goal, fillWhenActive: true };
-const CREATE_TAB: TabItem = { k: 'create', label: '作成', primary: true, d: ICON_PATHS.create };
-const SHARED_TAB: TabItem = { k: 'shared', label: '共有', href: '/shared', matchPaths: ['/shared', '/groups', '/share'], d: ICON_PATHS.shared, fillWhenActive: true };
-const REELS_TAB: TabItem = { k: 'reels', label: 'リール', href: '/reels', matchPaths: ['/reels'], d: ICON_PATHS.reels };
-const ACCOUNT_TAB: TabItem = {
-  k: 'account',
-  label: 'アカウント',
-  href: '/profile',
-  matchPaths: ['/settings', '/subscription', '/stats', '/favorites', '/coins', '/follows'],
-  exactPaths: ['/profile'],
-  d: ICON_PATHS.account,
-  fillWhenActive: true,
-};
-
-// Pro: 目標ページ入り(リールなし)。Free/ゲスト: 従来ナビ(リール入り)。モバイルのボトムナビ
-// (bottom-nav.tsx) と同じ並びにそろえること。1024px 以上では下部バーが消えてこのヘッダーだけに
-// なるので、ここに無いタブは PC / 横向き iPad からは開けなくなる。
-const PRO_TABS: TabItem[] = [HOME_TAB, GOAL_TAB, CREATE_TAB, SHARED_TAB, ACCOUNT_TAB];
-const FREE_TABS: TabItem[] = [HOME_TAB, SHARED_TAB, CREATE_TAB, REELS_TAB, ACCOUNT_TAB];
-
-function isTabActive(tab: TabItem, pathname: string): boolean {
-  if (!tab.href) return false;
-  if (tab.exactPaths?.some((path) => pathname === path)) return true;
-  if (!tab.matchPaths) return false;
-  return tab.matchPaths.some((path) => (path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(path + '/')));
-}
-
-function TabIcon({ d, filled, size = 22 }: { d: string; filled: boolean; size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d={d} />
-    </svg>
-  );
-}
-
 export function DesktopHeader() {
   const pathname = usePathname();
   const { user, isPro } = useAuth();
   const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
   const [createOpen, setCreateOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const tabs = isPro ? PRO_TABS : FREE_TABS;
+  // タブの定義と並びは src/lib/navigation/tabs.ts (ボトムナビ・タブレットのサイドバーと共通)
+  const tabs = getNavTabs(isPro);
 
   return (
     <header className="ds-header" aria-label="デスクトップナビゲーション">
@@ -109,7 +38,7 @@ export function DesktopHeader() {
           if (tab.primary) {
             return (
               <button
-                key={tab.k}
+                key={tab.key}
                 type="button"
                 className="ds-pillnav-create"
                 onClick={() => setCreateOpen(true)}
@@ -125,16 +54,16 @@ export function DesktopHeader() {
               </button>
             );
           }
-          const active = isTabActive(tab, pathname);
+          const active = isNavTabActive(tab, pathname);
           return (
             <Link
-              key={tab.k}
+              key={tab.key}
               href={tab.href!}
               className={cn('ds-pillnav-item', active && 'active')}
               aria-current={active ? 'page' : undefined}
-              onPointerDown={tab.k === 'reels' ? () => prefetchReelFeed() : undefined}
+              onPointerDown={tab.key === 'reels' ? () => prefetchReelFeed() : undefined}
             >
-              <TabIcon d={tab.d} filled={active && Boolean(tab.fillWhenActive)} />
+              <NavTabIcon path={tab.iconPath} filled={active && Boolean(tab.fillWhenActive)} />
               <span>{tab.label}</span>
             </Link>
           );

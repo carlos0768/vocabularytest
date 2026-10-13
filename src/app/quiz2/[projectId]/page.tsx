@@ -348,7 +348,7 @@ export default function Quiz2Page() {
     return (
       <>
       {/* Desktop completion（DSスタイル） */}
-      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
+      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] desktop:flex">
         <div className="flex flex-1 items-center justify-center overflow-y-auto" style={{ padding: 32 }}>
           <div className="ds-card" style={{ width: 'min(100%, 520px)', padding: '28px 32px' }}>
             <div className="mono muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
@@ -388,7 +388,7 @@ export default function Quiz2Page() {
         </div>
       </div>
 
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 lg:hidden">
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0 desktop:hidden">
         <header className="sticky top-0 p-4 flex items-center justify-between max-w-lg mx-auto w-full">
           <button
             onClick={backToOrigin}

@@ -33,7 +33,7 @@ export function BattleScreen({
   fill?: boolean;
 }) {
   return (
-    <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:static lg:z-auto lg:h-full">
+    <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:static desktop:z-auto desktop:h-full">
       {header}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div

@@ -133,7 +133,7 @@ export default function StatsPage() {
   return (
     <>
       <DesktopStatsView stats={stats} loading={statsLoading} />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
         <div className="flex items-center gap-3 px-[18px] pb-2 pt-4">
           <button
             type="button"

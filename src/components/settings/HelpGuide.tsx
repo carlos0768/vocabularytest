@@ -31,7 +31,7 @@ export function HelpGuide() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="m-0 text-[12px] leading-[1.9] text-[var(--color-muted)] lg:text-[13px]">
+      <p className="m-0 text-[12px] leading-[1.9] text-[var(--color-muted)] desktop:text-[13px]">
         MERKENは、単語帳をつくって覚えるためのアプリです。
         写真から単語帳をつくり、クイズで繰り返し、覚えた分を記録していきます。
       </p>
@@ -43,14 +43,14 @@ export function HelpGuide() {
           <a
             key={section.id}
             href={`#help-${section.id}`}
-            className="rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--solid-ink)] lg:text-[12px]"
+            className="rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--solid-ink)] desktop:text-[12px]"
           >
             {section.label}
           </a>
         ))}
         <a
           href="#help-faq"
-          className="rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--solid-ink)] lg:text-[12px]"
+          className="rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--solid-ink)] desktop:text-[12px]"
         >
           よくある質問
         </a>
@@ -83,9 +83,9 @@ function StepList() {
           <span className="min-w-0 flex-1">
             <span className="flex items-baseline gap-1.5">
               <span className="font-mono text-[10px] font-bold text-[var(--color-muted)]">{step.number}</span>
-              <span className="font-display text-[14px] font-extrabold text-[var(--solid-ink)] lg:text-[15px]">{step.title}</span>
+              <span className="font-display text-[14px] font-extrabold text-[var(--solid-ink)] desktop:text-[15px]">{step.title}</span>
             </span>
-            <span className="mt-0.5 block text-[11px] leading-[1.8] text-[var(--color-muted)] lg:text-[12px]">{step.body}</span>
+            <span className="mt-0.5 block text-[11px] leading-[1.8] text-[var(--color-muted)] desktop:text-[12px]">{step.body}</span>
           </span>
         </li>
       ))}
@@ -103,12 +103,12 @@ function HelpSectionBlock({ section, defaultOpen }: { section: HelpSection; defa
       <summary className="flex cursor-pointer list-none items-center gap-2.5 px-3 py-[13px] [&::-webkit-details-marker]:hidden">
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
-            <span className="font-display text-[15px] font-extrabold text-[var(--solid-ink)] lg:text-[17px]">{section.label}</span>
+            <span className="font-display text-[15px] font-extrabold text-[var(--solid-ink)] desktop:text-[17px]">{section.label}</span>
             <span className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
               {section.eyebrow}
             </span>
           </span>
-          <span className="mt-px block text-[10px] leading-4 text-[var(--color-muted)] lg:text-[11px]">{section.summary}</span>
+          <span className="mt-px block text-[10px] leading-4 text-[var(--color-muted)] desktop:text-[11px]">{section.summary}</span>
         </span>
         <Icon
           name="expand_more"
@@ -133,7 +133,7 @@ function HelpItemRow({ item }: { item: HelpItem }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[13px] font-bold text-[var(--solid-ink)] lg:text-[14px]">{item.title}</span>
+          <span className="text-[13px] font-bold text-[var(--solid-ink)] desktop:text-[14px]">{item.title}</span>
           {item.badge === 'pro' && (
             <span className="inline-flex items-center gap-0.5 rounded-[4px] bg-[var(--solid-ink)] px-[6px] py-[1px] font-mono text-[8px] font-bold tracking-[0.05em] text-[var(--color-on-ink)]">
               <Icon name="auto_awesome" size={9} />
@@ -146,11 +146,11 @@ function HelpItemRow({ item }: { item: HelpItem }) {
             </span>
           )}
         </div>
-        <p className="mt-[3px] text-[11px] leading-[1.9] text-[var(--color-muted)] lg:text-[12.5px]">{item.body}</p>
+        <p className="mt-[3px] text-[11px] leading-[1.9] text-[var(--color-muted)] desktop:text-[12.5px]">{item.body}</p>
         {item.href && (
           <Link
             href={item.href}
-            className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] font-bold text-[var(--color-accent)] lg:text-[12px]"
+            className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] font-bold text-[var(--color-accent)] desktop:text-[12px]"
           >
             {item.linkLabel ?? '開く'}
             <Icon name="chevron_right" size={13} />
@@ -171,7 +171,7 @@ function FaqBlock() {
         {HELP_FAQS.map((faq) => (
           <details key={faq.question} className="group">
             <summary className="flex cursor-pointer list-none items-center gap-2.5 px-3 py-[13px] [&::-webkit-details-marker]:hidden">
-              <span className="min-w-0 flex-1 text-[12px] font-bold leading-[1.6] text-[var(--solid-ink)] lg:text-[13.5px]">
+              <span className="min-w-0 flex-1 text-[12px] font-bold leading-[1.6] text-[var(--solid-ink)] desktop:text-[13.5px]">
                 {faq.question}
               </span>
               <Icon
@@ -181,11 +181,11 @@ function FaqBlock() {
               />
             </summary>
             <div className="px-3 pb-[13px]">
-              <p className="m-0 text-[11px] leading-[1.9] text-[var(--color-muted)] lg:text-[12.5px]">{faq.answer}</p>
+              <p className="m-0 text-[11px] leading-[1.9] text-[var(--color-muted)] desktop:text-[12.5px]">{faq.answer}</p>
               {faq.href && (
                 <Link
                   href={faq.href}
-                  className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] font-bold text-[var(--color-accent)] lg:text-[12px]"
+                  className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] font-bold text-[var(--color-accent)] desktop:text-[12px]"
                 >
                   {faq.linkLabel ?? '開く'}
                   <Icon name="chevron_right" size={13} />

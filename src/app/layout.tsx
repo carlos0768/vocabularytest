@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import { Lexend, Noto_Sans_JP } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ThemeScript, THEME_COLORS } from '@/components/theme-script';
+import { LayoutModeScript } from '@/components/layout-mode-script';
+import { LayoutModeSync } from '@/components/ui/LayoutModeSync';
 import { ToastProvider } from '@/components/ui/toast';
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
 import { OfflineSyncProvider } from '@/components/pwa/OfflineSyncProvider';
@@ -18,6 +20,7 @@ import {
 } from '@/lib/adsense';
 import './globals.css';
 import './desktop.css';
+import './tablet.css';
 
 const lexend = Lexend({
   variable: '--font-lexend',
@@ -99,6 +102,9 @@ export default function RootLayout({
         {/* Must stay first in <head>: it sets the theme class before the first
             paint so dark-mode users never get a white flash. */}
         <ThemeScript />
+        {/* Sets <html data-layout> (phone / tablet / desktop) before the first
+            paint so a tablet never flashes the phone layout. */}
+        <LayoutModeScript />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* Axes pinned to what globals.css uses (.material-symbols-outlined:
@@ -160,6 +166,7 @@ export default function RootLayout({
             </OfflineSyncProvider>
           </ToastProvider>
           <StatsSync />
+          <LayoutModeSync />
           <PendingOnboardingSync />
           <HomeOpenLogger />
           <ServiceWorkerRegistration />

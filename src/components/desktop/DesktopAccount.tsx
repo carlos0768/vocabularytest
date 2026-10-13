@@ -50,7 +50,7 @@ export function DesktopSettingsView({
   };
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="設定" crumb="アカウント">
         {billingEnabled && (
           <DesktopButton href="/subscription" variant={isPro ? 'dark' : 'accent'} icon="auto_awesome">
@@ -235,7 +235,7 @@ export function DesktopSubscriptionView({
   ];
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="Merken Pro" crumb="アカウント / プラン" />
       <div className="ds-scroll">
         <div style={{ maxWidth: 880, margin: '0 auto' }}>

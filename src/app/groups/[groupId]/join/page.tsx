@@ -233,7 +233,7 @@ export default function GroupJoinPage() {
   return (
     <>
       {/* Desktop */}
-      <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <div className="hidden h-full min-h-0 flex-col desktop:flex">
         <div className="ds-top">
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="crumb">共有ライブラリ / グループ</div>
@@ -252,7 +252,7 @@ export default function GroupJoinPage() {
 
       {/* Mobile */}
       <div
-        className="relative mx-auto w-full max-w-[560px] bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden"
+        className="relative mx-auto w-full max-w-[560px] bg-[var(--color-background)] pt-3 font-[var(--font-body)] desktop:hidden"
         // ノッチ分の余白は body が env(safe-area-inset-top) で確保済み。ここで
         // もう一度足すと二重になってページ全体が下にずれる。
         style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}

@@ -523,7 +523,7 @@ export default function GroupSettingsPage() {
   return (
     <>
       {/* Desktop */}
-      <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <div className="hidden h-full min-h-0 flex-col desktop:flex">
         <div className="ds-top">
           <DesktopButton onClick={handleBack} icon="arrow_back" variant="ghost" title="グループに戻る">{''}</DesktopButton>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -541,7 +541,7 @@ export default function GroupSettingsPage() {
 
       {/* Mobile */}
       <div
-        className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)] lg:hidden"
+        className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden"
         style={{
           // The <body> already pads by env(safe-area-inset-top) (globals.css), so
           // the header sits just below the notch with no extra gap. Adding more

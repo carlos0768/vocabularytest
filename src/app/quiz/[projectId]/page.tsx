@@ -18,6 +18,7 @@ import {
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { DSDesktopWordOrderPanel, DSWordOrderPanel } from '@/components/quiz/WordOrderPanels';
 import { DSQuizOption } from '@/components/quiz/DSQuizOption';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { QuizOptionReportPanel } from '@/components/quiz/QuizOptionReportPanel';
 import { useToast } from '@/components/ui/toast';
 import { describeOptionReportVerdict } from '@/lib/quiz/option-report';
@@ -153,6 +154,7 @@ export default function QuizPage() {
   const { aiEnabled, loading: userPreferencesLoading } = useUserPreferences();
   const { step: onboardingStep, setStep: setOnboardingStep } = useOnboarding();
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
+  const layoutMode = useLayoutMode();
   const [pwaPromptOpen, setPwaPromptOpen] = useState(false);
   const [reviewProjectFilter, setReviewProjectFilter] = useState<string[] | null>(() =>
     readReviewProjectFilter(),
@@ -1301,10 +1303,13 @@ export default function QuizPage() {
       void handleSelect(n - 1);
     }
   };
+  // 数字キー / Enter のショートカットは PC レイアウトのときだけ聞く。
+  // レイアウトは途中で変わりうる (ウィンドウ幅・回転) ので ref で最新値を見る。
+  const layoutModeRef = useRef(layoutMode);
+  layoutModeRef.current = layoutMode;
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 1024px)');
     const onKeyDown = (event: KeyboardEvent) => {
-      if (mediaQuery.matches) desktopKeyHandlerRef.current(event);
+      if (layoutModeRef.current === 'desktop') desktopKeyHandlerRef.current(event);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -1483,7 +1488,7 @@ export default function QuizPage() {
       <>
       <PwaInstallPromptModal open={pwaPromptOpen} onClose={() => setPwaPromptOpen(false)} />
       {/* Desktop completion */}
-      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
+      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] desktop:flex">
         <div className="flex-1 overflow-y-auto">
           <div style={{ width: '100%', maxWidth: 520, margin: '0 auto', padding: '40px 0 24px' }}>
             {/* Score card */}
@@ -1544,9 +1549,9 @@ export default function QuizPage() {
         </div>
       </div>
       {/* Mobile completion */}
-      <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+      <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden">
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" style={{ paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 16px))' }}>
-          <div className="mx-auto w-full max-w-sm px-5 pb-4">
+          <div className="mx-auto w-full max-w-sm px-5 pb-4 tablet:max-w-[560px]">
             {/* Score card */}
             <div className="rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4">
               <div className="flex items-center gap-3">
@@ -1712,7 +1717,7 @@ export default function QuizPage() {
         }
       />
     </Modal>
-    <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
+    <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:flex">
       <div className="ds-quiz-wrap">
         <div className="ds-quiz-head">
           <button type="button" className="x" onClick={backToProject} aria-label="閉じる">
@@ -1910,10 +1915,10 @@ export default function QuizPage() {
       </div>
     </div>
 
-    <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+    <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden">
       {/* Header: close + progress dots + flag */}
       <div
-        className="flex shrink-0 items-center gap-2.5 px-4 pb-3.5"
+        className="flex shrink-0 items-center gap-2.5 px-4 pb-3.5 tablet:mx-auto tablet:w-full tablet:max-w-[760px] tablet:pb-5"
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
       >
         <button type="button" onClick={backToProject} className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]">
@@ -1974,15 +1979,16 @@ export default function QuizPage() {
       </div>
 
       {/* Main content */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-2.5">
+      {/* タブレット: 幅いっぱいに伸ばさず中央 760px のカラムに収める。選択肢は 2×2 */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-2.5 tablet:mx-auto tablet:w-full tablet:max-w-[760px] tablet:pt-6">
         <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           {currentIsWordOrder ? '語順を完成' : currentIsParaphrase ? '言い換えを選ぼう' : isTypeInMode ? 'つづりを入力' : '意味を選ぼう'}
         </div>
 
         {/* Word display — big solid plate */}
         <div>
-          <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center">
-            <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)]">
+          <div className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-[18px] py-6 text-center tablet:py-10">
+            <div className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[var(--solid-ink)] tablet:text-[44px]">
               {currentIsWordOrder
                 ? displayJapanese
                 : isTypeInMode
@@ -2026,7 +2032,7 @@ export default function QuizPage() {
             onSubmit={handleWordOrderSubmit}
           />
         ) : (!isTypeInMode || (isRevealed && selectedIndex !== null)) && isMultipleChoiceQuestion(currentQuestion) ? (
-          <div className="mt-[18px] flex flex-col gap-2">
+          <div className="mt-[18px] flex flex-col gap-2 tablet:mt-6 tablet:grid tablet:grid-cols-2 tablet:gap-3">
             {currentQuestion?.options.map((option, i) => (
               <DSQuizOption
                 key={i}
@@ -2037,25 +2043,28 @@ export default function QuizPage() {
                 isRevealed={isRevealed}
                 onSelect={() => handleSelect(i)}
                 disabled={isRevealed}
+                size="large"
               />
             ))}
             {!isRevealed && (
               <button
                 type="button"
                 onClick={handleSkip}
-                className="mt-1 w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] py-3 text-center text-[14px] font-bold text-[var(--color-muted)]"
+                className="mt-1 w-full rounded-xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] py-3 text-center text-[14px] font-bold text-[var(--color-muted)] tablet:col-span-2 tablet:min-h-[48px]"
               >
                 わからない
               </button>
             )}
             {/* 言い換えの選択肢は辞書由来で単語の誤答ではないので、報告の対象にしない */}
             {isRevealed && !currentIsParaphrase && user && currentQuestion && (
-              <QuizOptionReportPanel
-                key={`${currentIndex}:${currentQuestion.word.id}`}
-                options={currentQuestion.options}
-                correctIndex={currentQuestion.correctIndex}
-                onReport={handleReportOption}
-              />
+              <div className="tablet:col-span-2">
+                <QuizOptionReportPanel
+                  key={`${currentIndex}:${currentQuestion.word.id}`}
+                  options={currentQuestion.options}
+                  correctIndex={currentQuestion.correctIndex}
+                  onReport={handleReportOption}
+                />
+              </div>
             )}
           </div>
         ) : (
@@ -2118,10 +2127,10 @@ export default function QuizPage() {
       {/* Bottom CTA — only shown after reveal */}
       {isRevealed && (
         <div
-          className="shrink-0 bg-[var(--color-background)] px-5 pt-3"
+          className="shrink-0 bg-[var(--color-background)] px-5 pt-3 tablet:mx-auto tablet:w-full tablet:max-w-[760px] tablet:pb-6"
           style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))' }}
         >
-          <SolidButton variant="accent" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center">
+          <SolidButton variant="accent" iconRight="chevron_right" onClick={moveToNext} disabled={isTransitioning} className="w-full justify-center tablet:min-h-[56px] tablet:text-[16px]">
             次へ
           </SolidButton>
         </div>

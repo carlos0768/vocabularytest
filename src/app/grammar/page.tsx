@@ -200,7 +200,7 @@ export default function GrammarBooksPage() {
         deletingBookId={deletingBookId}
       />
 
-      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-3 font-[var(--font-body)] lg:hidden">
+      <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-32 pt-3 font-[var(--font-body)] desktop:hidden">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 pb-3.5 pt-1">
         <div className="min-w-0">

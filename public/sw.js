@@ -71,7 +71,9 @@ try {
 }
 const OfflineShell = self.MerkenOfflineShell || null;
 
-const SW_VERSION = 'v1';
+// v2: <head> にレイアウトモードのブートストラップ (data-layout) が入ったので、
+// 古いシェル文書を捨てて iPad で下部ナビ付きのスマホ版が出続けないようにする。
+const SW_VERSION = 'v2';
 const CACHE_PREFIX = 'merken-';
 const STATIC_CACHE = `${CACHE_PREFIX}static-${SW_VERSION}`; // immutable hashed build assets
 const ASSET_CACHE = `${CACHE_PREFIX}assets-${SW_VERSION}`; // icons, manifest, images (SWR)

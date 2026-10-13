@@ -59,7 +59,7 @@ export default function SettingsPage() {
         usernameSaving={profileSaving}
         usernameError={profileError}
       />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
       {/* 設定はプロフィール内の導線から開くので、戻り先はプロフィール */}
       <StickyPageHeader eyebrow="ACCOUNT" title="設定" onBack={handleBack} />
 

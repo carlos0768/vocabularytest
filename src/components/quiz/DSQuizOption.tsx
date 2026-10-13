@@ -13,6 +13,7 @@ export function DSQuizOption({
   isRevealed,
   onSelect,
   disabled,
+  size = 'default',
 }: {
   label: string;
   index: number;
@@ -21,6 +22,8 @@ export function DSQuizOption({
   isRevealed: boolean;
   onSelect: () => void;
   disabled: boolean;
+  /** large: タブレットの 2×2 グリッド用に高さと文字を大きくする (tablet のときだけ効く) */
+  size?: 'default' | 'large';
 }) {
   const isCorrectAnswer = isRevealed && isCorrect;
   const isWrongAnswer = isRevealed && isSelected && !isCorrect;
@@ -69,7 +72,7 @@ export function DSQuizOption({
         style={{ transform: 'translate(2.5px, 2.5px)', background: shadowColor }}
       />
       <div
-        className="relative flex items-center gap-[11px] rounded-xl border-2 px-3.5 py-3.5"
+        className={`relative flex items-center gap-[11px] rounded-xl border-2 px-3.5 py-3.5${size === 'large' ? ' tablet:min-h-[84px] tablet:px-5 tablet:py-4' : ''}`}
         style={{ background: faceBg, borderColor }}
       >
         <div
@@ -78,7 +81,7 @@ export function DSQuizOption({
         >
           {String.fromCharCode(65 + index)}
         </div>
-        <div className="flex-1 text-[15px] font-semibold leading-[1.35]" style={{ color: textColor }}>
+        <div className={`flex-1 text-[15px] font-semibold leading-[1.35]${size === 'large' ? ' tablet:text-[18px]' : ''}`} style={{ color: textColor }}>
           {label}
         </div>
         {icon}

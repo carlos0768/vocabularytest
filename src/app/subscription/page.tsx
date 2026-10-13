@@ -67,7 +67,7 @@ export default function SubscriptionPage() {
         userSignedIn={Boolean(user)}
         onSubscribe={() => void handleSubscribe()}
       />
-      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pt-3 font-[var(--font-body)] desktop:hidden">
       <div className="flex items-center gap-2 px-[14px] pb-2 pt-1">
         <button
           type="button"

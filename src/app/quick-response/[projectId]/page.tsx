@@ -461,7 +461,7 @@ export default function QuickResponsePage() {
     return (
       <>
       {/* Desktop completion（DSスタイル） */}
-      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
+      <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col bg-[var(--color-background)] font-[var(--font-body)] desktop:flex">
         <div className="flex flex-1 items-center justify-center overflow-y-auto" style={{ padding: 32 }}>
           <div className="ds-card" style={{ width: 'min(100%, 480px)', padding: '28px 32px', textAlign: 'center' }}>
             <div
@@ -513,7 +513,7 @@ export default function QuickResponsePage() {
         </div>
       </div>
 
-      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden lg:hidden">
+      <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden desktop:hidden">
         <header className="sticky top-0 p-4">
           <button
             onClick={backToProject}

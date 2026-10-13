@@ -73,7 +73,7 @@ export default function DeleteAccountPage() {
   return (
     <>
     {/* デスクトップ表示（設定 > データ > アカウント削除 から遷移） */}
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <div className="ds-top">
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="crumb">アカウント / データ</div>
@@ -125,7 +125,7 @@ export default function DeleteAccountPage() {
       </div>
     </div>
 
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] lg:hidden">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] desktop:hidden">
       <div className="px-[18px] pb-[14px] pt-1">
         <button
           type="button"

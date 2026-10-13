@@ -16,7 +16,7 @@ export default function SettingsHelpPage() {
 
   return (
     <>
-      <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <div className="hidden h-full min-h-0 flex-col desktop:flex">
         <div className="ds-top">
           <button
             type="button"
@@ -39,7 +39,7 @@ export default function SettingsHelpPage() {
         </div>
       </div>
 
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
         <StickyPageHeader
           eyebrow="HELP"
           title="使い方ガイド"

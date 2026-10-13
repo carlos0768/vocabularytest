@@ -187,9 +187,9 @@ function ReelsPageInner() {
   return (
     // Mobile: full-screen overlay. Desktop (lg): live inside the sidebar shell
     // instead of covering it, like the other desktop pages.
-    <div className="fixed inset-0 z-30 flex flex-col bg-[var(--color-background)] lg:static lg:inset-auto lg:z-auto lg:h-full lg:min-h-0">
+    <div className="fixed inset-0 z-30 flex flex-col bg-[var(--color-background)] desktop:static desktop:inset-auto desktop:z-auto desktop:h-full desktop:min-h-0">
       {/* Desktop top bar */}
-      <div className="hidden flex-shrink-0 lg:block">
+      <div className="hidden flex-shrink-0 desktop:block">
         <DesktopTopbar title="リール" crumb="学習 / フィード" back={false}>
           {remainingLabel && (
             <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--color-secondary-text)]">
@@ -201,7 +201,7 @@ function ReelsPageInner() {
 
       {/* Top bar (mobile) */}
       <div
-        className="flex flex-shrink-0 items-center justify-between px-3 pb-2 lg:hidden"
+        className="flex flex-shrink-0 items-center justify-between px-3 pb-2 desktop:hidden"
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
       >
         <button
@@ -224,10 +224,10 @@ function ReelsPageInner() {
 
       {/* Feed area: full-bleed on mobile, centered column on desktop */}
       <div
-        className="min-h-0 flex-1 lg:flex lg:justify-center lg:py-5"
+        className="min-h-0 flex-1 desktop:flex desktop:justify-center desktop:py-5"
         style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
       >
-        <div className="h-full w-full lg:max-w-[420px] lg:rounded-[var(--solid-radius)] lg:border-2 lg:border-[var(--solid-ink)] lg:bg-[var(--color-surface)] lg:overflow-hidden">
+        <div className="h-full w-full desktop:max-w-[420px] desktop:rounded-[var(--solid-radius)] desktop:border-2 desktop:border-[var(--solid-ink)] desktop:bg-[var(--color-surface)] desktop:overflow-hidden">
           {status === 'loading' && items.length === 0 ? (
             <ReelSkeleton />
           ) : status === 'error' && items.length === 0 ? (

@@ -70,7 +70,7 @@ export default function ScanPage() {
         targetProjectTitle={targetProject?.title}
         isPro={isPro}
       />
-      <div className="lg:hidden">
+      <div className="desktop:hidden">
         <ScanCaptureModal
           isOpen
           onClose={() => router.push('/')}

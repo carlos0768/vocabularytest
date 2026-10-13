@@ -201,7 +201,7 @@ export default function ProfileSettingsPage() {
     />
 
     {/* デスクトップ表示（プロフィール / 設定の「プロフィールを編集」から遷移） */}
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="プロフィール変更" crumb="アカウント / プロフィール">
         <DesktopButton icon="arrow_back" onClick={handleBack}>戻る</DesktopButton>
       </DesktopTopbar>
@@ -430,7 +430,7 @@ export default function ProfileSettingsPage() {
       </div>
     </div>
 
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
       <StickyPageHeader eyebrow="PROFILE" title="プロフィール変更" onBack={handleBack} className="mb-3" />
 
       <div className="px-[18px] pb-4">
