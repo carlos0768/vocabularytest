@@ -921,7 +921,6 @@ export function HomeClient() {
       <CreateWordbookSheet
         isOpen={desktopCreateOpen}
         onClose={() => setDesktopCreateOpen(false)}
-        variant="modal"
       />
       {/* 自分の単語帳内の単語検索（ヘッダーの検索ボタンから）。
           開くたびにマウントし直して状態を初期化する */}

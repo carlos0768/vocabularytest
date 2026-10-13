@@ -92,7 +92,7 @@ export function DesktopHeader() {
       </div>
 
       {/* 「＋作成」: モバイルのボトムナビと同じ作成フローを中央モーダルで出す */}
-      <CreateWordbookSheet isOpen={createOpen} onClose={() => setCreateOpen(false)} variant="modal" />
+      <CreateWordbookSheet isOpen={createOpen} onClose={() => setCreateOpen(false)} />
       {/* 単語検索。開くたびにマウントし直して状態を初期化する */}
       {searchOpen && user && <DesktopWordSearchOverlay onClose={() => setSearchOpen(false)} userId={user.id} />}
     </header>
