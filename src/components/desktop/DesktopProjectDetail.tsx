@@ -269,7 +269,7 @@ export function DesktopProjectDetailView({
     <div className="hidden h-full min-h-0 flex-col desktop:flex">
       {/* 戻る / BOOK / 共有 / その他: スクロールしても上に固定される */}
       <div className="ds-top" style={{ gap: 10 }}>
-        <button type="button" className="ds-iconbtn-round sm" onClick={goBack} aria-label="戻る" title="戻る">
+        <button type="button" className="ds-iconbtn-round sm sq" onClick={goBack} aria-label="戻る" title="戻る">
           <Icon name="arrow_back" />
         </button>
         <div style={{ minWidth: 0, flex: 1 }}>
@@ -279,13 +279,13 @@ export function DesktopProjectDetailView({
           </div>
         </div>
         {onShare && (
-          <button type="button" className="ds-iconbtn-round sm" onClick={onShare} aria-label="共有" title="共有">
+          <button type="button" className="ds-iconbtn-round sm sq" onClick={onShare} aria-label="共有" title="共有">
             <Icon name="ios_share" />
           </button>
         )}
         {/* 「...」メニュー: 名称変更 / バインダー設定 / 削除 */}
         <div ref={moreMenuRef} style={{ position: 'relative' }}>
-          <button type="button" className="ds-iconbtn-round sm" onClick={() => setMoreMenuOpen((v) => !v)} aria-label="その他の操作" title="その他の操作">
+          <button type="button" className="ds-iconbtn-round sm sq" onClick={() => setMoreMenuOpen((v) => !v)} aria-label="その他の操作" title="その他の操作">
             <Icon name="more_horiz" />
           </button>
           {moreMenuOpen && (
@@ -371,7 +371,7 @@ export function DesktopProjectDetailView({
                 クイズを始める
               </span>
             )}
-            <Link href={`/flashcard/${projectId}`} className="ds-project-action" style={ACTION_BUTTON}>
+            <Link href={`/flashcard/${projectId}`} className="ds-project-action" style={{ ...ACTION_BUTTON, flex: 1, maxWidth: 360 }}>
               <Icon name="style" size={18} />
               カード
             </Link>

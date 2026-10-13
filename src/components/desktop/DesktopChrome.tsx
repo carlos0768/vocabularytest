@@ -141,7 +141,7 @@ export function DesktopBackButton({ fallbackHref = '/', className }: { fallbackH
     else router.push(fallbackHref);
   };
   return (
-    <button type="button" className={cn('ds-iconbtn-round sm', className)} onClick={goBack} aria-label="戻る" title="戻る">
+    <button type="button" className={cn('ds-iconbtn-round sm sq', className)} onClick={goBack} aria-label="戻る" title="戻る">
       <Icon name="arrow_back" />
     </button>
   );

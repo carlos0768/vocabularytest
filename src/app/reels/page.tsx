@@ -208,7 +208,7 @@ function ReelsPageInner() {
           type="button"
           aria-label="戻る"
           onClick={() => router.back()}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-secondary)]"
+          className="flex h-10 w-10 items-center justify-center rounded-[12px] text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-secondary)]"
         >
           <Icon name="arrow_back_ios_new" size={20} />
         </button>

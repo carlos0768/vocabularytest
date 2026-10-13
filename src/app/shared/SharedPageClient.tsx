@@ -469,7 +469,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             <button
               type="button"
               onClick={handleBackToAll}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
               aria-label="カテゴリ一覧に戻る"
             >
               <Icon name="arrow_back" size={15} />

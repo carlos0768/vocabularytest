@@ -112,7 +112,7 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
         <button
           type="button"
           onClick={() => router.push('/grammar')}
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="語法問題集へ"
         >
           <Icon name="chevron_left" size={16} />

@@ -373,7 +373,7 @@ function GoalCalendar({
           type="button"
           onClick={() => moveMonth(-1)}
           aria-label="前の月"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)] short:h-7 short:w-7"
+          className="flex h-8 w-8 items-center justify-center rounded-[12px] text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)] short:h-7 short:w-7"
         >
           <Icon name="chevron_left" size={20} />
         </button>

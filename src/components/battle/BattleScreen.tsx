@@ -105,7 +105,7 @@ export function BattleScreenHeader({
               type="button"
               onClick={onBack ?? handleBack}
               aria-label="戻る"
-              className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="chevron_left" size={18} />
             </button>

@@ -54,6 +54,9 @@ export function DesktopWordDetailModal({
                 <Icon name="delete" />
               </button>
             )}
+            <button type="button" className="ds-iconbtn" onClick={onClose} aria-label="閉じる">
+              <Icon name="close" />
+            </button>
           </div>
         </div>
         <div className="ds-modal-body">
