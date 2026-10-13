@@ -55,7 +55,7 @@ export function GroupRoomHeader({
             else router.push('/shared');
           }}
           aria-label="戻る"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="arrow_back" size={16} />
         </button>

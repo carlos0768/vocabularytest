@@ -68,8 +68,9 @@ export function BattleScreenHeader({
   right,
   children,
   wide = false,
+  bordered = true,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: ReactNode;
   /** 戻り先。onBack と両方省略すると戻るボタンを出さない。 */
   backHref?: string;
@@ -78,6 +79,8 @@ export function BattleScreenHeader({
   children?: ReactNode;
   /** 最大幅を 760px にする。`BattleScreen` の `wide` と揃えて使う。 */
   wide?: boolean;
+  /** 固定ヘッダの下に区切り線を引くか。 */
+  bordered?: boolean;
 }) {
   const router = useRouter();
   const showBack = Boolean(backHref || onBack);
@@ -95,7 +98,7 @@ export function BattleScreenHeader({
 
   return (
     <header
-      className="shrink-0 border-b-2 border-[var(--color-border)] bg-[var(--color-background)] px-[18px] pb-2.5"
+      className={cn('shrink-0 bg-[var(--color-background)] px-[18px] pb-2.5', bordered && 'border-b-2 border-[var(--color-border)]')}
       style={{ paddingTop: 'max(10px, calc(env(safe-area-inset-top) + 10px))' }}
     >
       <div className={cn('mx-auto w-full', wide ? 'max-w-[760px]' : 'max-w-[560px]')}>
@@ -105,15 +108,17 @@ export function BattleScreenHeader({
               type="button"
               onClick={onBack ?? handleBack}
               aria-label="戻る"
-              className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="chevron_left" size={18} />
             </button>
           )}
           <div className="min-w-0 flex-1">
-            <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-              {eyebrow}
-            </div>
+            {eyebrow && (
+              <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+                {eyebrow}
+              </div>
+            )}
             <div className="truncate font-display text-[17px] font-extrabold leading-tight text-[var(--solid-ink)]">
               {title}
             </div>

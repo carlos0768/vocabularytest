@@ -397,18 +397,13 @@ export function WordDetailView({
   return (
     <div className={isModal ? 'bg-[var(--color-background)] pb-6 font-[var(--font-body)]' : 'min-h-screen bg-[var(--color-background)] pb-24 font-[var(--font-body)]'}>
       <header className="mx-auto flex w-full max-w-xl items-center justify-between px-5 pb-3 pt-4 sm:px-7">
-        {isModal ? (
-          // モーダルでは閉じるボタン（ばつ印）を置かない。背景のタップで閉じる。
-          <span aria-hidden />
-        ) : (
-          <button
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-            aria-label="戻る"
-          >
-            <Icon name="chevron_left" size={16} />
-          </button>
-        )}
+        <button
+          onClick={onClose}
+          className="flex h-9 w-9 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          aria-label={isModal ? '閉じる' : '戻る'}
+        >
+          <Icon name={isModal ? 'close' : 'chevron_left'} size={16} />
+        </button>
         {isEditing ? (
           <button
             onClick={handleFinishEditing}

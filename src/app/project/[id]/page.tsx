@@ -1594,16 +1594,17 @@ export default function ProjectPage() {
             クイズを始める
           </Link>
         </div>
-        <div className="relative h-[44px] w-[44px] flex-none">
+        <div className="relative h-[44px] flex-1">
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
           <Link
             href={`/flashcard/${projectId}`}
             aria-label="カード"
             data-tour="project-flashcard"
             onClick={() => { if (tutorialStage === 'open-flashcard') advanceTutorialAndLeave('view-cards'); }}
-            className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="relative flex h-full w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="style" size={18} />
+            カード
           </Link>
         </div>
         <div className="relative h-[44px] w-[44px] flex-none">

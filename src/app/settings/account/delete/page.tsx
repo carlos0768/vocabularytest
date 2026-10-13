@@ -137,7 +137,7 @@ export default function DeleteAccountPage() {
             router.push('/settings/account');
           }}
           aria-label="戻る"
-          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="chevron_left" size={20} />
         </button>

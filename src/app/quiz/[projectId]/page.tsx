@@ -1436,18 +1436,19 @@ export default function QuizPage() {
     const paraphraseFailed = resolvedAnswerFormat === 'paraphrase' && paraphraseLoadFailed;
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-background)] p-6">
-        <p className="mb-2 text-center font-display text-lg font-black text-[var(--solid-ink)]">
+        <p className={`${paraphraseFailed || resolvedAnswerFormat === 'paraphrase' ? 'mb-2' : 'mb-6'} text-center font-display text-lg font-black text-[var(--solid-ink)]`}>
           {paraphraseFailed
             ? '言い換えの材料を取得できませんでした'
             : `出題できる ${scopeLabels[resolvedAnswerFormat]} 単語がありません`}
         </p>
-        <p className="mb-6 max-w-xs text-center text-sm leading-6 text-[var(--color-muted)]">
-          {paraphraseFailed
-            ? '言い換えクイズはオンラインで辞書を引いて出題します。通信を確かめてもう一度お試しください。'
-            : resolvedAnswerFormat === 'paraphrase'
-              ? '言い換えでは、辞書に英語の同義語がある単語だけを出題します。別の解き方を選んでください。'
-              : `${formatNames[resolvedAnswerFormat]}では ${scopeLabels[resolvedAnswerFormat]} の単語だけを出題します。単語一覧の A / P ボタンで語彙モードを変えるか、別の解き方を選んでください。`}
-        </p>
+        {/* 四択・記述・一般・タイムアタックでは見出しだけ (語彙モードの説明文は出さない)。言い換えだけ理由を添える */}
+        {(paraphraseFailed || resolvedAnswerFormat === 'paraphrase') && (
+          <p className="mb-6 max-w-xs text-center text-sm leading-6 text-[var(--color-muted)]">
+            {paraphraseFailed
+              ? '言い換えクイズはオンラインで辞書を引いて出題します。通信を確かめてもう一度お試しください。'
+              : '言い換えでは、辞書に英語の同義語がある単語だけを出題します。別の解き方を選んでください。'}
+          </p>
+        )}
         <div className="w-full max-w-xs space-y-3">
           {paraphraseFailed && (
             <SolidButton variant="inverse" onClick={() => chooseMode('paraphrase')} className="w-full justify-center">
@@ -1455,7 +1456,7 @@ export default function QuizPage() {
             </SolidButton>
           )}
           {otherFormats.map((format) => (
-            <SolidButton key={format} variant="inverse" onClick={() => chooseMode(format)} className="w-full justify-center">
+            <SolidButton key={format} variant="accent" onClick={() => chooseMode(format)} className="w-full justify-center">
               {formatNames[format]}に切り替える（{scopeLabels[format]} {answerFormatWordCounts[format]}語）
             </SolidButton>
           ))}
@@ -1722,7 +1723,8 @@ export default function QuizPage() {
   const desktopWordOrderAnswer = isWordOrderQuestion(currentQuestion)
     ? currentQuestion.answerTokens.join(' ')
     : '';
-  const desktopExample = !currentIsWordOrder && currentQuestion?.word.exampleSentence?.trim()
+  // 例文は Active (記述) のときだけ。Passive (四択・タイムアタック・言い換え) では出さない。
+  const desktopExample = !currentIsWordOrder && isTypeInMode && currentQuestion?.word.exampleSentence?.trim()
     ? {
         sentence: currentQuestion.word.exampleSentence.trim(),
         translation: normalizeDisplayText(currentQuestion.word.exampleSentenceJa),
@@ -1777,11 +1779,6 @@ export default function QuizPage() {
         wordCounts={chooserWordCounts}
         title="クイズの解き方を変える"
         description="今日はこのあともこの解き方で始めます。"
-        warning={
-          hasAnsweredRef.current
-            ? '解き方ごとに出題する単語が違うので、切り替えるといまのクイズは最初からになります。'
-            : undefined
-        }
       />
     </Modal>
     <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:flex">
@@ -2006,7 +2003,7 @@ export default function QuizPage() {
         header={
           <BattleScreenHeader
             wide
-            eyebrow={isTimeAttack ? 'TIME ATTACK' : 'QUIZ'}
+            bordered={false}
             title={quizScopeLabel ?? quizKindLabel}
             onBack={backToProject}
             right={
@@ -2163,7 +2160,7 @@ export default function QuizPage() {
         )}
 
         {/* Example sentence revealed */}
-        {isRevealed && !currentIsWordOrder && currentQuestion?.word.exampleSentence && (
+        {isRevealed && !currentIsWordOrder && isTypeInMode && currentQuestion?.word.exampleSentence && (
           <div className="mt-4 shrink-0 rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px]">
             <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
             <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">

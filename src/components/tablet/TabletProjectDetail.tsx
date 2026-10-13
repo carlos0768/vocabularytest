@@ -85,7 +85,7 @@ function RoundButton({
       onClick={onClick}
       aria-label={label}
       aria-expanded={expanded}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
     >
       <Icon name={icon} size={18} />
     </button>
@@ -252,7 +252,7 @@ export function TabletProjectDetailView({
             </Link>
             <Link
               href={`/flashcard/${projectId}`}
-              className="flex h-12 items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 text-[13px] font-bold text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)]"
+              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 text-[14px] font-bold text-[var(--solid-ink)] shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_var(--solid-shadow)] tablet-regular:max-w-[360px]"
             >
               <Icon name="style" size={18} />
               カード

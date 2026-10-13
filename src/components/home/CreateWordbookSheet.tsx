@@ -196,7 +196,7 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                   type="button"
                   onClick={() => setStep('method')}
                   aria-label="戻る"
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
                 >
                   <Icon name="arrow_back" size={14} />
                 </button>

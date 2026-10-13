@@ -76,6 +76,7 @@
   cursor: pointer; text-decoration: none; padding: 0;
   transition: background var(--dur-fast) var(--ease-out);
 }
+.ds-iconbtn-round.sq { border-radius: 12px; }
 .ds-iconbtn-round:hover { background: color-mix(in srgb, var(--solid-ink) 5%, transparent); }
 .ds-iconbtn-round .material-symbols-outlined { font-size: 17px; }
 .ds-iconbtn-round.sm { width: 36px; height: 36px; }

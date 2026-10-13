@@ -147,7 +147,7 @@ export function SolidHeader({
             <Link
               href={backHref}
               aria-label="戻る"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
             >
               <Icon name="arrow_back" size={20} />
             </Link>

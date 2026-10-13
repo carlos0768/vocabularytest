@@ -321,7 +321,7 @@ export default function BinderDetailPage({ params }: { params: Promise<{ name: s
         <button
           type="button"
           onClick={() => (typeof window !== 'undefined' && window.history.length > 1 ? router.back() : router.push('/'))}
-          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="戻る"
         >
           <Icon name="chevron_left" size={16} />

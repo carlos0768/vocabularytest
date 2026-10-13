@@ -262,7 +262,7 @@ export default function GroupJoinPage() {
             type="button"
             onClick={goBack}
             aria-label="戻る"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="arrow_back" size={16} />
           </button>

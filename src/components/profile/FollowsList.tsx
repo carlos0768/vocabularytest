@@ -122,7 +122,7 @@ export function FollowsList({
             href={backHref}
             onClick={handleBack}
             aria-label="戻る"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
           >
             <Icon name="arrow_back" size={22} />
           </Link>
