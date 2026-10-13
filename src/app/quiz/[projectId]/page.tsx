@@ -2044,7 +2044,8 @@ export default function QuizPage() {
         }
       >
         {/* 上段=出題。画面の高さを出題とボタン盤で分け合う */}
-        <div className="flex min-h-[120px] flex-1 items-center justify-center py-2">
+        {/* 記述 (Active) は入力欄を問題のすぐ下に置く。伸ばすと入力欄が画面の下端に押し下げられて打ちにくい */}
+        <div className={`flex items-center justify-center py-2 ${isTypeInMode ? 'shrink-0' : 'min-h-[120px] flex-1'}`}>
           <BattleQuestionCard
             round={currentIndex + 1}
             label={`Q${currentIndex + 1} · ${
