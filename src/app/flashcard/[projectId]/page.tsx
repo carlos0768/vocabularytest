@@ -982,7 +982,8 @@ export default function FlashcardPage() {
       </div>
 
       {/* Card area */}
-      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-5 tablet:mx-auto tablet:w-full tablet:max-w-[760px]">
+      {/* 下段 (評価バー + 送りボタン) のほうがヘッダーより約96px高い。その差を上に足して、カードが画面の上下中央に来るようにする */}
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-5 pt-[96px] short:pt-0 tablet:mx-auto tablet:w-full tablet:max-w-[760px]">
         {/* Flashcard */}
         <div
           className="relative w-full"
