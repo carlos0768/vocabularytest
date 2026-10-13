@@ -3,9 +3,8 @@
 /**
  * 単語帳詳細 (タブレット / iPad)。
  *
- * iPadOS のアプリと同じ**マスター・ディテール**:
- *   横向き (tablet-regular): 左に単語一覧、右に選んだ単語の詳細を常設 (sticky)
- *   縦向き (tablet-compact): 一覧のみ。単語をタップすると右からスライドオーバーで詳細
+ * 単語をタップすると、スマホと同じ中央のモーダル (WordDetailOverlay) で詳細を出す
+ * (右ペインやスライドオーバーで横に出す案は使いにくかったのでやめた)。
  * 上から: 戻る / タイトル / 共有 / メニュー → アイコン + 題名 + 習得度バー
  *       → クイズ / カード / 単語を追加 → 検索・絞り込み・並べ替え・選択・赤シート
  *       → 単語一覧 (スマホと同じ WordRow、10 語ずつページ送り)
@@ -22,11 +21,10 @@ import { EmptyWordbookState } from '@/components/project/page/ProjectEmptyState'
 import { MenuButton } from '@/components/project/page/ProjectHeaderControls';
 import { WordRow } from '@/components/project/WordRow';
 import { StackedBar } from '@/components/project/WordStatusBar';
-import { WordDetailView } from '@/components/word/WordDetailView';
+import { WordDetailOverlay } from '@/components/word/WordDetailOverlay';
 import { WordListFrame } from '@/components/words/WordListFrame';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
-import { useTabletSize } from '@/hooks/use-layout-mode';
 import { thumbColor } from '@/lib/ui/thumb-color';
 import { cn } from '@/lib/utils';
 import type { Word } from '@/types';
@@ -150,8 +148,6 @@ export function TabletProjectDetailView({
 }: TabletProjectDetailViewProps) {
   const router = useRouter();
   const { isPro } = useAuth();
-  const tabletSize = useTabletSize();
-  const splitView = tabletSize === 'regular';
 
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -190,20 +186,6 @@ export function TabletProjectDetailView({
 
   const hasWords = !wordsLoaded || counts.total > 0;
 
-  const detailPanel = selectedWord ? (
-    <div className="overflow-hidden rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-background)] shadow-[4px_5px_0_var(--solid-shadow)]">
-      <WordDetailView
-        key={selectedWord.id}
-        wordId={selectedWord.id}
-        variant="modal"
-        initialWord={selectedWord}
-        onClose={() => setSelectedWordId(null)}
-        onWordUpdated={onWordUpdated}
-        onDelete={(wordId) => onDeleteWord(wordId)}
-      />
-    </div>
-  ) : null;
-
   return (
     <div className="tb-bleed flex min-h-full flex-col font-[var(--font-body)]">
       {/* ヘッダー: 戻る / BOOK + 題名 / 共有 / メニュー。スクロールしても上に残る */}
@@ -237,7 +219,7 @@ export function TabletProjectDetailView({
         </div>
       </header>
 
-      <div className={cn('mx-auto w-full px-5 pb-16', splitView ? 'max-w-[1240px]' : 'max-w-[840px]')}>
+      <div className="mx-auto w-full max-w-[840px] px-5 pb-16">
         {/* アイコン + 題名 + 習得度 */}
         <div className="flex items-start gap-4 pb-3 pt-4">
           <div
@@ -343,8 +325,8 @@ export function TabletProjectDetailView({
           </div>
         )}
 
-        {/* 本文: 横向きは 一覧 | 詳細 の 2 カラム。縦向きは一覧だけ */}
-        <div className={cn(splitView && 'grid grid-cols-[minmax(0,1fr)_440px] items-start gap-6')}>
+        {/* 単語一覧 */}
+        <div>
           <div className="min-w-0">
             {!wordsLoaded ? (
               <div className="flex items-center justify-center py-12 text-[var(--color-muted)]">
@@ -362,13 +344,7 @@ export function TabletProjectDetailView({
             ) : (
               <WordListFrame className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3">
                 {pagedRows.map((word) => (
-                  <div
-                    key={word.id}
-                    className={cn(
-                      '-mx-3 px-3 transition-colors',
-                      splitView && selectedWordId === word.id && 'bg-[color-mix(in_srgb,var(--solid-ink)_6%,transparent)]',
-                    )}
-                  >
+                  <div key={word.id} className="-mx-3 px-3">
                     <WordRow
                       word={word}
                       selectMode={selectMode}
@@ -407,45 +383,17 @@ export function TabletProjectDetailView({
               </div>
             )}
           </div>
-
-          {/* 横向き: 右カラムに詳細を常設。未選択のときは案内 */}
-          {splitView && (
-            <aside className="sticky self-start" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 72px)' }}>
-              {detailPanel ?? (
-                <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[20px] border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] px-6 text-center text-[var(--color-muted)]">
-                  <Icon name="touch_app" size={28} />
-                  <p className="mt-3 text-[13px] font-bold">単語をタップすると、ここに詳細が出ます</p>
-                  <p className="mt-1 text-[12px]">語源・例文・発音・言い換えをそのまま読めます</p>
-                </div>
-              )}
-            </aside>
-          )}
         </div>
       </div>
 
-      {/* 縦向き: 右からのスライドオーバー */}
-      {!splitView && selectedWord && (
-        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
-          <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-            onClick={() => setSelectedWordId(null)}
-          />
-          <div
-            className="absolute inset-y-0 right-0 flex w-[460px] max-w-[92vw] flex-col overflow-y-auto overscroll-contain border-l-2 border-[var(--solid-ink)] bg-[var(--color-background)] animate-fade-in"
-            style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-          >
-            <WordDetailView
-              key={selectedWord.id}
-              wordId={selectedWord.id}
-              variant="modal"
-              initialWord={selectedWord}
-              onClose={() => setSelectedWordId(null)}
-              onWordUpdated={onWordUpdated}
-              onDelete={(wordId) => onDeleteWord(wordId)}
-            />
-          </div>
-        </div>
+      {/* 単語詳細: スマホと同じ中央モーダル */}
+      {selectedWord && (
+        <WordDetailOverlay
+          word={selectedWord}
+          onClose={() => setSelectedWordId(null)}
+          onWordUpdated={onWordUpdated}
+          onDelete={onDeleteWord}
+        />
       )}
     </div>
   );

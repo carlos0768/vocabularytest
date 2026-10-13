@@ -7,12 +7,14 @@
    ============================================================ */
 
 html[data-layout="tablet"] {
-  /* 縦向き (compact) はアイコンだけのレール、横向き (regular) はラベル付き */
+  /* 縦向き (compact) はアイコンだけのレール、横向き (regular) はラベル付き。
+     横向きでも <html data-tablet-sidebar="collapsed"> (サイドバーの格納ボタン、
+     localStorage に記憶) のときはレールに畳む */
   --tablet-sidebar-w: 84px;
   /* スマホ由来のページを収める中央カラムの幅 */
   --tablet-column-w: 760px;
 }
-html[data-layout="tablet"][data-tablet-size="regular"] {
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) {
   --tablet-sidebar-w: 260px;
 }
 
@@ -44,8 +46,12 @@ html[data-layout="tablet"] .ds-live-shell--immersive > .tb-sidebar {
 
 /* 本文。ここがスクロールする (desktop と同じ構造なので use-page-scrolled が効く)。
    上の safe-area (iPad PWA のステータスバー) は body ではなくここで取る。
-   スマホ由来の sticky ヘッダ (top: env(safe-area-inset-top)) はこのスクロール
-   領域の上端から inset ぶん下、つまりステータスバーの直下に貼り付く */
+   **padding-top で取ってはいけない**: スクロール容器に padding があると、中の
+   sticky ヘッダ (top: env(safe-area-inset-top)) の top は padding の内側から
+   測られて inset が二重に効き、ヘッダがスクロール位置 0 でも本文の上に
+   inset ぶんかぶる (共有 / プロフィールで本文の先頭が埋もれた不具合)。
+   先頭に spacer (::before) を置けば、sticky ヘッダはステータスバーの直下に
+   貼り付き、本文はその下から始まる */
 html[data-layout="tablet"] .ds-live-main {
   min-height: 0;
   min-width: 0;
@@ -53,7 +59,12 @@ html[data-layout="tablet"] .ds-live-main {
   overscroll-behavior-y: contain;
   display: flex;
   flex-direction: column;
-  padding-top: env(safe-area-inset-top, 0px);
+}
+html[data-layout="tablet"] .ds-live-main::before {
+  content: '';
+  display: block;
+  flex-shrink: 0;
+  height: env(safe-area-inset-top, 0px);
 }
 /* 子はページ本体。縮ませない (desktop.css と同じ理由) */
 html[data-layout="tablet"] .ds-live-main > * {
@@ -93,7 +104,7 @@ html[data-layout="tablet"] .ds-live-shell:not(.ds-live-shell--immersive) .ds-liv
   scrollbar-width: none;
 }
 .tb-sidebar::-webkit-scrollbar { display: none; }
-html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar {
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar {
   padding-left: 14px;
   padding-right: 14px;
 }
@@ -110,9 +121,9 @@ html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar {
 }
 .tb-sidebar-brand-full { display: none; font-size: 24px; }
 .tb-sidebar-brand-mark { display: inline-flex; font-size: 26px; }
-html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-brand { justify-content: flex-start; padding-left: 12px; }
-html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-brand-full { display: inline-flex; }
-html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-brand-mark { display: none; }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-brand { justify-content: flex-start; padding-left: 12px; }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-brand-full { display: inline-flex; }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-brand-mark { display: none; }
 
 .tb-sidebar-nav {
   display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;
@@ -137,11 +148,11 @@ html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-brand-mark { 
 }
 .tb-sidebar-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0; }
 .tb-sidebar-label { white-space: nowrap; }
-html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-item {
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-item {
   flex-direction: row; justify-content: flex-start; gap: 12px;
   min-height: 52px; padding: 10px 14px; border-radius: 14px; font-size: 15px;
 }
-html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-item.active {
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-item.active {
   border-color: var(--solid-ink);
   background: var(--color-surface);
   box-shadow: 3px 3px 0 var(--solid-shadow);
@@ -167,14 +178,18 @@ html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-item.active {
   transition: transform 80ms ease-out, box-shadow 80ms ease-out;
 }
 .tb-sidebar-create:active .tb-sidebar-create-icon { transform: translate(2px, 3px); box-shadow: 0 0 0 var(--solid-shadow); }
-html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-create {
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-create {
   flex-direction: row; gap: 10px; min-height: 52px; margin: 8px 0; padding: 0 14px; border-radius: 14px;
   background: var(--solid-ink); color: var(--color-on-ink); border: 2px solid var(--solid-ink);
   box-shadow: 3px 3px 0 var(--solid-shadow); font-size: 15px;
   transition: transform 80ms ease-out, box-shadow 80ms ease-out;
 }
-html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-create:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--solid-shadow); }
-html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-create-icon {
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-create:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--solid-shadow); }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-create-icon {
   width: 28px; height: 28px; border: none; box-shadow: none; background: transparent; color: inherit;
 }
-html[data-layout="tablet"][data-tablet-size="regular"] .tb-sidebar-create:active .tb-sidebar-create-icon { transform: none; }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-create:active .tb-sidebar-create-icon { transform: none; }
+
+/* 格納 / 展開の切り替え。縦向き (もともとレール) では出さない */
+.tb-sidebar-toggle { margin-top: 6px; }
+html[data-layout="tablet"][data-tablet-size="compact"] .tb-sidebar-toggle { display: none; }

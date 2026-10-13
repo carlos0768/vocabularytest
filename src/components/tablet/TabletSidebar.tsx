@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
 import { DesktopWordSearchOverlay } from '@/components/desktop/DesktopWordSearchOverlay';
 import { Icon } from '@/components/ui/Icon';
@@ -11,7 +11,43 @@ import { useAuth } from '@/hooks/use-auth';
 import { useCoins } from '@/hooks/use-coins';
 import { prefetchReelFeed } from '@/hooks/use-reel-feed';
 import { getNavTabs, isNavTabActive } from '@/lib/navigation/tabs';
+import {
+  TABLET_SIDEBAR_ATTR,
+  TABLET_SIDEBAR_COLLAPSED,
+  TABLET_SIDEBAR_STORAGE_KEY,
+} from '@/lib/ui/layout-mode';
 import { cn } from '@/lib/utils';
+
+// 格納状態は localStorage が正。useSyncExternalStore で読むので、サーバー (false) と
+// クライアント (記憶した値) の差はハイドレーション後に React が合わせる
+const SIDEBAR_CHANGE_EVENT = 'merken:tablet-sidebar';
+
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(TABLET_SIDEBAR_STORAGE_KEY) === TABLET_SIDEBAR_COLLAPSED;
+  } catch {
+    return false;
+  }
+}
+
+function subscribeSidebar(callback: () => void): () => void {
+  window.addEventListener(SIDEBAR_CHANGE_EVENT, callback);
+  window.addEventListener('storage', callback);
+  return () => {
+    window.removeEventListener(SIDEBAR_CHANGE_EVENT, callback);
+    window.removeEventListener('storage', callback);
+  };
+}
+
+function writeSidebarCollapsed(collapsed: boolean) {
+  try {
+    if (collapsed) localStorage.setItem(TABLET_SIDEBAR_STORAGE_KEY, TABLET_SIDEBAR_COLLAPSED);
+    else localStorage.removeItem(TABLET_SIDEBAR_STORAGE_KEY);
+  } catch {
+    // 記憶できなくても、この後の属性の付け替えで今回の表示は切り替わる
+  }
+  window.dispatchEvent(new Event(SIDEBAR_CHANGE_EVENT));
+}
 
 /**
  * タブレット (iPad) の左サイドバー。iPadOS のアプリと同じく常に見えていて、
@@ -28,6 +64,16 @@ export function TabletSidebar() {
   const { enabled: coinsEnabled, balance: coinBalance } = useCoins();
   const [createOpen, setCreateOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // 格納 (横向きでもアイコンのレールに畳む)。初回描画の値は <head> のブートストラップが
+  // localStorage から <html data-tablet-sidebar> に書いている。ここは同じ値を読み、
+  // 切り替えのたびに属性を付け替える (CSS は tablet.css がその属性を見る)
+  const collapsed = useSyncExternalStore(subscribeSidebar, readSidebarCollapsed, () => false);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (collapsed) root.setAttribute(TABLET_SIDEBAR_ATTR, TABLET_SIDEBAR_COLLAPSED);
+    else root.removeAttribute(TABLET_SIDEBAR_ATTR);
+  }, [collapsed]);
+  const toggleCollapsed = () => writeSidebarCollapsed(!collapsed);
   const tabs = getNavTabs(isPro);
 
   return (
@@ -106,6 +152,19 @@ export function TabletSidebar() {
             </span>
           </Link>
         )}
+        {/* 格納 / 展開。縦向き (もともとレール) では CSS で隠す */}
+        <button
+          type="button"
+          className="tb-sidebar-item tb-sidebar-tool tb-sidebar-toggle"
+          onClick={toggleCollapsed}
+          aria-pressed={collapsed}
+          aria-label={collapsed ? 'サイドバーを広げる' : 'サイドバーを格納する'}
+        >
+          <span className="tb-sidebar-icon">
+            <Icon name={collapsed ? 'left_panel_open' : 'left_panel_close'} size={22} />
+          </span>
+          <span className="tb-sidebar-label">{collapsed ? '広げる' : '格納'}</span>
+        </button>
       </div>
 
       {/* 「作成」: ボトムナビと同じ作成フローを中央モーダルで出す */}
