@@ -126,7 +126,7 @@ export default function GroupBookshelfClient() {
   return (
     <>
       {/* Desktop */}
-      <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <div className="hidden h-full min-h-0 flex-col desktop:flex">
         <div className="ds-top">
           <DesktopButton
             onClick={handleBack}
@@ -159,7 +159,7 @@ export default function GroupBookshelfClient() {
 
       {/* Mobile */}
       <div
-        className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)] lg:hidden"
+        className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden"
         style={{
           paddingTop: 0,
           paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
@@ -212,7 +212,7 @@ function BookshelfHeader({ onBack, groupName, bookCount }: { onBack: () => void;
           type="button"
           onClick={onBack}
           aria-label="グループに戻る"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="arrow_back" size={16} />
         </button>

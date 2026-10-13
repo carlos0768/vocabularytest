@@ -321,7 +321,7 @@ export default function ShareWordbookClient() {
             type="button"
             onClick={() => router.back()}
             aria-label="戻る"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
           >
             <Icon name="chevron_left" size={18} />
           </button>

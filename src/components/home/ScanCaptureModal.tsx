@@ -63,10 +63,10 @@ export function ScanCaptureModal({
       />
 
       {/* モバイル: ボトムシート / デスクトップ(lg): ホームの新規作成と同じ中央モーダル */}
-      <div className="absolute bottom-0 left-0 right-0 flex justify-center lg:inset-0 lg:items-center lg:p-6">
-        <div className="w-full max-w-[480px] animate-fade-in-up rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[var(--color-paper)] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_color-mix(in_srgb,_var(--solid-ink)_18%,_transparent)] lg:max-h-full lg:animate-fade-in lg:overflow-y-auto lg:rounded-[20px] lg:border-b-2 lg:pb-[22px] lg:shadow-[6px_8px_0_var(--solid-shadow)]">
+      <div className="absolute bottom-0 left-0 right-0 flex justify-center desktop:inset-0 tablet:inset-0 desktop:items-center tablet:items-center desktop:p-6 tablet:p-6">
+        <div className="w-full max-w-[480px] animate-fade-in-up rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[var(--color-paper)] px-[18px] pb-[max(28px,env(safe-area-inset-bottom))] pt-[14px] shadow-[0_-8px_24px_color-mix(in_srgb,_var(--solid-ink)_18%,_transparent)] desktop:max-h-full tablet:max-h-full desktop:animate-fade-in tablet:animate-fade-in desktop:overflow-y-auto tablet:overflow-y-auto desktop:rounded-[20px] tablet:rounded-[20px] desktop:border-b-2 tablet:border-b-2 desktop:pb-[22px] tablet:pb-[22px] desktop:shadow-[6px_8px_0_var(--solid-shadow)] tablet:shadow-[6px_8px_0_var(--solid-shadow)]">
           {/* Drag handle（ボトムシートのみ） */}
-          <div className="mb-2.5 flex justify-center lg:hidden">
+          <div className="mb-2.5 flex justify-center desktop:hidden tablet:hidden">
             <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
           </div>
 

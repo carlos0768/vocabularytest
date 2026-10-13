@@ -45,7 +45,7 @@ export function FollowsList({
   return (
     <>
     {/* デスクトップ用フォロー欄 */}
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar
         title={title}
         crumb="フォロー / フォロワー"
@@ -114,7 +114,7 @@ export function FollowsList({
       </div>
     </div>
 
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[max(24px,env(safe-area-inset-bottom))] pt-3 font-[var(--font-body)] lg:hidden">
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[max(24px,env(safe-area-inset-bottom))] pt-3 font-[var(--font-body)] desktop:hidden">
       <div className="mx-auto w-full max-w-xl">
         {/* Top bar */}
         <div className="flex items-center gap-2 px-[18px] pb-1 pt-1">
@@ -122,7 +122,7 @@ export function FollowsList({
             href={backHref}
             onClick={handleBack}
             aria-label="戻る"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
           >
             <Icon name="arrow_back" size={22} />
           </Link>

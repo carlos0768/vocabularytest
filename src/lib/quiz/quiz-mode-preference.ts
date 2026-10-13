@@ -15,7 +15,13 @@
 import { PARAPHRASE_FEATURE_ENABLED } from '@/lib/paraphrase/feature-flag';
 import { jstDayKey } from '@/lib/date/jst';
 
-export type QuizMode = 'normal' | 'typing' | 'paraphrase' | 'voice' | 'cloze';
+/**
+ * 選択画面に出すのは `general` (一般) と `timeattack` (タイムアタック) と `cloze` (空所補充)。
+ * `normal` / `typing` は一般が単語ごとに振り分ける先の形式で、選択画面には出さないが、
+ * 端末に残った古い選択や音読ページからの戻りで来うるので型と判定には残してある。
+ * `cloze` は別ページ (`/cloze-quiz`) で解く。
+ */
+export type QuizMode = 'general' | 'timeattack' | 'normal' | 'typing' | 'paraphrase' | 'voice' | 'cloze';
 
 /**
  * 音読チャレンジ・空所補充 (どちらも別ページ) ではなく、四択クイズ画面の中で解ける形式。
@@ -55,7 +61,13 @@ export function isQuizMode(value: unknown): value is QuizMode {
  * どれから来ても、ここで弾いて四択に倒す。
  */
 export function isQuizAnswerFormat(value: unknown): value is QuizAnswerFormat {
-  return value === 'normal' || value === 'typing' || (value === 'paraphrase' && PARAPHRASE_FEATURE_ENABLED);
+  return (
+    value === 'general' ||
+    value === 'timeattack' ||
+    value === 'normal' ||
+    value === 'typing' ||
+    (value === 'paraphrase' && PARAPHRASE_FEATURE_ENABLED)
+  );
 }
 
 /** localStorage のうち、この機能が使う部分だけ。テストから差し替えられるようにする。 */

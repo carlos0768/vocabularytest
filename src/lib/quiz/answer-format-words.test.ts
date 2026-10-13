@@ -5,6 +5,7 @@ import {
   countWordsByAnswerFormat,
   filterWordsForAnswerFormat,
   matchesAnswerFormat,
+  resolveGeneralQuestionFormat,
 } from './answer-format-words';
 
 const active = { vocabularyType: 'active' as const };
@@ -48,7 +49,7 @@ test('四択と記述で数えると必ず全語になる', () => {
 });
 
 test('空の単語帳はどの解き方も0', () => {
-  assert.deepEqual(countWordsByAnswerFormat([]), { typing: 0, normal: 0, paraphrase: 0 });
+  assert.deepEqual(countWordsByAnswerFormat([]), { typing: 0, normal: 0, paraphrase: 0, general: 0, timeattack: 0 });
 });
 
 test('言い換えは語彙モードと無関係で、材料のある語だけを数える・出す', () => {
@@ -72,4 +73,23 @@ test('言い換えは語彙モードと無関係で、材料のある語だけ�
 test('材料の判定を渡さなければ言い換えは 0 語 (材料が届く前の選択画面)', () => {
   assert.equal(matchesAnswerFormat(passive, 'paraphrase'), false);
   assert.equal(countWordsByAnswerFormat([active, passive]).paraphrase, 0);
+});
+
+test('一般は全語を出し、Active は記述・Passive (未設定含む) は四択に振り分ける', () => {
+  for (const word of [active, passive, unset, missing]) {
+    assert.equal(matchesAnswerFormat(word, 'general'), true);
+  }
+  assert.equal(resolveGeneralQuestionFormat(active), 'typing');
+  assert.equal(resolveGeneralQuestionFormat(passive), 'normal');
+  assert.equal(resolveGeneralQuestionFormat(unset), 'normal');
+  assert.equal(resolveGeneralQuestionFormat(missing), 'normal');
+});
+
+test('タイムアタックは Passive (未設定含む) の語だけ', () => {
+  assert.equal(matchesAnswerFormat(passive, 'timeattack'), true);
+  assert.equal(matchesAnswerFormat(unset, 'timeattack'), true);
+  assert.equal(matchesAnswerFormat(active, 'timeattack'), false);
+  const counts = countWordsByAnswerFormat([active, passive, unset]);
+  assert.equal(counts.general, 3);
+  assert.equal(counts.timeattack, 2);
 });

@@ -191,7 +191,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
       />
 
       {/* 単語帳クイズと同じ固定ビューポート構成: 内容が収まる限りスクロールしない */}
-      <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+      <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden">
       <div className="mx-auto flex h-full w-full max-w-[560px] flex-col">
       {/* Header (固定ビューポートの上段。ノッチ帯は全体共通の StatusBarCover が覆う) */}
       <header
@@ -201,7 +201,7 @@ export default function GrammarPracticePage({ params }: { params: Promise<{ book
         <button
           type="button"
           onClick={handleBack}
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="戻る"
         >
           <Icon name="chevron_left" size={16} />

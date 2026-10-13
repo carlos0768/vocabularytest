@@ -419,7 +419,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         onLoadMore={handleLoadMore}
       />
 
-      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <div className="flex min-h-screen flex-col bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
         {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
             top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。
             下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}
@@ -469,7 +469,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             <button
               type="button"
               onClick={handleBackToAll}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
               aria-label="カテゴリ一覧に戻る"
             >
               <Icon name="arrow_back" size={15} />
@@ -569,7 +569,7 @@ function BrowseSection({
 
   return (
     <div className="px-[14px] py-3">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 tablet:grid-cols-3">
         {tiles.map((tile) => (
           <button
             key={tile.key}

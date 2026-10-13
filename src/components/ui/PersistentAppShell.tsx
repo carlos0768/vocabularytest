@@ -3,7 +3,10 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { DesktopHeader } from '@/components/desktop/DesktopChrome';
+import { TabletSidebar } from '@/components/tablet/TabletSidebar';
 import { markClientNavigation, useAuth } from '@/hooks/use-auth';
+import { createScrollStopTapGuard } from '@/lib/ui/scroll-stop-tap';
+import { cn } from '@/lib/utils';
 import { BottomNav } from './bottom-nav';
 
 const NO_SHELL_PATHS = [
@@ -46,8 +49,21 @@ const HIDE_BOTTOM_NAV_PATHS = [
 // その上に被らないよう出さない。
 const HIDE_DESKTOP_HEADER_PATHS = ['/project/', '/flashcard/', '/quiz/', '/quiz2/', '/quick-response/', '/voice-quiz/'];
 
+// タブレットでサイドバーを出さず 1 カラムにするパス (全画面のフロー)。
+// 学習画面は集中モード、グループ / 語法演習 / 対戦 / スキャン確認は
+// `fixed inset-x-0 top-0 h-[100dvh]` の自前の全画面レイアウトを持つ。
+// 単語帳詳細はタブレットでは専用ビュー (サイドバーあり) なので含めない。
+const TABLET_IMMERSIVE_PATHS = [
+  '/flashcard/', '/quiz/', '/quiz2/', '/quick-response/', '/voice-quiz/',
+  '/battle', '/groups', '/grammar/', '/scan/confirm',
+];
+
 function shouldHideDesktopHeader(pathname: string): boolean {
   return HIDE_DESKTOP_HEADER_PATHS.some((p) => pathname.startsWith(p));
+}
+
+function isTabletImmersive(pathname: string): boolean {
+  return TABLET_IMMERSIVE_PATHS.some((p) => pathname.startsWith(p));
 }
 
 function shouldHideShell(pathname: string): boolean {
@@ -75,11 +91,14 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
     let touchStartY = 0;
     let hasMoved = false;
     let scrollTimeout: ReturnType<typeof setTimeout>;
+    // 慣性スクロールを止めるためのタップが click になる (iPad) のを防ぐ判定
+    const stopTapGuard = createScrollStopTapGuard();
 
     const handleTouchStart = (e: TouchEvent) => {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
       hasMoved = false;
+      stopTapGuard.onTouchStart();
     };
     const handleTouchMove = (e: TouchEvent) => {
       // 縦・横どちらの移動もスクロールとみなす。横スクロール(本棚など)が縦しか
@@ -91,11 +110,13 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
       const dy = Math.abs(e.touches[0].clientY - touchStartY);
       if (dx > 8 || dy > 8) {
         hasMoved = true;
+        stopTapGuard.onTouchMove();
         setScrollEnding(true);
       }
     };
     const handleTouchEnd = () => {
       clearTimeout(scrollTimeout);
+      stopTapGuard.onTouchEnd(hasMoved);
       if (hasMoved) {
         // スクロール直後の誤タップを飲み込むため、少し遮蔽を残してから解除する
         scrollTimeout = setTimeout(() => setScrollEnding(false), 200);
@@ -104,14 +125,36 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
         setScrollEnding(false);
       }
     };
+    const handleTouchCancel = () => {
+      stopTapGuard.onTouchCancel();
+    };
+    // 本文 (.ds-live-main) も window も、どこがスクロールしても拾う
+    const handleScroll = () => {
+      stopTapGuard.onScroll();
+    };
+    // iPad: overflow コンテナの慣性スクロール中に指を置くと、止まるだけでなく
+    // その場所に click まで飛び、指の下にあったリンクが開いてしまう (window が
+    // スクロールするスマホでは起きない)。止めるためのタップだったと判定できた
+    // 直後の click を 1 回だけ、React に届く前 (capture) で捨てる。
+    const handleClickCapture = (e: MouseEvent) => {
+      if (!stopTapGuard.shouldSuppressClick()) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
 
     document.addEventListener('touchstart', handleTouchStart, { passive: true });
     document.addEventListener('touchmove', handleTouchMove, { passive: true });
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    document.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+    document.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    window.addEventListener('click', handleClickCapture, { capture: true });
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchcancel', handleTouchCancel);
+      document.removeEventListener('scroll', handleScroll, { capture: true });
+      window.removeEventListener('click', handleClickCapture, { capture: true });
       clearTimeout(scrollTimeout);
     };
   }, []);
@@ -124,14 +167,20 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
 
   const hideNav = shouldHideBottomNav(pathname);
   const hideDesktopHeader = shouldHideDesktopHeader(pathname);
+  const tabletImmersive = isTabletImmersive(pathname);
 
+  // 3 つのレイアウトのクローム。どれを出すかは CSS (<html data-layout>) が決める:
+  //   phone   → 浮いた下部ナビ (BottomNav)
+  //   tablet  → 左サイドバー (TabletSidebar, tablet.css)
+  //   desktop → 上部ヘッダー (DesktopHeader, desktop.css)
   return (
-    <div className="ds-live-shell relative">
+    <div className={cn('ds-live-shell relative', tabletImmersive && 'ds-live-shell--immersive')}>
       {!hideDesktopHeader && <DesktopHeader />}
+      {!tabletImmersive && <TabletSidebar />}
       <div className="ds-live-main relative">
         {children}
       </div>
-      {!hideNav && <div className="lg:hidden"><BottomNav /></div>}
+      {!hideNav && <div className="desktop:hidden tablet:hidden"><BottomNav /></div>}
       {scrollEnding && (
         <div
           className="fixed inset-0 z-[9998]"

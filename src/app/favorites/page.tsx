@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { DesktopFavoritesView, DesktopWrongAnswersView } from '@/components/desktop/DesktopFavorites';
 import { Icon } from '@/components/ui/Icon';
-import { WordDetailView } from '@/components/word/WordDetailView';
+import { WordDetailOverlay } from '@/components/word/WordDetailOverlay';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
 import { isBillingEnabled } from '@/lib/billing/feature';
@@ -224,12 +224,12 @@ function FavoritesPageContent() {
           onBack={() => router.back()}
         />
       ) : (
-        <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
-          <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2 lg:hidden">
+        <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] desktop:hidden">
+          <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2 desktop:hidden">
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+              className="flex h-[38px] w-[38px] items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
               aria-label="戻る"
             >
               <Icon name="chevron_left" size={18} />
@@ -239,7 +239,7 @@ function FavoritesPageContent() {
             </div>
           </div>
 
-          <div className="px-[18px] pb-3.5 pt-1 lg:pt-4">
+          <div className="px-[18px] pb-3.5 pt-1 desktop:pt-4">
             <div>
               <div className="overflow-hidden rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
                 <div className="pointer-events-none absolute -right-3.5 -top-4 opacity-10 text-[var(--color-accent)]">
@@ -350,45 +350,21 @@ function FavoritesPageContent() {
         </div>
       )}
       {selectedWord && (
-        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
-          <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-            onClick={() => setSelectedWord(null)}
-          />
-          <div className="absolute inset-0 flex items-center justify-center px-4 py-10" onClick={() => setSelectedWord(null)}>
-            <div
-              className="w-full overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                maxWidth: 480,
-                maxHeight: '80dvh',
-                background: 'var(--color-paper)',
-                border: '2px solid var(--solid-ink)',
-                borderRadius: 20,
-                boxShadow: '4px 5px 0 var(--solid-ink)',
-              }}
-            >
-              <WordDetailView
-                wordId={selectedWord.id}
-                variant="modal"
-                initialWord={selectedWord}
-                onClose={() => setSelectedWord(null)}
-                onWordUpdated={(updated) => {
-                  setFavorites((prev) =>
-                    prev.map((w) =>
-                      w.id === updated.id
-                        ? { ...updated, projectTitle: prev.find((x) => x.id === updated.id)?.projectTitle ?? '' }
-                        : w,
-                    ),
-                  );
-                  setSelectedWord((current) => (current ? { ...updated, projectTitle: current.projectTitle } : null));
-                }}
-                onDelete={(wordId) => setDeleteWordTarget(favorites.find((w) => w.id === wordId) ?? null)}
-              />
-            </div>
-          </div>
-        </div>
+        <WordDetailOverlay
+          word={selectedWord}
+          onClose={() => setSelectedWord(null)}
+          onWordUpdated={(updated) => {
+            setFavorites((prev) =>
+              prev.map((w) =>
+                w.id === updated.id
+                  ? { ...updated, projectTitle: prev.find((x) => x.id === updated.id)?.projectTitle ?? '' }
+                  : w,
+              ),
+            );
+            setSelectedWord((current) => (current ? { ...updated, projectTitle: current.projectTitle } : null));
+          }}
+          onDelete={(wordId) => setDeleteWordTarget(favorites.find((w) => w.id === wordId) ?? null)}
+        />
       )}
 
       {deleteWordTarget && (
@@ -464,12 +440,12 @@ function MobileWrongAnswersView({
   const rows = [...wrongAnswers].sort((a, b) => b.wrongCount - a.wrongCount || b.lastWrongAt - a.lastWrongAt);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] lg:hidden">
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] pt-3 font-[var(--font-body)] desktop:hidden">
       <div className="flex items-center gap-2.5 px-[14px] pb-2.5 pt-2">
         <button
           type="button"
           onClick={onBack}
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="戻る"
         >
           <Icon name="chevron_left" size={18} />

@@ -63,29 +63,8 @@ export function DesktopProjectsView({
   }, [filter, projects]);
   const totalWords = rows.reduce((sum, project) => sum + project.totalWords, 0);
 
-  // バインダー (フォルダ) ごとにグループ化。バインダー名順 → 未分類の順
-  const binderGroups = useMemo(() => {
-    const byBinder = new Map<string, DesktopProjectRow[]>();
-    const unfiled: DesktopProjectRow[] = [];
-    for (const project of rows) {
-      const name = project.binder?.trim();
-      if (!name) {
-        unfiled.push(project);
-        continue;
-      }
-      const items = byBinder.get(name) ?? [];
-      items.push(project);
-      byBinder.set(name, items);
-    }
-    const groups: { binder: string | null; items: DesktopProjectRow[] }[] = Array.from(byBinder.entries())
-      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
-      .map(([binder, items]) => ({ binder, items }));
-    if (unfiled.length > 0) groups.push({ binder: null, items: unfiled });
-    return groups;
-  }, [rows]);
-
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar title="単語帳" crumb="ライブラリ / 管理">
         <DesktopSearchBox
           placeholder="単語帳を検索"
@@ -147,17 +126,8 @@ export function DesktopProjectsView({
                 </tr>
               </thead>
               <tbody>
-                {binderGroups.map((group) => (
-                  group.binder !== null ? (
-                    // バインダーは単体行で表示。中身はタップして /binder/[name] で見せる
-                    <DesktopBinderTableRow key={group.binder} name={group.binder} count={group.items.length} />
-                  ) : (
-                    <Fragment key="__unfiled__">
-                      {group.items.map((project) => (
-                        <DesktopProjectTableRow key={project.id} project={project} onDelete={onDeleteProject} onSetBinder={onSetBinder} />
-                      ))}
-                    </Fragment>
-                  )
+                {rows.map((project) => (
+                  <DesktopProjectTableRow key={project.id} project={project} onDelete={onDeleteProject} onSetBinder={onSetBinder} />
                 ))}
               </tbody>
             </table>
@@ -194,37 +164,6 @@ export function DesktopProjectsView({
   );
 }
 
-// バインダー(フォルダ)を単体行として表示する。行タップで /binder/[name] に入り、
-// 中の単語帳はそこで見せる（一覧では展開しない）。
-function DesktopBinderTableRow({ name, count }: { name: string; count: number }) {
-  return (
-    <tr>
-      <td className="star">
-        <Icon name="folder" filled style={{ color: 'var(--color-muted)' }} />
-      </td>
-      <td>
-        <Link href={`/binder/${encodeURIComponent(name)}`} style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
-          <span
-            className="ds-project-icon ds-project-icon--sm"
-            style={{ background: desktopThumbColor(name), display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Icon name="folder" size={18} filled style={{ color: '#fff' }} />
-          </span>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15 }}>{name}</span>
-        </Link>
-      </td>
-      <td className="mono" style={{ fontSize: 11.5, color: 'var(--color-muted)' }}>バインダー</td>
-      <td className="tnum" style={{ fontWeight: 700 }}>{count}冊</td>
-      <td />
-      <td className="mono" style={{ fontSize: 11.5, color: 'var(--color-muted)' }}>—</td>
-      <td>
-        <Link href={`/binder/${encodeURIComponent(name)}`} aria-label="バインダーを開く" style={{ color: 'var(--color-muted)', lineHeight: 0 }}>
-          <Icon name="chevron_right" />
-        </Link>
-      </td>
-    </tr>
-  );
-}
 
 function DesktopProjectTableRow({
   project,

@@ -167,7 +167,7 @@ function FlashcardDemo() {
         <button
           type="button"
           onClick={goPrev}
-          className="flex h-10 w-10 items-center justify-center rounded-full border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_2px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
+          className="flex h-10 w-10 items-center justify-center rounded-[12px] border-[1.5px] border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_2px_0_var(--solid-shadow)] transition-all active:translate-x-px active:translate-y-px active:shadow-none"
           aria-label="前のカード"
         >
           <Icon name="arrow_back" size={16} />

@@ -150,7 +150,7 @@ export default function GroupPage() {
   return (
     <>
       {/* Desktop */}
-      <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <div className="hidden h-full min-h-0 flex-col desktop:flex">
         <div className="ds-top" style={{ gap: 12 }}>
           <DesktopBackButton fallbackHref="/shared" />
           {group && <GroupAvatar group={group} size={40} />}
@@ -226,7 +226,7 @@ export default function GroupPage() {
       </div>
 
       {/* Mobile: ハブ画面（固定ヘッダ + 2×2タイル） */}
-      <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+      <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden">
         <GroupRoomHeader group={group} members={members} membersHref={membersHref} />
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">

@@ -1,6 +1,6 @@
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-[var(--color-background)] pb-24 lg:pb-6">
+    <div className="min-h-screen bg-[var(--color-background)] pb-24 desktop:pb-6">
       <header className="px-5 pt-6 pb-4">
         <div className="max-w-lg mx-auto">
           <div className="h-8 w-16 rounded bg-[var(--color-surface-secondary)] animate-pulse" />

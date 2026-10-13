@@ -116,8 +116,8 @@ export function SolidPage({
   maxWidth?: string;
 }) {
   return (
-    <div className={cn('min-h-screen pb-28 lg:pb-10', className)}>
-      <main className={cn('mx-auto w-full px-4 py-6 lg:px-8 lg:py-10', maxWidth)}>
+    <div className={cn('min-h-screen pb-28 desktop:pb-10', className)}>
+      <main className={cn('mx-auto w-full px-4 py-6 desktop:px-8 desktop:py-10', maxWidth)}>
         {children}
       </main>
     </div>
@@ -140,14 +140,14 @@ export function SolidHeader({
   className?: string;
 }) {
   return (
-    <header className={cn('mb-6 flex items-start justify-between gap-4 lg:mb-8', className)}>
+    <header className={cn('mb-6 flex items-start justify-between gap-4 desktop:mb-8', className)}>
       <div className="min-w-0">
         <div className="mb-2 flex items-center gap-2">
           {backHref && (
             <Link
               href={backHref}
               aria-label="戻る"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
             >
               <Icon name="arrow_back" size={20} />
             </Link>
@@ -158,7 +158,7 @@ export function SolidHeader({
             </p>
           )}
         </div>
-        <h1 className="font-display text-[2rem] font-black leading-[1.05] text-[var(--solid-ink)] lg:text-[2.75rem]">
+        <h1 className="font-display text-[2rem] font-black leading-[1.05] text-[var(--solid-ink)] desktop:text-[2.75rem]">
           {title}
         </h1>
         {description && (

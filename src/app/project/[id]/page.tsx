@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { markProjectUsed } from '@/lib/projects/recent-use';
 import Link from 'next/link';
 import { DesktopProjectDetailView } from '@/components/desktop/DesktopProjectDetail';
+import { TabletProjectDetailView } from '@/components/tablet/TabletProjectDetail';
+import { TabletOnly } from '@/components/tablet/TabletOnly';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
 import { WordLimitModal } from '@/components/limits';
@@ -16,9 +18,9 @@ import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { VoiceWordModal } from '@/components/project/VoiceWordModal';
 import { BinderPickerSheet } from '@/components/desktop/ProjectListSheets';
-import { WordDetailView } from '@/components/word/WordDetailView';
+import { WordDetailOverlay } from '@/components/word/WordDetailOverlay';
 import { useAuth } from '@/hooks/use-auth';
-import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useTourSeen } from '@/hooks/use-tour-seen';
 import { useTutorialFlow, type TutorialStage } from '@/hooks/use-tutorial-flow';
@@ -181,7 +183,8 @@ export default function ProjectPage() {
     setLeavingForTutorial(true);
     setTutorialStage(next);
   }, [setTutorialStage]);
-  const isMobileViewport = useIsMobileViewport();
+  // ガイドツアーのアンカー (data-tour) はスマホ用ツリーにしか無いので phone のときだけ出す
+  const isMobileViewport = useLayoutMode() === 'phone';
   // ページ上端ではヘッダの下線を出さない（スクロールで表示）
   const pageScrolled = usePageScrolled();
 
@@ -1443,12 +1446,48 @@ export default function ProjectPage() {
         onManualAdd={openManualWordModal}
         onVoiceAdd={voiceAddAvailable ? openVoiceWordModal : undefined}
       />
-      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+      {/* タブレット (iPad): 一覧 | 詳細 のマスター・ディテール。JS でだけマウントする (TabletOnly) */}
+      <TabletOnly>
+        <TabletProjectDetailView
+          project={project}
+          projectId={projectId}
+          words={words}
+          filteredWords={filteredWords}
+          wordsLoaded={wordsLoaded}
+          counts={counts}
+          query={query}
+          onQueryChange={setQuery}
+          filterActive={wordFilterActive}
+          sortActive={wordSortOrder !== 'priority'}
+          selectMode={selectMode}
+          selectedWordIds={selectedWordIds}
+          onOpenFilterSheet={() => setWordShowFilterSheet(true)}
+          onOpenSortSheet={() => setWordShowSortSheet(true)}
+          onToggleSelectMode={() => {
+            if (selectMode) handleExitSelectMode();
+            else { setSelectMode(true); setSelectedWordIds(new Set()); }
+          }}
+          onToggleSelectWord={handleToggleSelectWord}
+          onRename={handleOpenRename}
+          onSetBinder={() => void handleOpenBinderPicker()}
+          onDeleteProject={() => setDeleteModalOpen(true)}
+          onShare={handleOpenShareSheet}
+          onToggleFavorite={(word) => void handleToggleFavorite(word)}
+          onCycleStatus={(word, newStatus) => handleCycleStatus(word.id, newStatus)}
+          onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
+          onDeleteWord={handleOpenDeleteWord}
+          onScan={() => setShowScanCaptureModal(true)}
+          onManualAdd={openManualWordModal}
+          onVoiceAdd={voiceAddAvailable ? openVoiceWordModal : undefined}
+          onWordUpdated={(updated) => setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)))}
+        />
+      </TabletOnly>
+      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden tablet:hidden">
       {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
           top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。
           下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}
       <header
-        className={`sticky z-40 flex items-center gap-2.5 border-b-2 bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md lg:hidden ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
+        className={`sticky z-40 flex items-center gap-2.5 border-b-2 bg-[var(--color-background)]/95 px-[14px] py-2.5 backdrop-blur-md desktop:hidden ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <HeaderBtn
@@ -1491,7 +1530,7 @@ export default function ProjectPage() {
             onClick={() => setMenuOpen(false)}
           />
           <div
-            className="fixed z-[60] w-[170px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] lg:hidden"
+            className="fixed z-[60] w-[170px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] desktop:hidden"
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)', right: 14 }}
           >
             <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
@@ -1507,7 +1546,7 @@ export default function ProjectPage() {
         </>
       )}
 
-      <div className="flex items-start gap-3.5 px-5 pb-2.5 pt-[18px] lg:pt-8">
+      <div className="flex items-start gap-3.5 px-5 pb-2.5 pt-[18px] desktop:pt-8">
         <div
           className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[13px] border-2 bg-center bg-cover font-display text-[28px] font-extrabold text-white"
           style={{
@@ -1555,16 +1594,17 @@ export default function ProjectPage() {
             クイズを始める
           </Link>
         </div>
-        <div className="relative h-[44px] w-[44px] flex-none">
+        <div className="relative h-[44px] flex-1">
           <div className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--solid-ink)]" style={{ transform: 'translate(2px, 2px)' }} />
           <Link
             href={`/flashcard/${projectId}`}
             aria-label="カード"
             data-tour="project-flashcard"
             onClick={() => { if (tutorialStage === 'open-flashcard') advanceTutorialAndLeave('view-cards'); }}
-            className="relative flex h-full w-full items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            className="relative flex h-full w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           >
             <Icon name="style" size={18} />
+            カード
           </Link>
         </div>
         <div className="relative h-[44px] w-[44px] flex-none">
@@ -1745,7 +1785,7 @@ export default function ProjectPage() {
           (20語以下でも赤シートは使えるようにバー自体は出し、矢印だけ無効にする) */}
       {showWordToolbar && (
         <div
-          className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md desktop:hidden"
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
         >
           {/* 語数はバーの中央に固定する。左右を flex-1 で等分し、その間に置くので、
@@ -1795,43 +1835,20 @@ export default function ProjectPage() {
       )}
 
       {selectedWord && (
-        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
-          <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-            onClick={() => setSelectedWord(null)}
-          />
-          <div className="absolute inset-0 flex items-center justify-center px-4 py-10" onClick={() => setSelectedWord(null)}>
-            <div
-              className="w-full overflow-y-auto overscroll-contain"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                maxWidth: 480,
-                maxHeight: '80dvh',
-                background: 'var(--color-paper)',
-                border: '2px solid var(--solid-ink)',
-                borderRadius: 20,
-              }}
-            >
-              <WordDetailView
-                wordId={selectedWord.id}
-                variant="modal"
-                initialWord={selectedWord}
-                onClose={() => setSelectedWord(null)}
-                onWordUpdated={(updated) => {
-                  setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
-                  setSelectedWord(updated);
-                }}
-                onDelete={handleOpenDeleteWord}
-              />
-            </div>
-          </div>
-        </div>
+        <WordDetailOverlay
+          word={selectedWord}
+          onClose={() => setSelectedWord(null)}
+          onWordUpdated={(updated) => {
+            setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+            setSelectedWord(updated);
+          }}
+          onDelete={handleOpenDeleteWord}
+        />
       )}
 
       </div>
 
-      {/* Shared overlays: rendered outside the lg:hidden wrapper so the
+      {/* Shared overlays: rendered outside the desktop:hidden wrapper so the
           desktop view's filter / sort / select / add buttons can use them too */}
       <ProjectShareSheet
         open={showShareSheet}

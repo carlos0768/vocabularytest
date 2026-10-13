@@ -1523,11 +1523,6 @@ export default function VoiceQuizPage() {
           onCancel={() => setShowModeSwitch(false)}
           title="クイズの解き方を変える"
           description="いまの音読チャレンジをやめて、選んだ解き方に切り替えます。"
-          warning={
-            hasStarted && !isComplete
-              ? '四択・記述に切り替えると、いまの音読チャレンジは記録されずに終わります。'
-              : undefined
-          }
         />
       </Modal>
     </div>

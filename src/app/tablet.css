@@ -1,0 +1,195 @@
+/* ============================================================
+   MERKEN Tablet (iPad) — shell + sidebar
+   `html[data-layout="tablet"]` のときだけ効く。判定は src/lib/ui/layout-mode.ts
+   (幅・短辺・hover 可否・iPadOS)。Tailwind 側は globals.css の
+   `tablet:` / `tablet-compact:` / `tablet-regular:`。
+   タッチ前提: hover でしか出ないものは置かない。操作要素は 44px 以上。
+   ============================================================ */
+
+html[data-layout="tablet"] {
+  /* 縦向き (compact) はアイコンだけのレール、横向き (regular) はラベル付き。
+     横向きでも <html data-tablet-sidebar="collapsed"> (サイドバーの格納ボタン、
+     localStorage に記憶) のときはレールに畳む */
+  --tablet-sidebar-w: 84px;
+  /* スマホ由来のページを収める中央カラムの幅 */
+  --tablet-column-w: 760px;
+}
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) {
+  --tablet-sidebar-w: 260px;
+}
+
+/* body の safe-area 余白はシェルの中で取る (シェルを 100dvh にしたいので) */
+html[data-layout="tablet"] body {
+  padding-top: 0;
+}
+
+/* ── Shell: 左サイドバー + 本文 ─────────────────────────── */
+html[data-layout="tablet"] .ds-live-shell {
+  display: grid;
+  grid-template-columns: var(--tablet-sidebar-w) minmax(0, 1fr);
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  font-family: var(--font-body);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+}
+/* 学習画面・対戦など全画面のフロー: サイドバーを出さず 1 カラム */
+html[data-layout="tablet"] .ds-live-shell--immersive {
+  --tablet-sidebar-w: 0px;
+  grid-template-columns: minmax(0, 1fr);
+}
+html[data-layout="tablet"] .ds-live-shell--immersive > .tb-sidebar {
+  display: none;
+}
+/* デスクトップのヘッダーは出さない (desktop.css の既定どおり display:none) */
+
+/* 本文。ここがスクロールする (desktop と同じ構造なので use-page-scrolled が効く)。
+   上の safe-area (iPad PWA のステータスバー) は body ではなくここで取る。
+   **padding-top で取ってはいけない**: スクロール容器に padding があると、中の
+   sticky ヘッダ (top: env(safe-area-inset-top)) の top は padding の内側から
+   測られて inset が二重に効き、ヘッダがスクロール位置 0 でも本文の上に
+   inset ぶんかぶる (共有 / プロフィールで本文の先頭が埋もれた不具合)。
+   先頭に spacer (::before) を置けば、sticky ヘッダはステータスバーの直下に
+   貼り付き、本文はその下から始まる */
+html[data-layout="tablet"] .ds-live-main {
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  display: flex;
+  flex-direction: column;
+}
+html[data-layout="tablet"] .ds-live-main::before {
+  content: '';
+  display: block;
+  flex-shrink: 0;
+  height: env(safe-area-inset-top, 0px);
+}
+/* 子はページ本体。縮ませない (desktop.css と同じ理由) */
+html[data-layout="tablet"] .ds-live-main > * {
+  flex-shrink: 0;
+}
+
+/* ── ロングテール: スマホ由来のページを中央カラムに収める ──────────
+   専用のタブレットビューは `tb-bleed` で外れる。オーバーレイ (.fixed) は対象外。
+   全画面フロー (immersive) では何もしない */
+html[data-layout="tablet"] .ds-live-shell:not(.ds-live-shell--immersive) .ds-live-main > :not(.tb-bleed):not(.fixed) {
+  width: 100%;
+  max-width: var(--tablet-column-w);
+  margin-inline: auto;
+}
+/* スマホ由来の下部固定バー (単語帳詳細の赤シート切替、バインダー、スキャン確認 など) は
+   サイドバーの右側・本文と同じカラム幅に揃える */
+html[data-layout="tablet"] .ds-live-shell:not(.ds-live-shell--immersive) .ds-live-main .fixed.inset-x-0,
+html[data-layout="tablet"] .ds-live-shell:not(.ds-live-shell--immersive) .ds-live-main .fixed.left-0.right-0 {
+  left: var(--tablet-sidebar-w);
+  right: 0;
+  max-width: var(--tablet-column-w);
+  margin-inline: auto;
+}
+
+/* ── Sidebar ───────────────────────────────────────────── */
+.tb-sidebar {
+  position: relative;
+  z-index: 35;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 10px calc(env(safe-area-inset-bottom, 0px) + 14px);
+  background: var(--color-surface);
+  border-right: 2px solid var(--solid-ink);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.tb-sidebar::-webkit-scrollbar { display: none; }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+.tb-sidebar-brand {
+  display: flex; align-items: center; justify-content: center;
+  height: 48px; margin-bottom: 14px; flex-shrink: 0;
+  font-family: var(--font-display); font-weight: 900; line-height: 1; letter-spacing: 0.1em;
+  color: var(--color-ink); text-decoration: none;
+}
+.tb-sidebar-brand .dot {
+  display: inline-block; width: 5px; height: 5px; margin-left: 3px;
+  background: var(--color-accent); transform: translateY(-8px);
+}
+.tb-sidebar-brand-full { display: none; font-size: 24px; }
+.tb-sidebar-brand-mark { display: inline-flex; font-size: 26px; }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-brand { justify-content: flex-start; padding-left: 12px; }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-brand-full { display: inline-flex; }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-brand-mark { display: none; }
+
+.tb-sidebar-nav {
+  display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;
+}
+.tb-sidebar-footer {
+  display: flex; flex-direction: column; gap: 4px; margin-top: auto; padding-top: 14px; flex-shrink: 0;
+}
+
+/* 行。compact はアイコンの下に 10px のラベル、regular は横並び */
+.tb-sidebar-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 60px; padding: 8px 4px; border-radius: 16px; border: 2px solid transparent;
+  background: transparent; color: var(--color-muted); text-decoration: none; cursor: pointer;
+  font-family: var(--font-body); font-size: 10px; font-weight: 700; line-height: 1.1;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--dur-fast, 120ms) var(--ease-out, ease-out), color var(--dur-fast, 120ms) var(--ease-out, ease-out), transform 80ms ease-out;
+}
+.tb-sidebar-item:active { transform: scale(0.97); }
+.tb-sidebar-item.active {
+  background: color-mix(in srgb, var(--solid-ink) 7%, transparent);
+  color: var(--color-ink);
+}
+.tb-sidebar-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0; }
+.tb-sidebar-label { white-space: nowrap; }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-item {
+  flex-direction: row; justify-content: flex-start; gap: 12px;
+  min-height: 52px; padding: 10px 14px; border-radius: 14px; font-size: 15px;
+}
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-item.active {
+  border-color: var(--solid-ink);
+  background: var(--color-surface);
+  box-shadow: 3px 3px 0 var(--solid-shadow);
+}
+
+/* 検索・コインは本線のタブより一段控えめに */
+.tb-sidebar-tool { color: var(--color-ink-muted); }
+.tb-sidebar-coins .n { font-weight: 800; font-variant-numeric: tabular-nums; }
+.tb-sidebar-coins .u { font-size: 0.8em; color: var(--color-muted); margin-left: 1px; }
+
+/* 「作成」: ボトムナビの黒丸と同じ役。regular では幅いっぱいの黒ボタン */
+.tb-sidebar-create {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 60px; padding: 6px 4px; margin: 4px 0; border: none; background: transparent; cursor: pointer;
+  color: var(--color-muted); font-family: var(--font-body); font-size: 10px; font-weight: 700; line-height: 1.1;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-sidebar-create-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 22px;
+  background: var(--solid-ink); color: var(--color-on-ink); border: 2px solid var(--solid-ink);
+  box-shadow: 2px 3px 0 var(--solid-shadow);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+.tb-sidebar-create:active .tb-sidebar-create-icon { transform: translate(2px, 3px); box-shadow: 0 0 0 var(--solid-shadow); }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-create {
+  flex-direction: row; gap: 10px; min-height: 52px; margin: 8px 0; padding: 0 14px; border-radius: 14px;
+  background: var(--solid-ink); color: var(--color-on-ink); border: 2px solid var(--solid-ink);
+  box-shadow: 3px 3px 0 var(--solid-shadow); font-size: 15px;
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-create:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--solid-shadow); }
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-create-icon {
+  width: 28px; height: 28px; border: none; box-shadow: none; background: transparent; color: inherit;
+}
+html[data-layout="tablet"][data-tablet-size="regular"]:not([data-tablet-sidebar="collapsed"]) .tb-sidebar-create:active .tb-sidebar-create-icon { transform: none; }
+
+/* 格納 / 展開の切り替え。縦向き (もともとレール) では出さない */
+.tb-sidebar-toggle { margin-top: 6px; }
+html[data-layout="tablet"][data-tablet-size="compact"] .tb-sidebar-toggle { display: none; }

@@ -1,3 +1,4 @@
+import { LEVEL_TEST_FEATURE_ENABLED } from '@/lib/level-test/feature-flag';
 import type { MetadataRoute } from 'next';
 import { isBillingEnabled } from '@/lib/billing/feature';
 import { NEW_USER_SIGNUP_ENABLED } from '@/lib/auth/signup-feature-flag';
@@ -19,13 +20,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 0.9,
     },
-    // 語彙力レベル診断のLPのみ索引させる(/level-test/r/* の結果ページはnoindex)
-    {
-      url: `${baseUrl}/level-test`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    },
+    // 語彙力レベル診断のLPのみ索引させる(/level-test/r/* の結果ページはnoindex)。非表示中は載せない
+    ...(LEVEL_TEST_FEATURE_ENABLED
+      ? [
+          {
+            url: `${baseUrl}/level-test`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly' as const,
+            priority: 0.9,
+          },
+        ]
+      : []),
   ];
 
   // /pricing redirects to / when billing is disabled — keep it out of the sitemap then.

@@ -19,8 +19,17 @@ function formatUpdated(iso: string): string {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
-export function HomeGrammarBooksSection({ books }: { books: GrammarBook[] }) {
+export function HomeGrammarBooksSection({
+  books,
+  layout = 'rail',
+}: {
+  books: GrammarBook[];
+  /** rail: 横スクロールの棚 (スマホ)。grid: 折り返すグリッド (タブレット) */
+  layout?: 'rail' | 'grid';
+}) {
   if (books.length === 0) return null;
+
+  const rail = layout === 'rail';
 
   return (
     <div className="pb-1 pt-3">
@@ -36,12 +45,18 @@ export function HomeGrammarBooksSection({ books }: { books: GrammarBook[] }) {
         </Link>
       </div>
       {/* マイ単語帳と同じ正方形タイルの横スクロール棚 */}
-      <div className="no-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-1 scroll-pl-[18px]">
+      <div
+        className={
+          rail
+            ? 'no-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-1 scroll-pl-[18px]'
+            : 'grid grid-cols-3 gap-2.5 px-[18px] pb-1 tablet-regular:grid-cols-5'
+        }
+      >
         {books.map((book) => (
           <Link
             key={book.id}
             href={`/grammar/${book.id}/list`}
-            className="relative flex aspect-square w-[42%] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] p-3 text-white shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-shadow)]"
+            className={`relative flex aspect-square flex-col justify-between overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] p-3 text-white shadow-[2px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-px active:translate-y-px active:shadow-[1px_2px_0_var(--solid-shadow)] ${rail ? 'w-[42%] shrink-0 snap-start' : ''}`}
             style={{ backgroundColor: desktopThumbColor(book.id) }}
           >
             <div className="absolute inset-y-0 left-0 w-[6px] bg-[rgba(0,0,0,0.22)]" />

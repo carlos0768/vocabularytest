@@ -44,7 +44,7 @@ import { createTtsPlayer, type TtsPlayer } from '@/lib/speech/tts-player';
 import type { TtsLang } from '@/lib/speech/cloud-text-to-speech';
 import { loadCollectionWords } from '@/lib/collection-words';
 import { useAuth } from '@/hooks/use-auth';
-import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
@@ -159,7 +159,8 @@ export default function FlashcardPage() {
 
   /* Guided tutorial: count forward advances toward the "view N cards" goal */
   const { stage: tutorialStage, setStage: setTutorialStage } = useTutorialFlow();
-  const isMobileViewport = useIsMobileViewport();
+  // ガイドツアーのアンカー (data-tour) はスマホ用ツリーにしか無いので phone のときだけ出す
+  const isMobileViewport = useLayoutMode() === 'phone';
   const tutorialActive = tutorialStage === 'view-cards' && isMobileViewport;
   const [tutorialAdvances, setTutorialAdvances] = useState(0);
 
@@ -767,7 +768,7 @@ export default function FlashcardPage() {
     <>
     {/* 自動再生中、バックグラウンドでも読み上げが止まりにくくするための無音ループ (画面には表示しない) */}
     <audio ref={silentAudioRef} src="/audio/silence-loop.wav" loop playsInline preload="auto" hidden aria-hidden="true" />
-    <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:flex">
+    <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:flex">
       <div className="ds-fc-wrap">
         <div className="ds-quiz-head" style={{ maxWidth: 720 }}>
           <button type="button" className="x" onClick={backToProject} aria-label="閉じる">
@@ -901,10 +902,10 @@ export default function FlashcardPage() {
       </div>
     </div>
 
-    <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] lg:hidden">
+    <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden">
       {/* Header: HeaderBtn close | progress | HeaderBtn filter / autoplay */}
       <div
-        className="flex shrink-0 items-center justify-between px-4 pb-2.5"
+        className="flex shrink-0 items-center justify-between px-4 pb-2.5 tablet:mx-auto tablet:w-full tablet:max-w-[760px]"
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
       >
         <HeaderBtn onClick={backToProject} aria-label="閉じる">
@@ -981,7 +982,8 @@ export default function FlashcardPage() {
       </div>
 
       {/* Card area */}
-      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-5">
+      {/* 下段 (評価バー + 送りボタン) のほうがヘッダーより約96px高い。その差を上に足して、カードが画面の上下中央に来るようにする */}
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-5 pt-[96px] short:pt-0 tablet:mx-auto tablet:w-full tablet:max-w-[760px]">
         {/* Flashcard */}
         <div
           className="relative w-full"
@@ -1104,7 +1106,7 @@ export default function FlashcardPage() {
 
       {/* 下段: 裏返したら SM-2 の4段階評価、その下に前へ / 回転 / 次へ */}
       <div
-        className="flex shrink-0 flex-col items-center gap-3 px-5 pt-2"
+        className="flex shrink-0 flex-col items-center gap-3 px-5 pt-2 tablet:mx-auto tablet:w-full tablet:max-w-[760px]"
         style={{ paddingBottom: 'max(20px, calc(env(safe-area-inset-bottom) + 14px))' }}
       >
         <GradeBar visible={isFlipped} disabled={isAnimating} onGrade={commitGrade} />

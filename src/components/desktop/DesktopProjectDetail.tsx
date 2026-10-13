@@ -80,35 +80,8 @@ const ACTION_BUTTON: React.CSSProperties = {
 
 const MENU_ITEM = 'flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold transition-colors hover:bg-[var(--color-surface-secondary)]';
 
-export function DesktopProjectDetailView({
-  project,
-  projectId,
-  words,
-  filteredWords,
-  wordsLoaded,
-  counts,
-  query,
-  onQueryChange,
-  filterActive,
-  sortActive,
-  selectMode,
-  selectedWordIds,
-  onOpenFilterSheet,
-  onOpenSortSheet,
-  onToggleSelectMode,
-  onToggleSelectWord,
-  onRename,
-  onSetBinder,
-  onDeleteProject,
-  onShare,
-  onToggleFavorite,
-  onCycleStatus,
-  onCycleVocabularyType,
-  onDeleteWord,
-  onScan,
-  onManualAdd,
-  onVoiceAdd,
-}: {
+/** project/[id]/page.tsx が渡す props。タブレットの詳細 (TabletProjectDetailView) も同じ契約で受ける */
+export type DesktopProjectDetailViewProps = {
   project: Project;
   projectId: string;
   words: Word[];
@@ -137,7 +110,37 @@ export function DesktopProjectDetailView({
   onManualAdd: () => void;
   /** 音声でまとめて追加。古典の単語帳では渡さない (英語の認識しかしないため)。 */
   onVoiceAdd?: () => void;
-}) {
+};
+
+export function DesktopProjectDetailView({
+  project,
+  projectId,
+  words,
+  filteredWords,
+  wordsLoaded,
+  counts,
+  query,
+  onQueryChange,
+  filterActive,
+  sortActive,
+  selectMode,
+  selectedWordIds,
+  onOpenFilterSheet,
+  onOpenSortSheet,
+  onToggleSelectMode,
+  onToggleSelectWord,
+  onRename,
+  onSetBinder,
+  onDeleteProject,
+  onShare,
+  onToggleFavorite,
+  onCycleStatus,
+  onCycleVocabularyType,
+  onDeleteWord,
+  onScan,
+  onManualAdd,
+  onVoiceAdd,
+}: DesktopProjectDetailViewProps) {
   const router = useRouter();
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
@@ -263,10 +266,10 @@ export function DesktopProjectDetailView({
   };
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       {/* 戻る / BOOK / 共有 / その他: スクロールしても上に固定される */}
       <div className="ds-top" style={{ gap: 10 }}>
-        <button type="button" className="ds-iconbtn-round sm" onClick={goBack} aria-label="戻る" title="戻る">
+        <button type="button" className="ds-iconbtn-round sm sq" onClick={goBack} aria-label="戻る" title="戻る">
           <Icon name="arrow_back" />
         </button>
         <div style={{ minWidth: 0, flex: 1 }}>
@@ -276,13 +279,13 @@ export function DesktopProjectDetailView({
           </div>
         </div>
         {onShare && (
-          <button type="button" className="ds-iconbtn-round sm" onClick={onShare} aria-label="共有" title="共有">
+          <button type="button" className="ds-iconbtn-round sm sq" onClick={onShare} aria-label="共有" title="共有">
             <Icon name="ios_share" />
           </button>
         )}
         {/* 「...」メニュー: 名称変更 / バインダー設定 / 削除 */}
         <div ref={moreMenuRef} style={{ position: 'relative' }}>
-          <button type="button" className="ds-iconbtn-round sm" onClick={() => setMoreMenuOpen((v) => !v)} aria-label="その他の操作" title="その他の操作">
+          <button type="button" className="ds-iconbtn-round sm sq" onClick={() => setMoreMenuOpen((v) => !v)} aria-label="その他の操作" title="その他の操作">
             <Icon name="more_horiz" />
           </button>
           {moreMenuOpen && (
@@ -368,7 +371,7 @@ export function DesktopProjectDetailView({
                 クイズを始める
               </span>
             )}
-            <Link href={`/flashcard/${projectId}`} className="ds-project-action" style={ACTION_BUTTON}>
+            <Link href={`/flashcard/${projectId}`} className="ds-project-action" style={{ ...ACTION_BUTTON, flex: 1, maxWidth: 360 }}>
               <Icon name="style" size={18} />
               カード
             </Link>

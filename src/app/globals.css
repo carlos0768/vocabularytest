@@ -7,6 +7,21 @@
  */
 @custom-variant short (@media (max-height: 740px));
 
+/*
+ * レイアウトモード。幅ではなく <html data-layout> (src/lib/ui/layout-mode.ts が
+ * 幅・短辺・hover 可否・iPadOS で決める) で切り替える。
+ *   無印           = スマホ基準 (SSR / JS 無効時の既定)
+ *   desktop:       = PC (マウスあり・1024px 以上)
+ *   tablet:        = iPad など (縦横どちらも)
+ *   tablet-compact: = iPad 縦 (1024px 未満)   tablet-regular: = iPad 横 (1024px 以上)
+ * `&:where()` で詳細度を上げない (`:is()` だと同じ要素の hover: を desktop: が潰す)。
+ * tablet-* は tablet より後に宣言して、同じ要素では size 付きが勝つようにする。
+ */
+@custom-variant desktop (&:where(html[data-layout="desktop"] *));
+@custom-variant tablet (&:where(html[data-layout="tablet"] *));
+@custom-variant tablet-compact (&:where(html[data-layout="tablet"][data-tablet-size="compact"] *));
+@custom-variant tablet-regular (&:where(html[data-layout="tablet"][data-tablet-size="regular"] *));
+
 /* ===== MERKEN Design System (iOS-aligned) ===== */
 
 :root {

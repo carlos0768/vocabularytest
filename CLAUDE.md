@@ -77,6 +77,7 @@ Additional optional env vars documented in `docs/_discovery_notes.md` section 11
 | `src/app/api/subscription/` | KOMOJU + AppStore subscription + webhooks |
 | `src/components/` | React components split by feature domain |
 | `src/hooks/` | Custom React hooks (state management layer) |
+| `src/components/tablet/` | iPad (tablet レイアウト) 専用のシェルと画面。`TabletSidebar` / `TabletHome` / `TabletProjectDetail` / `TabletOnly` |
 | `src/lib/ai/` | AI integrations: config, prompts, provider abstraction |
 | `src/lib/db/` | Repository layer: local, remote, hybrid, readonly, sync queue |
 | `src/lib/stripe/` | Stripe payment client (server-side only) |
@@ -164,6 +165,17 @@ These rules must never be violated. See `docs/invariants.md` for full list.
 7. **Stripe webhook signature must be verified before any processing**
 8. **Scanning is Pro-only for every mode**: all scan entry points (`/api/extract`, `/api/scan-jobs`) must gate through `requiresProForModes` (always true)
 
+## UI Copy Rules (画面の文言)
+
+**説明文を足さない。** AI は親切のつもりで補足を書き足しがちだが、冗長な文言は画面のノイズでしかない。次を**規則として禁止**する:
+
+- 見出し・ボタン・選択肢の**意味を言い換えるだけの補足文** (例: 「一般」の下に「単語ごとに自動で形式が変わります」、「タイムアタック」の下に「制限時間つきの四択です」)。名前と挙動で足りるなら補足は書かない
+- 操作を選ぶ前から出す**注意書き・黄色の警告帯** (「切り替えるといまのクイズは最初からになります」など)。壊れる操作の確認は、押した後の確認ダイアログでやる
+- 日本語の見出しを**英語に直しただけのラベル** (`QUIZ MODE` / `TIME ATTACK` / `ACCOUNT` のような eyebrow)。情報が増えないなら置かない
+- 「〜できます」「〜されます」で終わる**機能の自己説明**、同じ画面に既にある情報の言い換え
+
+文言を足すときは「消しても利用者が迷わないか」を先に問い、迷わないなら書かない。既存の説明文を見つけたら、触るついでに消してよい。
+
 ## Danger Zones
 
 Areas where small changes cause cascading failures. See `docs/boundaries.md` for full details.
@@ -185,6 +197,7 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
    - SM-2 spaced repetition: tracks easeFactor, intervalDays, repetition, nextReviewAt
    - Daily stats recorded: todayCount, correctCount, streakDays
    - **解き方 (`src/lib/quiz/quiz-mode-preference.ts`)**: 四択 (`normal`) / 記述 (`typing`) / 音読 (`voice`) / 空所補充 (`cloze`) の4つ。**選択画面 (`QuizModeChooser`) はその日 (JSTの暦日) 最初のクイズでだけ出す**。選ぶと localStorage の `merken_quiz_mode` に形式、`merken_quiz_mode_chosen_on` に選んだ日を保存し、同じ日のうちはその形式で選択画面を出さずに始める (`readTodaysQuizMode`、音読なら `/voice-quiz`、空所補充なら `/cloze-quiz` へ `replace`)。日付が変わったら覚えた形式は選択画面の初期選択に使うだけに戻る。途中で変えたいときは右上の切り替えから選び直せ、それが今日の形式になる。四択と記述は同じ `/quiz/[projectId]` 画面で切り替わり (`answerFormat`)、音読と空所補充は別ページ (`/voice-quiz/[projectId]`, `/cloze-quiz/[projectId]`)。音読へ移る側は `?format=` で戻り先の形式を渡し、戻った直後にもう一度訊かれないようにする。中断復帰用の sessionStorage にも `answerFormat` を保存する
+   - **選択画面に出すのは「一般」「タイムアタック」「空所補充」の3つだけ** (`QuizModeChooser`、空所補充は `/cloze-quiz` へ遷移)。四択/記述/音読の札は外した (`normal` / `typing` は一般の振り分け先として、`voice` は `/voice-quiz` ページとして残してある)。**一般 (`general`)** は全語を出し、語ごとに Active → 記述 / Passive (未設定含む) → 四択を自動で切り替える (`resolveGeneralQuestionFormat`、出題画面の `questionFormatFor`)。**タイムアタック (`timeattack`)** は Passive の語だけの四択で、1問 `TIME_ATTACK_DURATION_MS` (10秒, `src/lib/quiz/time-attack.ts`) の制限時間があり、0 になると不正解として確定し正解を見せる。スマホ・タブレットの出題画面は対戦画面の部品 (`BattleScreen` / `BattleQuestionCard` / `BattleChoiceButton` + 一人用の `QuizProgressBoard` / `QuizRoundStatus`) で組んでいる。PC は従来の専用ツリー
    - 記述で出すかは**選ばれた解き方だけ**で決まる。単語の状態 (`vocabularyType === 'active'` / `status === 'active'`) から記述に切り替えてはいけない —— 四択を選んだのに一部の語だけ入力欄になる、が元の不具合
    - **出題する語も解き方で分かれる** (`src/lib/quiz/answer-format-words.ts`)。記述は Active (A) の語だけ、四択は Passive (P) の語だけ。**語彙モード未設定 (null) は Passive あつかい** —— スキャンの既定が Passive で、公式・共有単語帳の取り込みは未設定で入るので、未設定を外すと大半の単語帳がどちらの解き方でも空になる。絞り込みは `generateQuestions` / `startQuizWithDistractors` の中の1箇所だけに置く。語順クイズ (`isWordOrderEligible`) は active を除外するので、結果として四択側にしか出ない
    - 解き方を変えると出題する語ごと入れ替わるので、途中で切り替えたら**最初から組み直す** (`startQuizForFormat`)。続きから続けようがない。1語も無いときは空の出題画面ではなく専用の案内を出す
@@ -195,7 +208,7 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
    - **四択の誤答生成 (`src/lib/ai/generate-quiz-content.ts`, `BATCH_DISTRACTOR_PROMPT`)**: 誤答が「出題語の正しい訳」になってはいけない (正解が2つある問題になる)。これはプロンプトの**絶対ルール**で、語形の似た単語から作る方針より優先する。守らせ方は3層: (1) プロンプトは禁止パターン (多義語の別義・品詞違いの用法・類義語や表記違い・正解を含む訳・派生語の訳) を列挙し、誤答ごとに「出題語をその訳に訳しても正しくないか」の自己検査を要求する、(2) 入力の各行に `knownTranslations` (word_translations の正解以外の語義) を「出題語の他の訳（誤答禁止）」として載せる (クライアントは `collectKnownTranslations`、スキャン後の prefill は `buildQuizPrefillSeedWords` が渡す)、(3) 生成後に `selectSafeDistractors` (`src/lib/quiz/distractor-safety.ts`。選択肢の報告でクライアントからも使うので、AI プロバイダを読む `generate-quiz-content.ts` ではなくここに置き、そちらからは再エクスポートだけ) が正解・既知の訳と語義単位で一致・包含する候補と、`distractorSources` (誤答ごとの元の英単語) が出題語そのもの・派生語の候補を落とす。落ちる分を見込んで候補は `DISTRACTOR_CANDIDATE_COUNT` (4) 個頼み、採用は 3 個。クイズ側 (`quiz-state.ts`) の同語義フィルタは保存済みの訳しか見られないので、辞書に無い語義はここで止めるしかない
    - **選択肢の報告 (`QuizOptionReportPanel`, `/api/quiz/report-option`)**: 四択で答えを確認したあと「選択肢がおかしい？」から誤答 (正解以外) を1つ選んで報告できる (言い換えは辞書由来なので対象外)。サーバーは Gemini に判定させ (`src/lib/quiz/option-report.server.ts`、verdict は `correct_translation` / `too_similar` / `other_problem` / `ok`)、**差し替えるのは `correct_translation` (辞書の裏付けで出題語の訳として通る) と `other_problem` (日本語として壊れている) だけ**。`too_similar` (意味は近いが出題語の訳ではない) は記録だけして差し替えない —— 誤答は語形の似た語の訳でわざと紛らわしく作っているので、近いこと自体は欠陥ではない (`isProblemVerdict`)。プロンプトも「迷ったら correct_translation にしない」側に倒してある。差し替えは `buildReplacedDistractors` が `words.distractors` からその選択肢を外して判定の差し替え候補に置き換える。候補は誤答生成と同じ検査 (正解・既知の訳との一致/包含、元の英単語が出題語や派生語でないか) を通し、全部落ちたら外すだけ。同じ誤答が `lexicon_senses.distractors` (全ユーザー共通) にもあればそちらも直す。単語行の読み書きはユーザーのクライアント (RLS) で行い本人の単語しか直せない。記録は `quiz_option_reports` (`20261006120000_create_quiz_option_reports.sql`、service role だけが書く)。利用回数は `quiz_option_report` (Free 20回/日、Pro 無制限)。クライアントは返ってきた誤答を `questions` / `allWords` / IndexedDB に反映する
    - **Lv.1 以降は語彙モードを Passive → Active → Passive … と交互に付け替える** (`getVocabularyTypeForMasteryLevel`)。四択は Passive・記述は Active だけを出すので、同じ語が「選ぶ」と「書く」を行き来して出題のされ方が変わる。Lv.0 では切り替えない (ユーザが選んだモードのまま)。古典語は記述に出さないので回さない。`/project/[id]` の一覧の3マスは習得なら全部塗ったまま、レベルごとに色を変え (`MASTERY_LEVEL_FILLS` を一巡して繰り返す)、ラベルは「習得」ではなく「Lv.N」。出題順は習得同士ならレベルの低い語が先 (`compareWordsByPriority`)
-3b. **目標ページ (`/goal`, `src/app/goal/page.tsx`)**: Pro の下部バー2番目のタブ（旧「単語」`/words` の位置。`/words` 自体は残っているがナビからは外した）。1024px 以上 (PC・横向き iPad) では下部バーが消えるので、デスクトップヘッダー (`src/components/desktop/DesktopChrome.tsx` の `PRO_TABS`) にも同じ位置に置く。両者の並びはそろえること。目標は**「どの単語帳を（複数選択可）・いつまでに」を単語帳の選択で指定**し、端末の localStorage に持つ（`src/lib/goal/study-goal.ts` の `StudyGoal.projectIds`、1日の復習上限と同じ扱いで端末間には同期しない。旧形式の単数 `projectId` は読み込み時に配列へ移行する）。載せるのは 残り日数バナー / 月間カレンダー（月曜はじめ・今日・目標日・学習した日）/ **今日の10問**（目標の単語帳だけから `/quiz/all?learn=1&count=10`、絞り込みは `src/lib/quiz/review-project-filter.ts` 経由で sessionStorage に渡す）/ **今日復習しておきたい単語**（SM-2 の復習期限、全単語帳横断 `/quiz/all?review=1`）。後者2つは別物で混ぜない — 復習リンクへ飛ぶ前に絞り込みを明示的に解除する。ホームのショートカットグリッドからは「今日の復習」「保存済み単語」タイルを外した（デスクトップ版 `DesktopHome` は据え置き）
+3b. **目標ページ (`/goal`, `src/app/goal/page.tsx`)**: Pro の下部バー2番目のタブ（旧「単語」`/words` の位置。`/words` 自体は残っているがナビからは外した）。タブの定義と並びは `src/lib/navigation/tabs.ts` の 1 箇所にあり、下部バー (phone) / タブレットのサイドバー (`TabletSidebar`) / デスクトップヘッダー (`DesktopChrome`) の 3 つが同じものを読む (`tabs.test.ts` が並びを固定)。タブを足す・並べ替えるときはそこだけ変える。目標は**「どの単語帳を（複数選択可）・いつまでに」を単語帳の選択で指定**し、端末の localStorage に持つ（`src/lib/goal/study-goal.ts` の `StudyGoal.projectIds`、1日の復習上限と同じ扱いで端末間には同期しない。旧形式の単数 `projectId` は読み込み時に配列へ移行する）。載せるのは 残り日数バナー / 月間カレンダー（月曜はじめ・今日・目標日・学習した日）/ **今日の10問**（目標の単語帳だけから `/quiz/all?learn=1&count=10`、絞り込みは `src/lib/quiz/review-project-filter.ts` 経由で sessionStorage に渡す）/ **今日復習しておきたい単語**（SM-2 の復習期限、全単語帳横断 `/quiz/all?review=1`）。後者2つは別物で混ぜない — 復習リンクへ飛ぶ前に絞り込みを明示的に解除する。ホームのショートカットグリッドからは「今日の復習」「保存済み単語」タイルを外した（デスクトップ版 `DesktopHome` は据え置き）
 4. **語彙モード (Active / Passive)**: `Word.vocabularyType` は `'active' | 'passive' | null`。呼び方は**「Active (A)」「Passive (P)」で統一**する (`getVocabularyTypeLabel`)。以前は画面ごとに「Active/Passive」「アクティブ/パッシブ」「発信/受信」が混在していた。スキャンの既定は `passive` (`DEFAULT_SCANNED_VOCABULARY_TYPE`)。`WordStatus` の `'active'` (SM-2の定着中) とは**別物**なので混同しないこと
 5. **Free Plan**: scanning is Pro-only (rejected server-side via the `check_and_increment_scan` RPC's `p_require_pro` flag); free users build wordbooks by importing shared wordbooks or adding words manually. Free users get **cloud sync** (cross-device) when logged in — same `HybridWordRepository` as Pro. The Free limit is on **wordbook (project) count = 50** (`FREE_WORDBOOK_LIMIT`), not word count — words per wordbook are unlimited. It is enforced server-side (RLS write policies gate `active Pro OR free plan`; the `enforce_free_project_limit` DB trigger caps free users at 50 wordbooks so direct PostgREST calls cannot bypass the client UI). Former-Pro (cancelled) users stay read-only. Default official wordbooks are imported into Supabase server-side at signup (`/api/auth/signup-verify` → `persistDefaultOfficialWordbooksToDb`); the client hydrates them via full sync. After signup, every active official wordbook is browsable from the shared page's 「公式」 tab (`/shared?tab=official` → `/official/[slug]`) and can be imported at any time — the copy carries `imported_from_official_slug`, the same column the signup seed dedupes on. See `docs/official-wordbook-editor.md`.
 6. **SSR Compatibility**: Supabase browser client uses lazy initialization. `getDb()` throws on server side.
@@ -220,6 +233,16 @@ Areas where small changes cause cascading failures. See `docs/boundaries.md` for
    - 一覧で直してから「追加」すると、手入力と同じ `addEnrichedManualWord`（enrich-manual で訳・発音などを補完）を3並列で通る。訳を補完できない語は保存しない。語源解析の設定は手入力と共有
    - 英語で認識するので**古典の単語帳では出さない**。利用回数は `word_voice_input`（Free 10回/日、Pro無制限）
    - 「音声で作成」は単語帳を作ってから `saveVoiceAddIntent` で遷移先の音声追加モーダルを開く（空の単語帳の手入力と同じ仕組み）
+
+13. **レイアウトモード (`src/lib/ui/layout-mode.ts`)**: 画面は **phone / tablet / desktop** の 3 層。幅だけで切り替えると iPad 横 (1024–1366px) が PC 扱いになるので、`resolveLayoutMode` が 幅・短辺・hover 可否 (`(hover: hover) and (pointer: fine)`)・iPadOS 判定 で決める (phone: 幅 744 未満か短辺 600 未満 / desktop: 幅 1024 以上で hover が使えて iPadOS でない / それ以外 tablet。tablet は 1024 以上を `regular` (横)、未満を `compact` (縦))。結果は `<head>` のブートストラップ (`layout-mode-script.tsx`、`ThemeScript` と同じ仕組み) が初回描画前に `<html data-layout data-tablet-size>` へ書き、`useLayoutMode()` / `useTabletSize()` が同じ値を返す (サーバーは `phone`)
+   - **CSS は `desktop:` / `tablet:` / `tablet-compact:` / `tablet-regular:` バリアント** (globals.css の `@custom-variant`、`<html data-layout>` を見る)。無印 = スマホ基準。アプリ内 (`PersistentAppShell` に載るページ) で `lg:` や `matchMedia('(min-width: 1024px)')` を**新たに書かない** (LP・認証・法務・ops などシェル外のページだけ幅ベースの `lg:` のまま)
+   - **3 層のクローム**: phone = 浮いた下部ナビ (`BottomNav`) / tablet = 左サイドバー (`TabletSidebar`、縦向きはアイコンのレール 84px・横向きはラベル付き 260px、`tablet.css`) / desktop = 上部ヘッダー (`DesktopHeader`、`desktop.css`)。タブの定義は `src/lib/navigation/tabs.ts` の 1 箇所。サイドバーは「格納」ボタンで横向きでもレールに畳める (`localStorage.merken_tablet_sidebar` → `<html data-tablet-sidebar="collapsed">`、ブートストラップが初回描画前に付ける)
+   - **タブレットの本文 (`.ds-live-main`) の safe-area は `::before` の spacer で取る。`padding-top` にしてはいけない** —— スクロール容器の padding の内側から sticky の `top` が測られ、スマホ由来の sticky ヘッダ (`top: env(safe-area-inset-top)`) が inset ぶん本文にかぶる (共有 / プロフィールで本文が埋もれた不具合)
+   - 単語詳細・出題する単語帳の選択などの重ね物は、タブレットでも**中央に浮かぶモーダル** (`WordDetailOverlay` と同じ形)。右ペインや右からのスライドオーバー、下から出るシートにしない
+   - **ページの出し分け**: 既存の `Desktop*View` (`hidden desktop:flex`) とスマホツリー (`desktop:hidden`) は常時マウントのまま。タブレット専用ビュー (`src/components/tablet/`: ホーム・単語帳詳細) は **`TabletOnly` で tablet のときだけ JS マウント**し、そのページのスマホツリーに `tablet:hidden` を足す (3 本目を常時マウントしない)。専用ビューの無いページは `tablet.css` の汎用ルールがスマホツリーを中央 760px のカラムに収め、`fixed inset-x-0` の下部バーもそのカラムに揃える。専用ビューは自分で幅を決めるので `tb-bleed` を付けて汎用ルールから外れる
+   - **全画面フロー** (`TABLET_IMMERSIVE_PATHS`: クイズ・フラッシュカード・対戦・グループ・語法演習・スキャン確認) ではサイドバーを出さない。学習画面は中央 760px のカラム + 四択は 2×2 (`DSQuizOption size="large"`)
+   - タブレットは**タッチ前提**: hover でしか出ない UI を置かない、操作要素は 44px 以上、キーボードショートカットは desktop だけ。ガイドツアーのアンカー (`data-tour`) はスマホツリーにしか無いので `useLayoutMode() === 'phone'` のときだけ出す
+   - 開発時 (`NODE_ENV !== 'production'`) だけ `localStorage.merken_layout_override` = `phone` / `desktop` / `tablet-compact` / `tablet-regular` で判定を固定できる (Playwright の iPad エミュレーションが `hover: none` を返さないときの逃げ道)
 
 ## Testing
 

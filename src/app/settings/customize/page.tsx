@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { StudyReminderSettings } from '@/components/settings/StudyReminderSettings';
 import { ExampleGenreSettings } from '@/components/settings/ExampleGenreSettings';
+import { WordDisplaySettings } from '@/components/settings/WordDisplaySettings';
 import { Icon } from '@/components/ui';
 import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
 
@@ -11,7 +12,7 @@ export default function CustomizePage() {
 
   return (
     <>
-      <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <div className="hidden h-full min-h-0 flex-col desktop:flex">
         <div className="ds-top">
           <button
             type="button"
@@ -31,11 +32,12 @@ export default function CustomizePage() {
           <div style={{ width: 'min(100%, 720px)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
             <StudyReminderSettings variant="desktop" />
             <ExampleGenreSettings variant="desktop" />
+            <WordDisplaySettings variant="desktop" />
           </div>
         </div>
       </div>
 
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
         <StickyPageHeader
           eyebrow="CUSTOMIZE"
           title="カスタマイズ"
@@ -50,6 +52,10 @@ export default function CustomizePage() {
 
         <div className="px-[18px] pb-3">
           <ExampleGenreSettings variant="mobile" />
+        </div>
+
+        <div className="px-[18px] pb-3">
+          <WordDisplaySettings variant="mobile" />
         </div>
       </div>
     </>

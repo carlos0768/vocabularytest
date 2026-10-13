@@ -106,13 +106,13 @@ export default function GrammarSharePage({ params }: { params: Promise<{ shareId
   };
 
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-3 font-[var(--font-body)] lg:max-w-[720px] lg:px-8 lg:pt-10">
+    <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-12 pt-3 font-[var(--font-body)] desktop:max-w-[720px] desktop:px-8 desktop:pt-10">
       {/* Header */}
       <div className="flex items-center gap-2 pb-3 pt-1">
         <button
           type="button"
           onClick={() => router.push('/grammar')}
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
           aria-label="語法問題集へ"
         >
           <Icon name="chevron_left" size={16} />

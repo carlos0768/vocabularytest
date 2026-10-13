@@ -33,7 +33,7 @@ export function HeaderBtn({
       aria-label={ariaLabel}
       aria-expanded={ariaExpanded}
       aria-haspopup={ariaHasPopup}
-      className="flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+      className="flex h-[38px] w-[38px] items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
       style={{ background: active ? 'var(--solid-ink)' : 'var(--color-surface)', color: active ? 'var(--color-on-ink)' : 'var(--solid-ink)' }}
     >
       {children}

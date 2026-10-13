@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { GoalSetupSheet, type GoalSheetProject } from '@/components/goal/GoalSetupSheet';
 import { useAuth } from '@/hooks/use-auth';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { getRepository } from '@/lib/db';
 import {
   CALENDAR_WEEKDAY_LABELS,
@@ -51,6 +52,7 @@ const ACTIVITY_HISTORY_WEEKS = 26;
 
 export default function GoalPage() {
   const { user, subscription, loading: authLoading } = useAuth();
+  const layoutMode = useLayoutMode();
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
   const repository = useMemo(
@@ -185,12 +187,14 @@ export default function GoalPage() {
   // 浮いている下部バー (セーフエリア込み) の高さぶん。以前 h-dvh で閉じていた頃は
   // iPhone SE で下の2つのボタンが下部バーの裏に隠れたので、入りきらないときは
   // ボタンではなくカレンダーの行の高さを縮めて吸収する (GoalCalendar)。
-  // PC (lg) はデスクトップのシェルがスクロールを持つので従来どおり。
-  useLockPageScroll();
+  // tablet / desktop はシェルがスクロールを持つので従来どおり。
+  useLockPageScroll(layoutMode === 'phone');
   return (
-    <div className="relative flex h-[calc(100dvh-env(safe-area-inset-top,0px))] flex-col overflow-hidden bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1 lg:block lg:h-auto lg:min-h-dvh lg:overflow-visible">
-      <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col lg:block">
-        <div className="shrink-0 px-[18px] pb-3 pt-2 short:pb-2 short:pt-1">
+    <div className="relative flex h-[calc(100dvh-env(safe-area-inset-top,0px))] flex-col overflow-hidden bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1 desktop:block desktop:h-auto desktop:min-h-dvh desktop:overflow-visible tablet:block tablet:h-auto tablet:min-h-full tablet:overflow-visible tablet:pb-12 tablet:pt-4">
+      {/* タブレット横向き: 左にカレンダー、右に 残り日数 / 今日の10問 / 復習 を並べる。
+          2 行目は error 用に空けてある (gap-y を持たせないので無いときは高さ 0) */}
+      <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col desktop:block tablet:block tablet:max-w-[640px] tablet-regular:grid tablet-regular:max-w-[1040px] tablet-regular:grid-cols-2 tablet-regular:items-start tablet-regular:gap-x-8">
+        <div className="shrink-0 px-[18px] pb-3 pt-2 short:pb-2 short:pt-1 tablet-regular:col-span-2">
           <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)] short:hidden">
             GOAL
           </div>
@@ -198,7 +202,7 @@ export default function GoalPage() {
         </div>
 
         {error && (
-          <div className="shrink-0 px-[18px] pb-3">
+          <div className="shrink-0 px-[18px] pb-3 tablet-regular:col-span-2">
             <div className="rounded-[12px] border-2 border-[var(--color-error)] bg-[var(--color-surface)] p-3 text-xs font-bold text-[var(--color-error)]">
               {error}
             </div>
@@ -206,7 +210,7 @@ export default function GoalPage() {
         )}
 
         {/* 目標バナー: 「〇〇まであと N日」 */}
-        <div className="shrink-0 px-[18px] pb-4 short:pb-2.5">
+        <div className="shrink-0 px-[18px] pb-4 short:pb-2.5 tablet-regular:col-start-2 tablet-regular:row-start-3">
           {!goalLoaded || (loading && !hasGoal) ? (
             <div className="h-[56px] animate-pulse short:h-[48px] rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]" />
           ) : hasGoal && remainingDays !== null ? (
@@ -254,7 +258,7 @@ export default function GoalPage() {
         </div>
 
         {/* 月間カレンダー */}
-        <div className="flex min-h-0 shrink flex-col px-[18px] pb-5 short:pb-2.5">
+        <div className="flex min-h-0 shrink flex-col px-[18px] pb-5 short:pb-2.5 tablet-regular:col-start-1 tablet-regular:row-start-3 tablet-regular:row-span-3">
           <GoalCalendar
             today={today}
             goalDate={hasGoal ? goal?.targetDate ?? null : null}
@@ -264,7 +268,7 @@ export default function GoalPage() {
         </div>
 
         {/* 今日の10問 (目標の単語帳から) */}
-        <div className="shrink-0 px-[18px] pb-3 short:pb-2">
+        <div className="shrink-0 px-[18px] pb-3 short:pb-2 tablet-regular:col-start-2 tablet-regular:row-start-4">
           <BigPillLink
             href={dailyQuizReady ? GOAL_DAILY_QUIZ_HREF : null}
             onNavigate={() => writeReviewProjectFilter(goalProjectIds)}
@@ -285,7 +289,7 @@ export default function GoalPage() {
         </div>
 
         {/* 今日復習しておきたい単語 (SM-2 の復習期限) */}
-        <div className="shrink-0 px-[18px] pb-3 short:pb-2">
+        <div className="shrink-0 px-[18px] pb-3 short:pb-2 tablet-regular:col-start-2 tablet-regular:row-start-5">
           <BigPillLink
             href={dueCount > 0 ? GOAL_REVIEW_QUIZ_HREF : null}
             onNavigate={() => writeReviewProjectFilter(null)}
@@ -318,29 +322,24 @@ export default function GoalPage() {
 }
 
 /**
- * 表示中はモバイル幅 (lg 未満) でページのスクロールを止める。body は
+ * 表示中はスマホレイアウトでページのスクロールを止める。body は
  * min-height: 100dvh + padding-top: safe-area なので、止めないとノッチ分だけ
- * 常にスクロールできてしまう。
+ * 常にスクロールできてしまう。tablet / desktop はシェル (.ds-live-main) が
+ * スクロールを持つので触らない。
  */
-function useLockPageScroll() {
+function useLockPageScroll(lock: boolean) {
   useEffect(() => {
-    const media = window.matchMedia('(max-width: 1023.98px)');
+    if (!lock) return;
     const root = document.documentElement;
     const body = document.body;
     const prev = { root: root.style.overflow, body: body.style.overflow };
-    const apply = () => {
-      const lock = media.matches;
-      root.style.overflow = lock ? 'hidden' : prev.root;
-      body.style.overflow = lock ? 'hidden' : prev.body;
-    };
-    apply();
-    media.addEventListener('change', apply);
+    root.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
     return () => {
-      media.removeEventListener('change', apply);
       root.style.overflow = prev.root;
       body.style.overflow = prev.body;
     };
-  }, []);
+  }, [lock]);
 }
 
 function GoalCalendar({
@@ -374,7 +373,7 @@ function GoalCalendar({
           type="button"
           onClick={() => moveMonth(-1)}
           aria-label="前の月"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)] short:h-7 short:w-7"
+          className="flex h-8 w-8 items-center justify-center rounded-[12px] text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)] short:h-7 short:w-7"
         >
           <Icon name="chevron_left" size={20} />
         </button>

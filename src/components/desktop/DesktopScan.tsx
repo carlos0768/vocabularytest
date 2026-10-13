@@ -384,7 +384,7 @@ export function DesktopScanView({
   // capture UI (the server rejects free scans too — this is UX, not the gate).
   if (!isPro) {
     return (
-      <div className="hidden h-full min-h-0 flex-col lg:flex">
+      <div className="hidden h-full min-h-0 flex-col desktop:flex">
         <DesktopTopbar
           title={hasFixedDestination ? '単語を追加' : 'スキャン'}
           crumb={hasFixedDestination ? `単語帳 / ${targetProjectTitle ?? '追加先'} / スキャン` : 'スキャン / 写真から単語帳を作成'}
@@ -445,7 +445,7 @@ export function DesktopScanView({
   };
 
   return (
-    <div className="hidden h-full min-h-0 flex-col lg:flex">
+    <div className="hidden h-full min-h-0 flex-col desktop:flex">
       <DesktopTopbar
         title={hasFixedDestination ? '単語を追加' : 'スキャン'}
         crumb={hasFixedDestination ? `単語帳 / ${targetProjectTitle ?? '追加先'} / スキャン` : 'スキャン / 写真から単語帳を作成'}

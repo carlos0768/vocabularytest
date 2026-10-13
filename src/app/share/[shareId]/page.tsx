@@ -10,7 +10,7 @@ import { Icon } from '@/components/ui/Icon';
 import { SolidButton, SolidPanel } from '@/components/redesign/SolidPage';
 import { useRewardedDownloadAd } from '@/components/ads/useRewardedDownloadAd';
 import { useAuth } from '@/hooks/use-auth';
-import { useIsMobileViewport } from '@/hooks/use-is-mobile-viewport';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useToast } from '@/components/ui/toast';
 import { isBillingEnabled } from '@/lib/billing/feature';
@@ -122,7 +122,8 @@ export default function SharedDetailPage() {
   const params = useParams();
   const shareId = params.shareId as string;
   const { user, subscription, loading: authLoading } = useAuth();
-  const isMobileViewport = useIsMobileViewport();
+  // phone はボトムシート、tablet / desktop は中央モーダル
+  const isMobileViewport = useLayoutMode() === 'phone';
   // ページ上端ではヘッダの下線を出さない（スクロールで表示）
   const pageScrolled = usePageScrolled();
   const { showToast } = useToast();
@@ -705,7 +706,7 @@ export default function SharedDetailPage() {
         onToggleSelectAll={handleToggleSelectAll}
         onAddSelectedToBook={() => void handleOpenBookPicker(selectedWords)}
       />
-      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] lg:hidden">
+      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] pb-[160px] font-[var(--font-body)] desktop:hidden">
       {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
           top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。
           下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}
@@ -717,7 +718,7 @@ export default function SharedDetailPage() {
           type="button"
           onClick={() => router.back()}
           aria-label="戻る"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
         >
           <Icon name="arrow_back" size={16} />
         </button>

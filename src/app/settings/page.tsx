@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DesktopSettingsView } from '@/components/desktop/DesktopAccount';
 import { Icon } from '@/components/ui';
+import { LEVEL_TEST_FEATURE_ENABLED } from '@/lib/level-test/feature-flag';
 import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
 import { SolidPanel } from '@/components/redesign/SolidPage';
 import { ThemeSetting } from '@/components/settings/ThemeSetting';
@@ -59,7 +60,7 @@ export default function SettingsPage() {
         usernameSaving={profileSaving}
         usernameError={profileError}
       />
-      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] lg:hidden">
+      <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
       {/* 設定はプロフィール内の導線から開くので、戻り先はプロフィール */}
       <StickyPageHeader eyebrow="ACCOUNT" title="設定" onBack={handleBack} />
 
@@ -142,39 +143,41 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* 語彙力レベル診断 — 目を引くカラフルな特別カード */}
-      <div className="px-[18px] pb-3">
-        <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">学習ツール</div>
-        <Link
-          href="/level-test"
-          className="block rounded-[14px] p-[3px] shadow-[3px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--solid-shadow)]"
-          style={{ background: 'linear-gradient(120deg,#15803d,#137FEC,#7C3AED,#EE2A7B,#F9CE34)' }}
-        >
-          <div className="flex items-center gap-3 rounded-[11px] bg-[var(--color-surface)] px-3 py-3">
-            <span
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] text-white"
-              style={{ background: 'linear-gradient(135deg,#137FEC,#7C3AED,#EE2A7B)' }}
-            >
-              <Icon name="military_tech" size={20} filled />
-            </span>
-            <div className="min-w-0 flex-1">
+      {/* 語彙力レベル診断 — 目を引くカラフルな特別カード (フラグで非表示中) */}
+      {LEVEL_TEST_FEATURE_ENABLED && (
+        <div className="px-[18px] pb-3">
+          <div className="px-1 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">学習ツール</div>
+          <Link
+            href="/level-test"
+            className="block rounded-[14px] p-[3px] shadow-[3px_3px_0_var(--solid-shadow)] transition-all duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--solid-shadow)]"
+            style={{ background: 'linear-gradient(120deg,#15803d,#137FEC,#7C3AED,#EE2A7B,#F9CE34)' }}
+          >
+            <div className="flex items-center gap-3 rounded-[11px] bg-[var(--color-surface)] px-3 py-3">
               <span
-                className="font-display text-[15px] font-extrabold"
-                style={{
-                  background: 'linear-gradient(90deg,#15803d,#137FEC,#7C3AED,#EE2A7B)',
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                  color: 'transparent',
-                }}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] text-white"
+                style={{ background: 'linear-gradient(135deg,#137FEC,#7C3AED,#EE2A7B)' }}
               >
-                語彙力レベル診断
+                <Icon name="military_tech" size={20} filled />
               </span>
-              <p className="mt-px truncate text-[10px] leading-4 text-[var(--color-muted)]">あなたの語彙力は英検何級レベル? 20問で診断</p>
+              <div className="min-w-0 flex-1">
+                <span
+                  className="font-display text-[15px] font-extrabold"
+                  style={{
+                    background: 'linear-gradient(90deg,#15803d,#137FEC,#7C3AED,#EE2A7B)',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    color: 'transparent',
+                  }}
+                >
+                  語彙力レベル診断
+                </span>
+                <p className="mt-px truncate text-[10px] leading-4 text-[var(--color-muted)]">あなたの語彙力は英検何級レベル? 20問で診断</p>
+              </div>
+              <Icon name="chevron_right" size={16} className="text-[var(--solid-ink)]" />
             </div>
-            <Icon name="chevron_right" size={16} className="text-[var(--solid-ink)]" />
-          </div>
-        </Link>
-      </div>
+          </Link>
+        </div>
+      )}
 
       {/* 豆知識 — 中身は /tips にまとめ、設定には入口だけ置く */}
       <SettingsGroup label="豆知識">

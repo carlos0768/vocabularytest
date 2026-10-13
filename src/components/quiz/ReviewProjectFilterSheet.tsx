@@ -18,9 +18,11 @@ interface ReviewProjectFilterSheetProps {
 }
 
 /**
- * Bottom sheet for choosing which wordbooks (projects) contribute due words
- * to a review/learn quiz session. `selectedIds === null` means "all
- * wordbooks" — the default when nothing has been narrowed down.
+ * Centred floating dialog (like the word-detail modal) for choosing which
+ * wordbooks (projects) contribute due words to a review/learn quiz session.
+ * `selectedIds === null` means "all wordbooks" — the default when nothing has
+ * been narrowed down. It used to be a bottom sheet; on an iPad that stretched
+ * along the bottom edge, so it now floats in the middle on every layout.
  */
 export function ReviewProjectFilterSheet({
   isOpen,
@@ -67,27 +69,25 @@ export function ReviewProjectFilterSheet({
         onClick={onClose}
       />
 
-      <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+      <div className="absolute inset-0 flex items-center justify-center px-4 py-10" onClick={onClose}>
         <div
-          className="w-full animate-fade-in-up"
+          role="dialog"
+          aria-modal="true"
+          aria-label="出題する単語帳を選ぶ"
+          className="w-full animate-fade-in"
+          onClick={(event) => event.stopPropagation()}
           style={{
             maxWidth: 480,
             background: 'var(--color-paper)',
             border: '2px solid var(--solid-ink)',
-            borderBottomWidth: 0,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
-            boxShadow: '0 -8px 24px color-mix(in srgb, var(--solid-ink) 18%, transparent)',
-            maxHeight: 'min(80vh, 640px)',
+            borderRadius: 20,
+            padding: '18px 18px 20px',
+            boxShadow: '4px 5px 0 var(--solid-shadow)',
+            maxHeight: 'min(80dvh, 640px)',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
-          <div className="mb-2.5 flex justify-center">
-            <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
-          </div>
-
           <div className="mb-3 flex items-center justify-between">
             <div>
               <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
@@ -100,9 +100,10 @@ export function ReviewProjectFilterSheet({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
+              aria-label="閉じる"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
-              <Icon name="close" size={14} />
+              <Icon name="close" size={16} />
             </button>
           </div>
 
