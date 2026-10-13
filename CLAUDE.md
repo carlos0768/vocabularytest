@@ -165,6 +165,17 @@ These rules must never be violated. See `docs/invariants.md` for full list.
 7. **Stripe webhook signature must be verified before any processing**
 8. **Scanning is Pro-only for every mode**: all scan entry points (`/api/extract`, `/api/scan-jobs`) must gate through `requiresProForModes` (always true)
 
+## UI Copy Rules (画面の文言)
+
+**説明文を足さない。** AI は親切のつもりで補足を書き足しがちだが、冗長な文言は画面のノイズでしかない。次を**規則として禁止**する:
+
+- 見出し・ボタン・選択肢の**意味を言い換えるだけの補足文** (例: 「一般」の下に「単語ごとに自動で形式が変わります」、「タイムアタック」の下に「制限時間つきの四択です」)。名前と挙動で足りるなら補足は書かない
+- 操作を選ぶ前から出す**注意書き・黄色の警告帯** (「切り替えるといまのクイズは最初からになります」など)。壊れる操作の確認は、押した後の確認ダイアログでやる
+- 日本語の見出しを**英語に直しただけのラベル** (`QUIZ MODE` / `TIME ATTACK` / `ACCOUNT` のような eyebrow)。情報が増えないなら置かない
+- 「〜できます」「〜されます」で終わる**機能の自己説明**、同じ画面に既にある情報の言い換え
+
+文言を足すときは「消しても利用者が迷わないか」を先に問い、迷わないなら書かない。既存の説明文を見つけたら、触るついでに消してよい。
+
 ## Danger Zones
 
 Areas where small changes cause cascading failures. See `docs/boundaries.md` for full details.

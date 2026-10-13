@@ -1779,11 +1779,6 @@ export default function QuizPage() {
         wordCounts={chooserWordCounts}
         title="クイズの解き方を変える"
         description="今日はこのあともこの解き方で始めます。"
-        warning={
-          hasAnsweredRef.current
-            ? '解き方ごとに出題する単語が違うので、切り替えるといまのクイズは最初からになります。'
-            : undefined
-        }
       />
     </Modal>
     <div className="ds-fixed-main fixed inset-0 z-30 hidden flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:flex">
@@ -2008,7 +2003,6 @@ export default function QuizPage() {
         header={
           <BattleScreenHeader
             wide
-            eyebrow={isTimeAttack ? 'TIME ATTACK' : 'QUIZ'}
             title={quizScopeLabel ?? quizKindLabel}
             onBack={backToProject}
             right={

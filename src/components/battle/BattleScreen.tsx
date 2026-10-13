@@ -69,7 +69,7 @@ export function BattleScreenHeader({
   children,
   wide = false,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: ReactNode;
   /** 戻り先。onBack と両方省略すると戻るボタンを出さない。 */
   backHref?: string;
@@ -111,9 +111,11 @@ export function BattleScreenHeader({
             </button>
           )}
           <div className="min-w-0 flex-1">
-            <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-              {eyebrow}
-            </div>
+            {eyebrow && (
+              <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
+                {eyebrow}
+              </div>
+            )}
             <div className="truncate font-display text-[17px] font-extrabold leading-tight text-[var(--solid-ink)]">
               {title}
             </div>
