@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { createSwapy } from 'swapy';
 import { Icon } from '@/components/ui';
-import { SolidPanel, SolidButton } from '@/components/redesign/SolidPage';
+import { SolidButton } from '@/components/redesign/SolidPage';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache';
@@ -397,13 +397,18 @@ export function WordDetailView({
   return (
     <div className={isModal ? 'bg-[var(--color-background)] pb-6 font-[var(--font-body)]' : 'min-h-screen bg-[var(--color-background)] pb-24 font-[var(--font-body)]'}>
       <header className="mx-auto flex w-full max-w-xl items-center justify-between px-5 pb-3 pt-4 sm:px-7">
-        <button
-          onClick={onClose}
-          className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-          aria-label={isModal ? '閉じる' : '戻る'}
-        >
-          <Icon name={isModal ? 'close' : 'chevron_left'} size={16} />
-        </button>
+        {isModal ? (
+          // モーダルでは閉じるボタン（ばつ印）を置かない。背景のタップで閉じる。
+          <span aria-hidden />
+        ) : (
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+            aria-label="戻る"
+          >
+            <Icon name="chevron_left" size={16} />
+          </button>
+        )}
         {isEditing ? (
           <button
             onClick={handleFinishEditing}
@@ -590,9 +595,9 @@ export function WordDetailView({
           <>
             <SectionDivider />
             <div className="py-4">
-              <SolidPanel faceClassName="space-y-4">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-[var(--solid-ink)]">CUSTOM</h3>
+                  <SectionHeading title="CUSTOM" />
                   <SolidButton
                     onClick={handleAddSection}
                     disabled={hasEmptySection}
@@ -609,13 +614,13 @@ export function WordDetailView({
                     ＋ボタンからセクションを追加できます
                   </p>
                 ) : (
-                  <div ref={swapyContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div ref={swapyContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     {sections.map((section, i) => {
                       const columnType = columnTypeById.get(section.id) ?? 'text';
                       const isProjectColumn = columnTypeById.has(section.id);
                       return (
                       <div key={`slot-${i}`} data-swapy-slot={`slot-${i}`}>
-                        <div data-swapy-item={section.id} className="space-y-2 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-3">
+                        <div data-swapy-item={section.id} className="space-y-1.5">
                           <div className="flex items-center gap-2">
                             <div data-swapy-handle className="cursor-grab active:cursor-grabbing touch-none p-1">
                               <Icon name="drag_indicator" size={18} className="text-[var(--color-muted)]" />
@@ -669,7 +674,7 @@ export function WordDetailView({
                     })}
                   </div>
                 )}
-              </SolidPanel>
+              </div>
             </div>
           </>
         ) : displaySections.length > 0 ? (
@@ -681,12 +686,10 @@ export function WordDetailView({
                 <section key={section.id}>
                   <SectionDivider />
                   <div className="py-4">
-                    <SolidPanel faceClassName="space-y-2">
-                      <h2 className="font-mono text-[13px] font-black uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">
-                        {section.title}
-                      </h2>
+                    <div className="space-y-2">
+                      <SectionHeading title={section.title} />
                       <p className="whitespace-pre-wrap text-[13px] leading-6 text-[var(--solid-ink)]">{display || '—'}</p>
-                    </SolidPanel>
+                    </div>
                   </div>
                 </section>
               );
