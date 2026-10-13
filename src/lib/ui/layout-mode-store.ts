@@ -59,10 +59,19 @@ function applyToDocument(snapshot: LayoutSnapshot) {
 
 function update() {
   const next = compute();
-  if (current && current.mode === next.mode && current.tabletSize === next.tabletSize) return;
+  const changed = !current || current.mode !== next.mode || current.tabletSize !== next.tabletSize;
   current = next;
+  // 値が変わっていなくても属性は書き直す。ハイドレーション不一致で React が
+  // ツリーを作り直すと <html> の属性が消えることがあり、ブートストラップが
+  // 書いた data-layout を失ったままにしないため (setAttribute は冪等で安い)
   applyToDocument(next);
-  listeners.forEach((cb) => cb());
+  if (changed) listeners.forEach((cb) => cb());
+}
+
+/** 今の判定を <html> に書き直す (購読者のマウント後に呼ぶ) */
+export function reapplyLayoutModeToDocument() {
+  if (typeof document === 'undefined') return;
+  applyToDocument(getLayoutModeSnapshot());
 }
 
 function attach() {
