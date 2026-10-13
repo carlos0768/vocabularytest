@@ -89,7 +89,7 @@ export function ProjectFilterSheet({ open, onClose, filter, onFilterChange }: Pr
       title="フィルタ"
       footer={
         <div
-          className="flex items-center gap-2.5 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3 desktop:pb-5"
+          className="flex items-center gap-2.5 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3 desktop:pb-5 tablet:pb-5"
           style={{ borderTop: '1px solid color-mix(in srgb, var(--solid-ink) 10%, transparent)' }}
         >
           <button

@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
-import { WordDetailView } from '@/components/word/WordDetailView';
+import { WordDetailOverlay } from '@/components/word/WordDetailOverlay';
 import { useMyWordSearch } from '@/hooks/use-my-word-search';
 import { getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import type { Word } from '@/types';
@@ -150,37 +150,15 @@ export function HomeWordSearchSheet({
       </div>
 
       {selectedWord && (
-        <div className="fixed inset-0 z-[95]">
-          <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-            onClick={() => setSelectedWord(null)}
-          />
-          <div className="absolute inset-0 flex items-center justify-center px-4 py-10" onClick={() => setSelectedWord(null)}>
-            <div
-              className="w-full overflow-y-auto overscroll-contain"
-              onClick={(event) => event.stopPropagation()}
-              style={{
-                maxWidth: 480,
-                maxHeight: '80dvh',
-                background: 'var(--color-paper)',
-                border: '2px solid var(--solid-ink)',
-                borderRadius: 20,
-              }}
-            >
-              <WordDetailView
-                wordId={selectedWord.id}
-                variant="modal"
-                initialWord={selectedWord}
-                onClose={() => setSelectedWord(null)}
-                onWordUpdated={(updated) => {
-                  updateEntryWord(updated);
-                  setSelectedWord(updated);
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        <WordDetailOverlay
+          word={selectedWord}
+          zIndex={95}
+          onClose={() => setSelectedWord(null)}
+          onWordUpdated={(updated) => {
+            updateEntryWord(updated);
+            setSelectedWord(updated);
+          }}
+        />
       )}
     </div>
   );

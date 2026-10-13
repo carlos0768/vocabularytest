@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { DesktopFavoritesView, DesktopWrongAnswersView } from '@/components/desktop/DesktopFavorites';
 import { Icon } from '@/components/ui/Icon';
-import { WordDetailView } from '@/components/word/WordDetailView';
+import { WordDetailOverlay } from '@/components/word/WordDetailOverlay';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
 import { isBillingEnabled } from '@/lib/billing/feature';
@@ -350,45 +350,21 @@ function FavoritesPageContent() {
         </div>
       )}
       {selectedWord && (
-        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
-          <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-            onClick={() => setSelectedWord(null)}
-          />
-          <div className="absolute inset-0 flex items-center justify-center px-4 py-10" onClick={() => setSelectedWord(null)}>
-            <div
-              className="w-full overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                maxWidth: 480,
-                maxHeight: '80dvh',
-                background: 'var(--color-paper)',
-                border: '2px solid var(--solid-ink)',
-                borderRadius: 20,
-                boxShadow: '4px 5px 0 var(--solid-ink)',
-              }}
-            >
-              <WordDetailView
-                wordId={selectedWord.id}
-                variant="modal"
-                initialWord={selectedWord}
-                onClose={() => setSelectedWord(null)}
-                onWordUpdated={(updated) => {
-                  setFavorites((prev) =>
-                    prev.map((w) =>
-                      w.id === updated.id
-                        ? { ...updated, projectTitle: prev.find((x) => x.id === updated.id)?.projectTitle ?? '' }
-                        : w,
-                    ),
-                  );
-                  setSelectedWord((current) => (current ? { ...updated, projectTitle: current.projectTitle } : null));
-                }}
-                onDelete={(wordId) => setDeleteWordTarget(favorites.find((w) => w.id === wordId) ?? null)}
-              />
-            </div>
-          </div>
-        </div>
+        <WordDetailOverlay
+          word={selectedWord}
+          onClose={() => setSelectedWord(null)}
+          onWordUpdated={(updated) => {
+            setFavorites((prev) =>
+              prev.map((w) =>
+                w.id === updated.id
+                  ? { ...updated, projectTitle: prev.find((x) => x.id === updated.id)?.projectTitle ?? '' }
+                  : w,
+              ),
+            );
+            setSelectedWord((current) => (current ? { ...updated, projectTitle: current.projectTitle } : null));
+          }}
+          onDelete={(wordId) => setDeleteWordTarget(favorites.find((w) => w.id === wordId) ?? null)}
+        />
       )}
 
       {deleteWordTarget && (

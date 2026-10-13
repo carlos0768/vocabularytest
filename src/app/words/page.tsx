@@ -15,7 +15,7 @@ import { WordRow } from '@/components/project/WordRow';
 import { WordListFrame } from '@/components/words/WordListFrame';
 import { StackedBar } from '@/components/project/WordStatusBar';
 import { Icon } from '@/components/ui/Icon';
-import { WordDetailView } from '@/components/word/WordDetailView';
+import { WordDetailOverlay } from '@/components/word/WordDetailOverlay';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import { useWordLibrary } from '@/hooks/use-word-library';
@@ -381,43 +381,17 @@ export default function WordsPage() {
       />
 
       {selectedWord && (
-        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
-          <div
-            className="absolute inset-0"
-            style={{ background: 'color-mix(in srgb, var(--solid-ink) 45%, transparent)' }}
-            onClick={() => setSelectedWord(null)}
-          />
-          <div
-            className="absolute inset-0 flex items-center justify-center px-4 py-10"
-            onClick={() => setSelectedWord(null)}
-          >
-            <div
-              className="w-full overflow-y-auto"
-              onClick={(event) => event.stopPropagation()}
-              style={{
-                maxWidth: 480,
-                maxHeight: '80dvh',
-                background: 'var(--color-paper)',
-                border: '2px solid var(--solid-ink)',
-                borderRadius: 20,
-              }}
-            >
-              <WordDetailView
-                wordId={selectedWord.word.id}
-                variant="modal"
-                initialWord={selectedWord.word}
-                onClose={() => setSelectedWord(null)}
-                onWordUpdated={(updated) => {
-                  applyWordUpdate(updated);
-                  setSelectedWord((current) => (current ? { ...current, word: updated } : null));
-                }}
-                onDelete={(wordId) =>
-                  setDeleteTarget(results.find((entry) => entry.word.id === wordId) ?? null)
-                }
-              />
-            </div>
-          </div>
-        </div>
+        <WordDetailOverlay
+          word={selectedWord.word}
+          onClose={() => setSelectedWord(null)}
+          onWordUpdated={(updated) => {
+            applyWordUpdate(updated);
+            setSelectedWord((current) => (current ? { ...current, word: updated } : null));
+          }}
+          onDelete={(wordId) =>
+            setDeleteTarget(results.find((entry) => entry.word.id === wordId) ?? null)
+          }
+        />
       )}
 
       {deleteTarget && (

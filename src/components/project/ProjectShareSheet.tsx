@@ -61,9 +61,9 @@ export function ProjectShareSheet({
 
       {/* モバイルは下からのボトムシート、デスクトップ (lg 以上) は中央のダイアログ。
           角丸・下線・シャドウは inline style だと desktop: で上書きできないので class で持つ */}
-      <div className="absolute inset-x-0 bottom-0 flex justify-center desktop:inset-0 desktop:items-center desktop:px-6 desktop:py-10">
+      <div className="absolute inset-x-0 bottom-0 flex justify-center desktop:inset-0 tablet:inset-0 desktop:items-center tablet:items-center desktop:px-6 tablet:px-6 desktop:py-10 tablet:py-10">
         <div
-          className="w-full animate-fade-in-up rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] shadow-[0_-8px_24px_color-mix(in_srgb,var(--solid-ink)_18%,transparent)] desktop:animate-none desktop:rounded-[20px] desktop:border-b-2 desktop:shadow-[0_10px_30px_color-mix(in_srgb,var(--solid-ink)_22%,transparent)]"
+          className="w-full animate-fade-in-up rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] shadow-[0_-8px_24px_color-mix(in_srgb,var(--solid-ink)_18%,transparent)] desktop:animate-none tablet:animate-none desktop:rounded-[20px] tablet:rounded-[20px] desktop:border-b-2 tablet:border-b-2 desktop:shadow-[0_10px_30px_color-mix(in_srgb,var(--solid-ink)_22%,transparent)] tablet:shadow-[0_10px_30px_color-mix(in_srgb,var(--solid-ink)_22%,transparent)]"
           style={{
             maxWidth: 480,
             background: 'var(--color-paper)',
@@ -72,7 +72,7 @@ export function ProjectShareSheet({
             overflowY: 'auto',
           }}
         >
-          <div className="mb-2.5 flex justify-center desktop:hidden">
+          <div className="mb-2.5 flex justify-center desktop:hidden tablet:hidden">
             <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
           </div>
 

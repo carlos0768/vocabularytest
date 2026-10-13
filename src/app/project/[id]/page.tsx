@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { markProjectUsed } from '@/lib/projects/recent-use';
 import Link from 'next/link';
 import { DesktopProjectDetailView } from '@/components/desktop/DesktopProjectDetail';
+import { TabletProjectDetailView } from '@/components/tablet/TabletProjectDetail';
+import { TabletOnly } from '@/components/tablet/TabletOnly';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/toast';
 import { WordLimitModal } from '@/components/limits';
@@ -16,7 +18,7 @@ import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { WordFilterSheet, WordSortSheet } from '@/components/project/WordListSheets';
 import { VoiceWordModal } from '@/components/project/VoiceWordModal';
 import { BinderPickerSheet } from '@/components/desktop/ProjectListSheets';
-import { WordDetailView } from '@/components/word/WordDetailView';
+import { WordDetailOverlay } from '@/components/word/WordDetailOverlay';
 import { useAuth } from '@/hooks/use-auth';
 import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
@@ -1444,7 +1446,43 @@ export default function ProjectPage() {
         onManualAdd={openManualWordModal}
         onVoiceAdd={voiceAddAvailable ? openVoiceWordModal : undefined}
       />
-      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden">
+      {/* タブレット (iPad): 一覧 | 詳細 のマスター・ディテール。JS でだけマウントする (TabletOnly) */}
+      <TabletOnly>
+        <TabletProjectDetailView
+          project={project}
+          projectId={projectId}
+          words={words}
+          filteredWords={filteredWords}
+          wordsLoaded={wordsLoaded}
+          counts={counts}
+          query={query}
+          onQueryChange={setQuery}
+          filterActive={wordFilterActive}
+          sortActive={wordSortOrder !== 'priority'}
+          selectMode={selectMode}
+          selectedWordIds={selectedWordIds}
+          onOpenFilterSheet={() => setWordShowFilterSheet(true)}
+          onOpenSortSheet={() => setWordShowSortSheet(true)}
+          onToggleSelectMode={() => {
+            if (selectMode) handleExitSelectMode();
+            else { setSelectMode(true); setSelectedWordIds(new Set()); }
+          }}
+          onToggleSelectWord={handleToggleSelectWord}
+          onRename={handleOpenRename}
+          onSetBinder={() => void handleOpenBinderPicker()}
+          onDeleteProject={() => setDeleteModalOpen(true)}
+          onShare={handleOpenShareSheet}
+          onToggleFavorite={(word) => void handleToggleFavorite(word)}
+          onCycleStatus={(word, newStatus) => handleCycleStatus(word.id, newStatus)}
+          onCycleVocabularyType={(word) => void handleCycleVocabularyType(word)}
+          onDeleteWord={handleOpenDeleteWord}
+          onScan={() => setShowScanCaptureModal(true)}
+          onManualAdd={openManualWordModal}
+          onVoiceAdd={voiceAddAvailable ? openVoiceWordModal : undefined}
+          onWordUpdated={(updated) => setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)))}
+        />
+      </TabletOnly>
+      <div className="relative flex min-h-screen flex-col bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden tablet:hidden">
       {/* スクロールしても上部に固定されるヘッダー（グループページと同じパターン）。
           top はノッチ下端に合わせ、ノッチ帯は全体共通の StatusBarCover が覆う。
           下線はコンテンツがヘッダの下に潜り込んだとき（スクロール中）だけ出す。 */}
@@ -1796,38 +1834,15 @@ export default function ProjectPage() {
       )}
 
       {selectedWord && (
-        <div className="fixed inset-0 z-[80]" style={{ fontFamily: 'var(--font-body)' }}>
-          <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
-            onClick={() => setSelectedWord(null)}
-          />
-          <div className="absolute inset-0 flex items-center justify-center px-4 py-10" onClick={() => setSelectedWord(null)}>
-            <div
-              className="w-full overflow-y-auto overscroll-contain"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                maxWidth: 480,
-                maxHeight: '80dvh',
-                background: 'var(--color-paper)',
-                border: '2px solid var(--solid-ink)',
-                borderRadius: 20,
-              }}
-            >
-              <WordDetailView
-                wordId={selectedWord.id}
-                variant="modal"
-                initialWord={selectedWord}
-                onClose={() => setSelectedWord(null)}
-                onWordUpdated={(updated) => {
-                  setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
-                  setSelectedWord(updated);
-                }}
-                onDelete={handleOpenDeleteWord}
-              />
-            </div>
-          </div>
-        </div>
+        <WordDetailOverlay
+          word={selectedWord}
+          onClose={() => setSelectedWord(null)}
+          onWordUpdated={(updated) => {
+            setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+            setSelectedWord(updated);
+          }}
+          onDelete={handleOpenDeleteWord}
+        />
       )}
 
       </div>

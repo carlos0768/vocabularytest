@@ -34,7 +34,7 @@ export function BottomSheetShell({ open, onClose, title, children, footer }: Bot
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col justify-end desktop:items-center desktop:justify-center desktop:px-6"
+      className="fixed inset-0 z-[60] flex flex-col justify-end desktop:items-center tablet:items-center desktop:justify-center tablet:justify-center desktop:px-6 tablet:px-6"
       style={{ fontFamily: 'var(--font-body)' }}
     >
       <button
@@ -46,16 +46,16 @@ export function BottomSheetShell({ open, onClose, title, children, footer }: Bot
       />
       {/* Mobile: bottom sheet / Desktop (lg+): centered solid card */}
       <div
-        className="relative flex max-h-[80dvh] w-full animate-fade-in-up flex-col rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[var(--color-paper)] shadow-[0_-8px_24px_color-mix(in_srgb,_var(--solid-ink)_18%,_transparent)] desktop:max-w-[460px] desktop:rounded-[20px] desktop:border-b-2 desktop:"
+        className="relative flex max-h-[80dvh] w-full animate-fade-in-up flex-col rounded-t-[20px] border-2 border-b-0 border-[var(--solid-ink)] bg-[var(--color-paper)] shadow-[0_-8px_24px_color-mix(in_srgb,_var(--solid-ink)_18%,_transparent)] desktop:max-w-[460px] tablet:max-w-[460px] desktop:rounded-[20px] tablet:rounded-[20px] desktop:border-b-2 tablet:border-b-2"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 desktop:hidden">
+        <div className="flex justify-center pt-3 pb-1 desktop:hidden tablet:hidden">
           <span className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[color-mix(in_srgb,_var(--solid-ink)_10%,_transparent)] px-5 pb-3 pt-1 desktop:pt-4">
+        <div className="flex items-center justify-between border-b border-[color-mix(in_srgb,_var(--solid-ink)_10%,_transparent)] px-5 pb-3 pt-1 desktop:pt-4 tablet:pt-4">
           <span className="w-8" />
           <h2 className="font-display text-[16px] font-extrabold text-[var(--solid-ink)]">{title}</h2>
           <button
@@ -110,7 +110,7 @@ export function WordFilterSheet({
       title="フィルタ"
       footer={
         <div
-          className="flex items-center gap-2.5 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3 desktop:pb-5"
+          className="flex items-center gap-2.5 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3 desktop:pb-5 tablet:pb-5"
           style={{ borderTop: '1px solid color-mix(in srgb, var(--solid-ink) 10%, transparent)' }}
         >
           <button
