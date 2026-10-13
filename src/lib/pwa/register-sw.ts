@@ -79,33 +79,3 @@ export async function clearOfflineShellCache() {
     // best-effort
   }
 }
-
-export async function clearServiceWorkerCaches() {
-  if (typeof window === 'undefined') return;
-  if (!('caches' in window)) return;
-
-  try {
-    const cacheNames = await caches.keys();
-    await Promise.all(
-      cacheNames
-        .filter((name) => name.startsWith('scanvocab-') || name.startsWith('merken-'))
-        .map((name) => caches.delete(name))
-    );
-    console.log('[PWA] Cleared service worker caches');
-  } catch (error) {
-    console.error('[PWA] Failed to clear service worker caches:', error);
-  }
-}
-
-export async function unregisterServiceWorker() {
-  if (typeof window === 'undefined') return;
-  if (!('serviceWorker' in navigator)) return;
-
-  try {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.map((registration) => registration.unregister()));
-    console.log('[PWA] Service Worker unregistered');
-  } catch (error) {
-    console.error('[PWA] Service Worker unregistration failed:', error);
-  }
-}

@@ -25,7 +25,7 @@ export const BATTLE_DEFAULT_BOT_LEVEL: BattleBotLevel = 'normal';
 export const BATTLE_BOT_MIN_BUZZ_MS = 800;
 
 /** 締切のこの手前までしか押さない。ブザーと同時の紛らわしい決着を避ける。 */
-export const BATTLE_BOT_BUZZ_TAIL_MS = 600;
+const BATTLE_BOT_BUZZ_TAIL_MS = 600;
 
 export type BattleBotProfile = {
   /** 対戦画面に出る相手の名前。 */

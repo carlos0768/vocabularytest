@@ -1,8 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createBrowserClient } from '@/lib/supabase';
-import { bytesToBase64, passthroughEncodingFor, toLinear16 } from '@/lib/speech/recorded-audio';
+import { jsonHeadersWithAccessToken } from '@/lib/supabase/auth-headers';
+import {
+  bytesToBase64,
+  passthroughEncodingFor,
+  pickRecordingMimeType,
+  toLinear16,
+} from '@/lib/speech/recorded-audio';
 
 /**
  * 単語をまとめて読み上げて追加するための録音。
@@ -25,14 +30,6 @@ export const VOICE_DICTATION_MAX_MS = 55_000;
  */
 const LINEAR16_MAX_SECONDS = 45;
 
-/** 録音に使う MIME の候補。音読チャレンジと同じ並び。 */
-const CANDIDATE_MIME_TYPES = [
-  'audio/webm;codecs=opus',
-  'audio/webm',
-  'audio/ogg;codecs=opus',
-  'audio/mp4',
-];
-
 export type VoiceDictationPhase = 'idle' | 'starting' | 'recording' | 'processing';
 
 export interface VoiceDictationResult {
@@ -40,23 +37,7 @@ export interface VoiceDictationResult {
   transcript: string;
 }
 
-function pickMimeType(): string | null {
-  return CANDIDATE_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) ?? null;
-}
-
-/** アクセストークンを明示的に載せる。iOSのPWAは Cookie が Safari と別になるため。 */
-async function requestHeaders(): Promise<HeadersInit> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  try {
-    const { data: { session } } = await createBrowserClient().auth.getSession();
-    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-  } catch {
-    // 取れなければ Cookie に任せる
-  }
-  return headers;
-}
-
-export function isVoiceDictationSupported(): boolean {
+function isVoiceDictationSupported(): boolean {
   return typeof window !== 'undefined'
     && typeof MediaRecorder !== 'undefined'
     && Boolean(navigator.mediaDevices?.getUserMedia);
@@ -105,7 +86,7 @@ export function useVoiceWordDictation(onResult: (result: VoiceDictationResult) =
       );
       const response = await fetch('/api/words/voice-input', {
         method: 'POST',
-        headers: await requestHeaders(),
+        headers: await jsonHeadersWithAccessToken(),
         body: JSON.stringify({
           audioBase64,
           encoding: passthrough ?? 'LINEAR16',
@@ -176,7 +157,7 @@ export function useVoiceWordDictation(onResult: (result: VoiceDictationResult) =
     }
     streamRef.current = stream;
 
-    const mimeType = pickMimeType();
+    const mimeType = pickRecordingMimeType();
     let recorder: MediaRecorder;
     try {
       recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);

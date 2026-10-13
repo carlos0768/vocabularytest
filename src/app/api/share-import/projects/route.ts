@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
-import { resolveAuthenticatedUser } from '@/app/api/share-import/shared';
+import { resolveAuthenticatedUser } from '@/lib/api/route-auth';
 
 type ProjectRow = {
   id: string;

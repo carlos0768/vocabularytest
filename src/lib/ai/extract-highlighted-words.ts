@@ -15,6 +15,7 @@ import {
 } from './prompts';
 import { AI_CONFIG } from './config';
 import { getProviderFromConfig } from './providers';
+import { extractJsonContent } from './utils/json';
 import { JAPANESE_PARENTHESIS_RULES } from './prompts/japanese-format';
 
 export type HighlightedExtractionResult =
@@ -43,21 +44,6 @@ const HIGHLIGHT_HORIZONTAL_OVERLAP_THRESHOLD = 0.6;
 const HIGHLIGHT_VERTICAL_OVERLAP_THRESHOLD = 0.5;
 const HIGHLIGHT_INTERSECTION_RATIO_THRESHOLD = 0.35;
 const RELAXED_CONFIDENCE_THRESHOLD = 0.65;
-
-function extractJsonContent(content: string): string {
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-
-  const jsonStartIndex = content.indexOf('{');
-  const jsonEndIndex = content.lastIndexOf('}');
-  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-    return content.slice(jsonStartIndex, jsonEndIndex + 1);
-  }
-
-  return content;
-}
 
 function normalizeText(value: string): string {
   return value.trim().toLowerCase();

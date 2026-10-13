@@ -1,46 +1,14 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { readSingleLineEnv } from '@/lib/env';
 import {
   evaluateAuthOtpCode,
   findAuthUserByNormalizedEmail,
   normalizeOtpEmail,
 } from '@/lib/auth/otp-lifecycle';
 import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_API_ERROR } from '@/lib/auth/signup-feature-flag';
-
-// Service Role client for admin operations
-function getAdminClient() {
-  const supabaseUrl = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const serviceRoleKey = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
-
-// Server client for setting session cookies
-async function getServerClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-}
 
 const requestSchema = z.object({
   email: z.string().trim().email().max(254),
@@ -50,8 +18,8 @@ const requestSchema = z.object({
 export type VerifyOtpRouteDeps = {
   /** テスト用。省略時は `NEW_USER_SIGNUP_ENABLED` */
   signupEnabled?: boolean;
-  getAdminClient?: typeof getAdminClient;
-  getServerClient?: typeof getServerClient;
+  getAdminClient?: typeof getSupabaseAdmin;
+  getServerClient?: typeof createClient;
 };
 
 export async function POST(request: Request) {
@@ -71,7 +39,7 @@ export async function handleVerifyOtpPost(
     }
     const { email, code } = parsed.data;
 
-    const adminClient = (deps.getAdminClient ?? getAdminClient)();
+    const adminClient = (deps.getAdminClient ?? getSupabaseAdmin)();
     const normalizedEmail = normalizeOtpEmail(email);
     const normalizedCode = code;
 
@@ -196,7 +164,7 @@ export async function handleVerifyOtpPost(
     }
 
     // トークンを使ってセッションを設定
-    const serverClient = await (deps.getServerClient ?? getServerClient)();
+    const serverClient = await (deps.getServerClient ?? createClient)();
     const { data: sessionData, error: sessionError } = await serverClient.auth.verifyOtp({
       token_hash: linkData.properties.hashed_token,
       type: 'magiclink',

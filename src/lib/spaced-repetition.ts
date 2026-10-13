@@ -257,16 +257,6 @@ export function getWordsDueForReview(words: Word[]): Word[] {
   });
 }
 
-/**
- * Get count of words due for review
- *
- * @param words - All words in a project
- * @returns Number of words that need review
- */
-export function getReviewCount(words: Word[]): number {
-  return getWordsDueForReview(words).length;
-}
-
 const STATUS_PRIORITY: Record<WordStatus, number> = {
   new: 0,
   review: 1,

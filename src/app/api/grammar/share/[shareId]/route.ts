@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { requireProUser } from '@/lib/api/pro-auth';
 import { incrementGrammarBookImportCount } from '../../shared-grammar-books';
+import { resolveAuthenticatedUser } from '@/lib/api/route-auth';
 
 /**
  * GET  /api/grammar/share/[shareId] — 共有された語法問題集の閲覧 (ログイン必須)
@@ -63,17 +63,6 @@ async function resolveSharedBook(shareId: string): Promise<{ book: SharedBook; q
     book: { id: book.id as string, title: book.title as string },
     questions: (questions ?? []) as SharedQuestionRow[],
   };
-}
-
-async function resolveAuthenticatedUser(request: NextRequest): Promise<{ id: string } | null> {
-  const supabase = await createRouteHandlerClient(request);
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  const { data: { user }, error } = bearerToken
-    ? await supabase.auth.getUser(bearerToken)
-    : await supabase.auth.getUser();
-  if (error || !user) return null;
-  return { id: user.id };
 }
 
 /** 取り込み回数の加算。共有ページの人気順に使うだけなので失敗は無視する。 */

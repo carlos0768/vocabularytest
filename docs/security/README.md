@@ -15,7 +15,7 @@
 
 ## 現在の公開前注意点
 
-詳細は [`../prelaunch-maintainability-audit.md`](../prelaunch-maintainability-audit.md) を参照してください。
+詳細は [`../maintenance/_archive/2026-05-prelaunch-cleanup/prelaunch-maintainability-audit.md`](../maintenance/_archive/2026-05-prelaunch-cleanup/prelaunch-maintainability-audit.md) を参照してください。
 
 - `npm run security:deps` は成功している
 - `npm run security:all` は成功している
@@ -29,4 +29,4 @@
 - Raw SQLやservice roleを使う変更は、理由と安全性を明文化する。
 - AI API、課金webhook、認証、DB migrationを触る場合は、セキュリティ影響を確認する。
 - secrets guardの誤検知をallowlistする場合は、理由と期限を残す。
-- dependency auditの失敗を無視して公開する場合は、残リスクを [`../maintenance/DECISIONS.md`](../maintenance/DECISIONS.md) に記録する。
+- dependency auditの失敗を無視して公開する場合は、残リスクを PR 本文と `docs/README.md` の「既知の残課題」に記録する。

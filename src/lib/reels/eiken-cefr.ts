@@ -18,7 +18,7 @@ export const EIKEN_TO_CEFR_BAND: Record<string, CefrLevel[]> = {
   '1': ['C1'],
 };
 
-function cefrIndex(level: string): number {
+export function cefrIndex(level: string): number {
   return CEFR_LEVEL_ORDER.indexOf(level.toUpperCase() as CefrLevel);
 }
 

@@ -28,6 +28,7 @@ import type {
   BattleSourceWord,
   BattleStatus,
 } from '@/lib/battle/types';
+import { isUniqueViolationOrDuplicateKey } from '@/lib/supabase/postgres-errors';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -42,8 +43,6 @@ const BATTLE_SOURCE_WORD_LIMIT = 400;
 const BATTLE_GROUP_SOURCE_WORD_LIMIT = 1_000;
 
 // 型の実体は errors.ts。ここからも読めるよう再 export している。
-export { BattleError };
-
 type BattleRoomRow = {
   id: string;
   mode: BattleMode;
@@ -336,7 +335,7 @@ function assertParticipant(row: BattleRoomRow, userId: string): void {
 }
 
 /** Confirms the wordbook exists and belongs to the caller. */
-export async function assertProjectOwnership(
+async function assertProjectOwnership(
   projectId: string,
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
@@ -363,7 +362,7 @@ export async function assertProjectOwnership(
  * 部屋を作るので、ここで同じ確認をしないと非メンバーが他人のグループの単語帳を
  * 出題させられてしまう。
  */
-export async function assertGroupMembership(
+async function assertGroupMembership(
   groupId: string,
   userId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
@@ -434,7 +433,7 @@ export async function loadBattleQuestions(
   });
 }
 
-export async function loadBattleSourceWords(
+async function loadBattleSourceWords(
   projectId: string,
   ownerId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
@@ -449,7 +448,7 @@ export async function loadBattleSourceWords(
  * 複数冊ぶんを1つのプールにするので、誤答選択肢も同じグループの単語から作られ、
  * 同じ見出し語が2冊に入っていても `selectBattleWords` が1回しか出題しない。
  */
-export async function loadGroupBattleSourceWords(
+async function loadGroupBattleSourceWords(
   groupId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<BattleSourceWord[]> {
@@ -787,7 +786,7 @@ export async function createOrJoinRematch(options: {
 
   if (error) {
     // 相手が一瞬先に押していた。その部屋にゲストとして入る。
-    if (isUniqueViolation(error)) {
+    if (isUniqueViolationOrDuplicateKey(error)) {
       const room = await findRematchRoom(options.roomId, admin);
       if (room) return joinRematchRoom(room, options.userId, admin);
     }
@@ -860,12 +859,6 @@ async function joinRematchRoom(
   }
 
   return hydrateRoom(data, admin);
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const maybeError = error as { code?: string | null; message?: string | null };
-  return maybeError?.code === '23505'
-    || (maybeError?.message ?? '').toLowerCase().includes('duplicate key');
 }
 
 export async function requestRandomMatch(options: {

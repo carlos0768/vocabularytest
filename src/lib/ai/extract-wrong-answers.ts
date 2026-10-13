@@ -7,6 +7,7 @@ import {
 } from './prompts';
 import { AI_CONFIG } from './config';
 import { AIError, getProviderFromConfig } from './providers';
+import { extractJsonContent } from './utils/json';
 import { mergeSourceLabels, normalizeSourceLabels } from '../../../shared/source-labels';
 
 // Type for OCR result - structured test data
@@ -61,26 +62,11 @@ interface WrongAnswerDeps {
   getProviderFromConfig?: typeof getProviderFromConfig;
 }
 
-function extractJsonContent(content: string): string {
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-
-  const jsonStartIndex = content.indexOf('{');
-  const jsonEndIndex = content.lastIndexOf('}');
-  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-    return content.slice(jsonStartIndex, jsonEndIndex + 1);
-  }
-
-  return content;
-}
-
 /**
  * Step 1: Extract test structure from image
  * Analyzes the vocabulary test image and extracts question/answer/marking data
  */
-export async function extractTestFromImage(
+async function extractTestFromImage(
   imageBase64: string,
   apiKeys: ProviderApiKeys,
   deps: WrongAnswerDeps = {}
@@ -203,7 +189,7 @@ export async function extractTestFromImage(
  * Step 2: Analyze test data and extract only wrong answers
  * Generates vocabulary data for incorrectly answered questions
  */
-export async function analyzeWrongAnswers(
+async function analyzeWrongAnswers(
   testData: TestOCRData,
   apiKeys: ProviderApiKeys,
   deps: WrongAnswerDeps = {}

@@ -12,7 +12,7 @@ import type { ParaphraseMaterial } from './dataset';
  * 付けるだけなので、回答・採点・SM-2 の更新・途中保存は既存の経路をそのまま通る。
  */
 
-export const PARAPHRASE_QUESTION_TYPE = 'paraphrase';
+const PARAPHRASE_QUESTION_TYPE = 'paraphrase';
 
 /** 正解候補 (良い順) を何番目まで出すか、とその重み。毎回同じ正解にならないよう少し散らす。 */
 const ANSWER_PICK_WEIGHTS = [0.5, 0.3, 0.2] as const;

@@ -10,7 +10,7 @@ import {
   resolveTracesSampleRate,
 } from '@/lib/observability/sentry-config';
 
-export function resolveServerSentryDsn(): string | undefined {
+function resolveServerSentryDsn(): string | undefined {
   return process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
 }
 

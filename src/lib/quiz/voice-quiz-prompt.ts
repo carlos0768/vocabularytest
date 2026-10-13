@@ -32,7 +32,7 @@ export function recognitionLanguageFor(direction: VoiceQuizDirection): 'ja-JP' |
 export const VOICE_QUIZ_WORD_PLACEHOLDER = '{word}';
 
 /** テンプレート内で日本語訳に置き換わる位置。 */
-export const VOICE_QUIZ_MEANING_PLACEHOLDER = '{meaning}';
+const VOICE_QUIZ_MEANING_PLACEHOLDER = '{meaning}';
 
 /**
  * 日→英の出題文。読み上げるのは日本語訳だけで、英単語(正解)は出てこない。

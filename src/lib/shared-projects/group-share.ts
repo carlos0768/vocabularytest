@@ -2,35 +2,20 @@
 // LINE / Discord). These are pure functions so they can be unit-tested and
 // reused by both the client share sheet and the dynamic OGP image route.
 
-// Site-wide avatar palette (matches home, shared, group, join pages). Kept here
-// so the share thumbnail and the in-app cards derive the exact same color from
-// a group id.
-export const GROUP_THUMB_COLORS = [
-  '#137FEC',
-  '#664DB3',
-  '#228B22',
-  '#2E66BF',
-  '#D97340',
-  '#3373B3',
-  '#CC4D59',
-  '#3DA1B8',
-] as const;
+import { THUMBS, thumbColor } from '@/lib/ui/thumb-color';
 
-function thumbColorForId(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return GROUP_THUMB_COLORS[Math.abs(h) % GROUP_THUMB_COLORS.length];
-}
+// Same palette as the in-app cards, so share thumbnails match them.
+export const GROUP_THUMB_COLORS = THUMBS;
 
 // Deterministic theme color for a group id. Same id -> same color everywhere.
 export function groupThumbColor(id: string): string {
-  return thumbColorForId(id);
+  return thumbColor(id);
 }
 
 // Deterministic theme color for a shared wordbook (project) id, drawn from the
 // same palette so wordbook OGP cards feel consistent with group ones.
 export function wordbookThumbColor(id: string): string {
-  return thumbColorForId(id);
+  return thumbColor(id);
 }
 
 export type GroupShareInfo = {

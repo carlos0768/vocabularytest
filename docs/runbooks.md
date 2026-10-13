@@ -134,14 +134,12 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 
 **Primary targets**:
 - Co-located test file: `src/lib/{module}/{file}.test.ts` or `src/app/api/{route}/route.test.ts`
-- `package.json` scripts.test entry
 
 **Steps**:
 1. Create a test file next to the source file with `.test.ts` suffix
 2. Use Node.js built-in test runner (`import test from 'node:test'`) and `assert` (`import assert from 'node:assert/strict'`)
-3. Add the test file path to the `test` script in `package.json` (line 22) -- it uses a fixed file list
-4. Run `npm test` to verify all tests pass
-5. For security-specific API tests, use `.security.test.ts` suffix and add to `test:security:routes` pattern
+3. Run `npm test` (or `npm test -- <dir>`) -- new `*.test.ts` files are discovered automatically
+4. For security-specific API tests, use the `.security.test.ts` suffix; they run via `npm run test:security:routes`
 
 **Success criteria**:
 - `npm test` passes with all test files
@@ -149,10 +147,9 @@ Step-by-step procedures for common operations. Each runbook contains purpose, ta
 
 **Prohibited actions**:
 - Do not use Jest, Vitest, or other test frameworks. The project uses Node.js built-in test runner with `tsx`.
-- Do not forget to add the test file to `package.json` `test` script -- it will not auto-discover
 
 **Cautions**:
-- The `test` script in `package.json` is a fixed, explicit list of test files. New tests are not discovered automatically.
+- `npm test` discovers `src/**/*.test.ts(x)` and `shared/**/*.test.ts(x)`. A test placed elsewhere will not run.
 - Security tests (`*.security.test.ts`) are separate and run via `npm run test:security:routes`.
 
 ---

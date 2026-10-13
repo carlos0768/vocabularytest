@@ -67,11 +67,11 @@ function normalizeKeyPart(value: string | undefined): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-export function getWordMemoryRate(word: Pick<WordMemoryInput, 'status'>): number {
+function getWordMemoryRate(word: Pick<WordMemoryInput, 'status'>): number {
   return STATUS_MEMORY_RATE[word.status ?? 'new'];
 }
 
-export function getMemoryStatusFromRate(rate: number): WordStatus {
+function getMemoryStatusFromRate(rate: number): WordStatus {
   if (rate >= 100) return 'mastered';
   if (rate >= 66) return 'active';
   if (rate <= 0) return 'new';
@@ -84,7 +84,7 @@ export function getWordMemoryBaseKey(word: WordMemoryInput): string {
   return `${projectPrefix}en:${normalizeKeyPart(word.english)}`;
 }
 
-export function getWordMemorySenseKey(word: WordMemoryInput): string {
+function getWordMemorySenseKey(word: WordMemoryInput): string {
   const distinctKey = normalizeKeyPart(word.lexiconDistinctKey);
   if (distinctKey) return `distinct:${distinctKey}`;
   if (word.lexiconSenseIsPrimary) return 'primary';
@@ -92,7 +92,7 @@ export function getWordMemorySenseKey(word: WordMemoryInput): string {
   return `ja:${normalizeKeyPart(word.japanese)}`;
 }
 
-export function isPrimaryMeaningWord(word: WordMemoryInput): boolean {
+function isPrimaryMeaningWord(word: WordMemoryInput): boolean {
   if (word.lexiconSenseIsPrimary === true) return true;
   if (word.lexiconSenseIsPrimary === false) return false;
   return !normalizeKeyPart(word.lexiconDistinctKey);

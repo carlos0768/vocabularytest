@@ -16,7 +16,7 @@ const PDF_RENDER_QUALITY = 0.82;
 /**
  * Check if file is PDF format
  */
-export function isPdfFile(file: File): boolean {
+function isPdfFile(file: File): boolean {
   return /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
 }
 
@@ -52,7 +52,7 @@ async function fileToDataUrl(file: Blob, readErrorMessage: string): Promise<stri
 /**
  * Convert PDF pages into image files (JPEG), one file per page.
  */
-export async function convertPdfToImageFiles(file: File): Promise<File[]> {
+async function convertPdfToImageFiles(file: File): Promise<File[]> {
   if (!isPdfFile(file)) {
     return [file];
   }
@@ -182,7 +182,7 @@ const IMAGE_COMPRESSION_SETTINGS: Record<ImageProcessingProfile, ImageCompressio
   },
 };
 
-export function getImageCompressionSettings(profile: ImageProcessingProfile = 'default'): ImageCompressionSettings {
+function getImageCompressionSettings(profile: ImageProcessingProfile = 'default'): ImageCompressionSettings {
   return IMAGE_COMPRESSION_SETTINGS[profile] ?? IMAGE_COMPRESSION_SETTINGS.default;
 }
 
@@ -190,7 +190,7 @@ export function getImageCompressionSettings(profile: ImageProcessingProfile = 'd
  * Convert HEIC/HEIF image to JPEG
  * Uses heic2any library for client-side conversion
  */
-export async function convertHeicToJpeg(file: File): Promise<File> {
+async function convertHeicToJpeg(file: File): Promise<File> {
   // Quick check using helper function
   if (!isHeicFile(file)) {
     return file;
@@ -237,7 +237,7 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
  * Compress and resize image to reduce file size
  * Uses canvas to resize and compress
  */
-export async function compressImage(
+async function compressImage(
   file: File,
   profile: ImageProcessingProfile = 'default'
 ): Promise<File> {

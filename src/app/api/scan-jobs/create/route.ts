@@ -1,9 +1,8 @@
 import { after, NextRequest, NextResponse } from 'next/server';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { z } from 'zod';
 import { PROJECT_KINDS } from '@/types';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { readSingleLineEnv } from '@/lib/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-client';
 import { consumeScanGate } from '@/lib/coins/scan-gate';
 import { refundScanCoinsForJob } from '@/lib/coins/refund';
@@ -22,23 +21,9 @@ import {
 } from '@/lib/scan/custom-modes';
 import { randomUUID } from 'crypto';
 import { processJobById } from '../process/route';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 export const maxDuration = 300;
-
-// Lazy initialization to avoid build-time errors
-let supabaseAdmin: SupabaseClient | null = null;
-
-function getSupabaseAdmin(): SupabaseClient {
-  if (!supabaseAdmin) {
-    const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
-    const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
-    supabaseAdmin = createClient(
-      url.startsWith('http') ? url : `https://${url}`,
-      key
-    );
-  }
-  return supabaseAdmin;
-}
 
 function scheduleScanJobProcessing(jobId: string, scanModesOverride?: ExtractMode[]) {
   after(async () => {
@@ -89,8 +74,7 @@ export async function POST(request: NextRequest) {
   try {
     console.log('[scan-jobs/create] Request received');
     const supabase = await createRouteHandlerClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     if (!bearerToken) {
       console.warn('[scan-jobs/create] Missing bearer token');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

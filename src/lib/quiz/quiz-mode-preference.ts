@@ -13,6 +13,7 @@
  */
 
 import { PARAPHRASE_FEATURE_ENABLED } from '@/lib/paraphrase/feature-flag';
+import { jstDayKey } from '@/lib/date/jst';
 
 export type QuizMode = 'normal' | 'typing' | 'paraphrase' | 'voice' | 'cloze';
 
@@ -28,15 +29,13 @@ export const QUIZ_MODE_STORAGE_KEY = 'merken_quiz_mode';
 /** 解き方を選んだ日 (JSTの `YYYY-MM-DD`) を入れる localStorage のキー。 */
 export const QUIZ_MODE_CHOSEN_ON_STORAGE_KEY = 'merken_quiz_mode_chosen_on';
 
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
 /**
  * 「その日」を決める日付キー。JSTの暦日 (`YYYY-MM-DD`)。
  * 端末の時計のタイムゾーンに左右されないよう、対戦の無料枠やコインの月境界と
  * 同じく JST で切る。
  */
 export function quizModeDayKey(now: Date = new Date()): string {
-  return new Date(now.getTime() + JST_OFFSET_MS).toISOString().slice(0, 10);
+  return jstDayKey(now);
 }
 
 /**
@@ -67,7 +66,7 @@ export type QuizModeStorage = Pick<Storage, 'getItem' | 'setItem'>;
  * SSR では window が無く、Safari のプライベートモードでは localStorage 参照自体が
  * 例外を投げることがあるので、どちらも null に倒して呼び出し側を守る。
  */
-export function defaultQuizModeStorage(): QuizModeStorage | null {
+function defaultQuizModeStorage(): QuizModeStorage | null {
   if (typeof window === 'undefined') return null;
   try {
     return window.localStorage;

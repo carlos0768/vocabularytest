@@ -1,5 +1,6 @@
 import { after, NextRequest, NextResponse } from 'next/server';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { authorizeInternalWorkerRequest } from '@/lib/api/internal-worker';
 import { extractWordsFromImage } from '@/lib/ai/extract-words';
 import { extractCircledWordsFromImage } from '@/lib/ai/extract-circled-words';
@@ -9,7 +10,6 @@ import { extractCompositeWordsFromImage } from '@/lib/ai/extract-composite-words
 import { extractCustomWordsFromImage } from '@/lib/ai/extract-custom-words';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { readSingleLineEnv } from '@/lib/env';
 import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { applyClassicalDictionary as applyClassical } from '@/lib/classical/apply';
 import { isClassicalWord } from '@/lib/classical/is-classical';
@@ -18,8 +18,11 @@ import { filterWordsForProjectKind, inferProjectKindFromWords } from '@/lib/clas
 import { readProjectKind } from '@/lib/classical/project-kind';
 import type { ProjectKind } from '@/types';
 import { sendScanJobApnsNotifications } from '@/lib/notifications/apns';
-import { generateQuizContentForWords, type QuizContentResult } from '@/lib/ai/generate-quiz-content';
-import { AI_CONFIG, getAPIKeys } from '@/lib/ai/config';
+import {
+  generateQuizContentForWords,
+  type QuizContentResult,
+} from '@/lib/ai/generate-quiz-content';
+import { getAPIKeys } from '@/lib/ai/config';
 import {
   applySourceModesFromScanModes,
   getMissingProviderKey,
@@ -32,8 +35,7 @@ import { normalizeCustomScanModePrompt } from '@/lib/scan/custom-modes';
 import { buildClientLocalScanJobResultPayload } from '@/lib/scan/job-result-payload';
 import {
   buildScanJobNoWordsErrorMessage,
-  buildScanJobProcessingInput,
-  type ScanJobProcessSaveMode,
+  buildScanJobProcessingInput
 } from '@/lib/scan/job-processing-input';
 import { toUserFacingScanErrorMessage } from '@/lib/scan/scan-error-message';
 import {
@@ -80,11 +82,9 @@ import {
   type WordOrderQuizPrefillCandidateWord,
 } from '@/lib/scan/word-order-prefill';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
-import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import {
   generateExampleSentences,
   saveExamplesToLexicon,
-  type ExampleGenerationFailureKind,
   type ExampleGenerationSummary,
 } from '@/lib/ai/generate-example-sentences';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
@@ -103,7 +103,6 @@ import {
   isWordTranslationsSchemaError,
   normalizeWordForTranslationPersistence,
 } from '@/lib/words/translation-persistence';
-import type { CustomSection, WordMorphology, WordTranslation } from '@/types';
 import { resolveMorphologyForWords } from '@/lib/morphology/resolve';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
 import { normalizeHeadword } from '../../../../../shared/lexicon';
@@ -115,25 +114,26 @@ import {
 import { ensureSourceLabels, mergeSourceLabels } from '../../../../../shared/source-labels';
 import {
   runWithCloudRunTimingCollector,
-  summarizeCloudRunTimingEntries,
   withCloudRunTimingPhase,
   type CloudRunTimingEntry,
 } from '@/lib/ai/providers/cloud-run-timing';
-
-// Lazy initialization to avoid build-time errors
-let supabaseAdmin: SupabaseClient | null = null;
-
-function getSupabaseAdmin(): SupabaseClient {
-  if (!supabaseAdmin) {
-    const url = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
-    const key = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
-    supabaseAdmin = createClient(
-      url.startsWith('http') ? url : `https://${url}`,
-      key
-    );
-  }
-  return supabaseAdmin;
-}
+import { chunkArray, sleep } from '@/lib/utils';
+import {
+  type ExtractionLikeResult,
+  type ProcessedExtractedWord,
+  applySourceModesToExtractionResult,
+  dedupeExtractedWords,
+  parseExtractedWords,
+} from '@/lib/scan/extracted-words';
+import {
+  type ExtractionWarningCode,
+  applyExampleGenerationSummary,
+  buildFailedExampleGenerationSummary,
+  classifyUnexpectedExampleGenerationFailure,
+  getExampleGenerationWarning,
+  logExampleGenerationOutcome,
+} from '@/lib/scan/example-generation-summary';
+import { createTimingMetrics, flushTimingLogs } from '@/lib/scan/timing-metrics';
 
 // Vercel Hobby plan upper limit is 300 seconds.
 export const maxDuration = 300;
@@ -141,16 +141,6 @@ export const maxDuration = 300;
 const processSchema = z.object({
   jobId: z.string().uuid(),
 }).strict();
-
-type ExtractionWarningCode =
-  | 'grammar_not_found'
-  | 'example_generation_partial_failure'
-  | 'example_generation_failed';
-type ScanJobSaveMode = ScanJobProcessSaveMode;
-
-type ExtractionLikeResult =
-  | { success: true; data: { words: unknown[]; sourceLabels?: unknown[] } }
-  | { success: false; error: string; reason?: string };
 
 export interface ProcessJobDeps {
   supabaseAdmin?: SupabaseClient;
@@ -188,27 +178,6 @@ async function sendScanJobNotifications(params: {
   }
 }
 
-interface ProcessedExtractedWord {
-  english: string;
-  japanese: string;
-  rawJapanese?: string;
-  translations?: WordTranslation[];
-  japaneseSource?: 'scan' | 'ai';
-  sourceModes?: ExtractMode[];
-  lexiconEntryId?: string;
-  lexiconSenseId?: string;
-  lexiconDistinctKey?: string;
-  lexiconSenseIsPrimary?: boolean;
-  cefrLevel?: string;
-  distractors: string[];
-  partOfSpeechTags?: string[];
-  pronunciation?: string;
-  exampleSentence?: string;
-  exampleSentenceJa?: string;
-  customSections?: CustomSection[];
-  morphology?: WordMorphology;
-}
-
 type InsertedServerCloudWord =
   ServerCloudExampleCandidateWord &
   QuizPrefillCandidateWord &
@@ -242,62 +211,6 @@ export const __internal = {
   applyExampleGenerationSummary,
 };
 
-function createExampleGenerationFailureKinds(): Record<ExampleGenerationFailureKind, number> {
-  return {
-    provider: 0,
-    parse: 0,
-    validation: 0,
-    empty: 0,
-  };
-}
-
-function buildFailedExampleGenerationSummary(
-  requested: number,
-  kind: ExampleGenerationFailureKind = 'provider',
-): ExampleGenerationSummary {
-  const failureKinds = createExampleGenerationFailureKinds();
-  failureKinds[kind] = requested;
-
-  return {
-    requested,
-    generated: 0,
-    failed: requested,
-    retried: 0,
-    retryRecovered: 0,
-    failureKinds,
-  };
-}
-
-function getExampleGenerationWarning(
-  summary?: ExampleGenerationSummary,
-): ExtractionWarningCode | null {
-  if (!summary || summary.failed === 0) {
-    return null;
-  }
-
-  return summary.generated === 0
-    ? 'example_generation_failed'
-    : 'example_generation_partial_failure';
-}
-
-function applyExampleGenerationSummary<T extends { exampleGeneration?: ExampleGenerationSummary }>(
-  payload: T,
-  warningSet: Set<string>,
-  summary?: ExampleGenerationSummary,
-): T {
-  if (!summary) {
-    return payload;
-  }
-
-  payload.exampleGeneration = summary;
-  const warning = getExampleGenerationWarning(summary);
-  if (warning) {
-    warningSet.add(warning);
-  }
-
-  return payload;
-}
-
 function isMasterFirstResolutionEnabledForModes(modes: Iterable<ExtractMode>): boolean {
   const disabledModes = (process.env.MASTER_FIRST_SCAN_DISABLED_MODES ?? '')
     .split(',')
@@ -305,46 +218,6 @@ function isMasterFirstResolutionEnabledForModes(modes: Iterable<ExtractMode>): b
     .filter(Boolean);
 
   return normalizeExtractModes(Array.from(modes)).every((mode) => !disabledModes.includes(mode));
-}
-
-function classifyUnexpectedExampleGenerationFailure(
-  error: unknown,
-): ExampleGenerationFailureKind {
-  const message = error instanceof Error ? error.message : String(error ?? '');
-
-  if (message.includes('AI generation failed')) return 'provider';
-  if (message.includes('Empty example sentence')) return 'empty';
-  if (message.includes('parse') || message.includes('JSON')) return 'parse';
-  return 'validation';
-}
-
-function logExampleGenerationOutcome(params: {
-  jobId: string;
-  saveMode: ScanJobSaveMode;
-  summary: ExampleGenerationSummary;
-  errors: string[];
-  elapsedMs: number;
-}) {
-  const { jobId, saveMode, summary, errors, elapsedMs } = params;
-  console.log('[scan-jobs/process] Example generation completed', {
-    jobId,
-    saveMode,
-    requested: summary.requested,
-    generated: summary.generated,
-    failed: summary.failed,
-    retried: summary.retried,
-    retryRecovered: summary.retryRecovered,
-    failureKinds: summary.failureKinds,
-    elapsedMs,
-  });
-
-  if (errors.length > 0) {
-    console.warn('[scan-jobs/process] Example generation terminal errors', {
-      jobId,
-      saveMode,
-      errors,
-    });
-  }
 }
 
 interface ExtractionHandlers {
@@ -403,344 +276,6 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMes
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
-}
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  if (items.length === 0) return [];
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-interface TimingMetrics {
-  totalMs: number;
-  imageDownloadMs: number;
-  aiExtractionMs: number;
-  parseValidationMs: number;
-  lexiconResolutionMs: number;
-  exampleGenerationMs: number;
-  dbInsertMs: number;
-  imageCount: number;
-  wordCount: number;
-  scanMode: string;
-  model: string;
-  perImage: Array<{ downloadMs: number; extractionMs: number }>;
-}
-
-interface TimingSheetOptions {
-  sheetUrl?: string;
-  sheetName?: string;
-  startedAt?: string;
-  endedAt?: string;
-}
-
-const SCAN_TIMING_SHEET_URL = process.env.SCAN_TIMING_SHEET_URL?.trim();
-const SCAN_TIMING_GCP_SHEET_URL = process.env.SCAN_TIMING_GCP_SHEET_URL?.trim() || SCAN_TIMING_SHEET_URL;
-const SCAN_TIMING_GCP_SHEET_NAME = process.env.SCAN_TIMING_GCP_SHEET_NAME?.trim() || 'シート2';
-
-function createTimingMetrics(): TimingMetrics {
-  return {
-    totalMs: 0,
-    imageDownloadMs: 0,
-    aiExtractionMs: 0,
-    parseValidationMs: 0,
-    lexiconResolutionMs: 0,
-    exampleGenerationMs: 0,
-    dbInsertMs: 0,
-    imageCount: 0,
-    wordCount: 0,
-    scanMode: '',
-    model: AI_CONFIG.extraction.words.model,
-    perImage: [],
-  };
-}
-
-async function logTimingToSheet(
-  timing: TimingMetrics,
-  jobId: string,
-  userId: string,
-  status: string,
-  options: TimingSheetOptions = {}
-): Promise<void> {
-  const sheetUrl = options.sheetUrl ?? SCAN_TIMING_SHEET_URL;
-  if (!sheetUrl) return;
-
-  const endedAtIso = options.endedAt ?? new Date().toISOString();
-  const endedAtMs = Date.parse(endedAtIso);
-  const fallbackEndedAtMs = Number.isFinite(endedAtMs) ? endedAtMs : Date.now();
-  const startedAtIso =
-    options.startedAt ??
-    new Date(fallbackEndedAtMs - (timing.totalMs || 0)).toISOString();
-
-  await fetch(sheetUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      timestamp: endedAtIso,
-      endedAt: endedAtIso,
-      startedAt: startedAtIso,
-      jobId,
-      userId,
-      scanMode: timing.scanMode ?? '',
-      imageCount: timing.imageCount ?? 0,
-      wordCount: timing.wordCount ?? 0,
-      totalMs: timing.totalMs ?? 0,
-      imageDownloadMs: timing.imageDownloadMs ?? 0,
-      aiExtractionMs: timing.aiExtractionMs ?? 0,
-      parseValidationMs: timing.parseValidationMs ?? 0,
-      exampleGenerationMs: timing.exampleGenerationMs ?? 0,
-      dbInsertMs: timing.dbInsertMs ?? 0,
-      model: timing.model ?? '',
-      status,
-      ...(options.sheetName ? { sheetName: options.sheetName } : {}),
-    }),
-  });
-}
-
-async function flushTimingLogs(
-  entries: CloudRunTimingEntry[],
-  baseTiming: TimingMetrics,
-  jobId: string,
-  userId: string,
-  status: string
-): Promise<void> {
-  const tasks: Array<Promise<void>> = [
-    logTimingToSheet(baseTiming, jobId, userId, status),
-  ];
-  const summary = summarizeCloudRunTimingEntries(entries);
-
-  if (summary.requestCount === 0) {
-    console.warn('[timing-sheet-gcp] No Cloud Run timing entries collected', {
-      jobId,
-      status,
-      scanMode: baseTiming.scanMode,
-      imageCount: baseTiming.imageCount,
-      wordCount: baseTiming.wordCount,
-    });
-  } else {
-    console.log('[timing-sheet-gcp] Logging Cloud Run timing', {
-      jobId,
-      status,
-      requestCount: summary.requestCount,
-      totalMs: summary.totalMs,
-      aiExtractionMs: summary.aiExtractionMs,
-      exampleGenerationMs: summary.exampleGenerationMs,
-      model: summary.model,
-    });
-
-    const gcpTiming = createTimingMetrics();
-    gcpTiming.totalMs = summary.totalMs;
-    gcpTiming.aiExtractionMs = summary.aiExtractionMs;
-    gcpTiming.exampleGenerationMs = summary.exampleGenerationMs;
-    gcpTiming.imageCount = baseTiming.imageCount;
-    gcpTiming.wordCount = baseTiming.wordCount;
-    gcpTiming.scanMode = baseTiming.scanMode;
-    gcpTiming.model = summary.model || baseTiming.model;
-
-    tasks.push(
-      logTimingToSheet(gcpTiming, jobId, userId, status, {
-        sheetUrl: SCAN_TIMING_GCP_SHEET_URL,
-        sheetName: SCAN_TIMING_GCP_SHEET_NAME,
-        startedAt: summary.startedAt,
-        endedAt: summary.endedAt,
-      })
-    );
-  }
-
-  const results = await Promise.allSettled(tasks);
-  for (const [index, result] of results.entries()) {
-    if (result.status === 'fulfilled') continue;
-    if (index === 0) {
-      console.error('[timing-sheet] Failed to log:', result.reason);
-      continue;
-    }
-    console.error('[timing-sheet-gcp] Failed to log:', result.reason);
-  }
-}
-
-function normalizeText(value: unknown): string {
-  if (typeof value !== 'string') return '';
-  return value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .join(' ');
-}
-
-function firstNonEmpty(value: unknown): string | undefined {
-  const normalized = normalizeText(value);
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function normalizeJapaneseSource(value: unknown): 'scan' | 'ai' | undefined {
-  return value === 'scan' || value === 'ai' ? value : undefined;
-}
-
-function preferJapaneseSource(
-  first?: 'scan' | 'ai',
-  second?: 'scan' | 'ai',
-): 'scan' | 'ai' | undefined {
-  if (first === 'scan' || second === 'scan') return 'scan';
-  if (first === 'ai' || second === 'ai') return 'ai';
-  return undefined;
-}
-
-function normalizeSourceModes(value: unknown, fallback: ExtractMode[] = []): ExtractMode[] | undefined {
-  const normalized = normalizeExtractModes(value, fallback);
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function mergeExtractSourceModes(
-  first?: ExtractMode[],
-  second?: ExtractMode[],
-): ExtractMode[] | undefined {
-  return normalizeSourceModes([...(first ?? []), ...(second ?? [])], []);
-}
-
-function applySourceModesToExtractionResult(
-  result: ExtractionLikeResult,
-  modes: ExtractMode[],
-): ExtractionLikeResult {
-  if (!result.success) return result;
-
-  return {
-    ...result,
-    data: {
-      ...result.data,
-      words: applySourceModesFromScanModes(result.data.words, modes),
-    },
-  };
-}
-
-function mergeDistractors(existing: string[], incoming: unknown): string[] {
-  const merged: string[] = [];
-  const seen = new Set<string>();
-  const incomingList = Array.isArray(incoming) ? incoming : [];
-
-  for (const candidate of [...existing, ...incomingList]) {
-    const normalized = normalizeText(candidate);
-    if (!normalized) continue;
-    const token = normalized.toLowerCase();
-    if (seen.has(token)) continue;
-    seen.add(token);
-    merged.push(normalized);
-    if (merged.length >= 3) break;
-  }
-
-  return merged;
-}
-
-function parseExtractedWords(rawWords: unknown[]): ProcessedExtractedWord[] {
-  const parsed: ProcessedExtractedWord[] = [];
-
-  for (const rawWord of rawWords) {
-    if (!rawWord || typeof rawWord !== 'object') continue;
-
-    const word = rawWord as Record<string, unknown>;
-    const english = normalizeText(word.english);
-    const japanese = normalizeText(word.japanese);
-    if (!english) continue;
-    // Filter out placeholder/invalid Japanese translations
-    const INVALID_JAPANESE = ['unknown', '不明', 'n/a', '-', '---'];
-    const normalizedJapanese = INVALID_JAPANESE.includes(japanese.toLowerCase()) ? '' : japanese;
-    const normalizedWord = normalizeWordForTranslationPersistence({
-      english,
-      japanese: normalizedJapanese,
-      rawJapanese: firstNonEmpty(word.rawJapanese),
-      translations: word.translations,
-      japaneseSource: normalizedJapanese ? normalizeJapaneseSource(word.japaneseSource) : undefined,
-      sourceModes: normalizeSourceModes(word.sourceModes, []),
-      lexiconSenseId: firstNonEmpty(word.lexiconSenseId),
-      distractors: mergeDistractors([], word.distractors),
-      partOfSpeechTags: normalizePartOfSpeechTags(word.partOfSpeechTags),
-      pronunciation: firstNonEmpty(word.pronunciation),
-      exampleSentence: firstNonEmpty(word.exampleSentence),
-      exampleSentenceJa: firstNonEmpty(word.exampleSentenceJa),
-      customSections: word.customSections,
-    });
-
-    parsed.push(normalizedWord);
-  }
-
-  return parsed;
-}
-
-function dedupeExtractedWords(
-  words: ProcessedExtractedWord[],
-  sourceModesOverride?: ExtractMode[],
-): ProcessedExtractedWord[] {
-  if (words.length === 0) return [];
-
-  const normalizedSourceModesOverride = sourceModesOverride
-    ? normalizeExtractModes(sourceModesOverride)
-    : undefined;
-  const deduped: ProcessedExtractedWord[] = [];
-  const indexByKey = new Map<string, number>();
-
-  for (const source of words) {
-    const key = `${source.english.toLowerCase()}||${source.japanese}`;
-    const existingIndex = indexByKey.get(key);
-
-    if (existingIndex === undefined) {
-      indexByKey.set(key, deduped.length);
-      deduped.push({
-        english: source.english,
-        japanese: source.japanese,
-        rawJapanese: source.rawJapanese,
-        translations: source.translations,
-        japaneseSource: source.japaneseSource,
-        lexiconEntryId: source.lexiconEntryId,
-        lexiconSenseId: source.lexiconSenseId,
-        lexiconDistinctKey: source.lexiconDistinctKey,
-        lexiconSenseIsPrimary: source.lexiconSenseIsPrimary,
-        sourceModes: normalizedSourceModesOverride
-          ? [...normalizedSourceModesOverride]
-          : source.sourceModes,
-        distractors: mergeDistractors([], source.distractors),
-        partOfSpeechTags: normalizePartOfSpeechTags(source.partOfSpeechTags),
-        pronunciation: firstNonEmpty(source.pronunciation),
-        exampleSentence: firstNonEmpty(source.exampleSentence),
-        exampleSentenceJa: firstNonEmpty(source.exampleSentenceJa),
-        customSections: source.customSections,
-      });
-      continue;
-    }
-
-    const existing = deduped[existingIndex];
-    deduped[existingIndex] = {
-      english: existing.english,
-      japanese: existing.japanese,
-      rawJapanese: existing.rawJapanese ?? source.rawJapanese,
-      translations: existing.translations && existing.translations.length > 0
-        ? existing.translations
-        : source.translations,
-      japaneseSource: preferJapaneseSource(existing.japaneseSource, source.japaneseSource),
-      lexiconEntryId: existing.lexiconEntryId ?? source.lexiconEntryId,
-      lexiconSenseId: existing.lexiconSenseId ?? source.lexiconSenseId,
-      lexiconDistinctKey: existing.lexiconDistinctKey ?? source.lexiconDistinctKey,
-      lexiconSenseIsPrimary: existing.lexiconSenseIsPrimary ?? source.lexiconSenseIsPrimary,
-      sourceModes: normalizedSourceModesOverride
-        ? [...normalizedSourceModesOverride]
-        : mergeExtractSourceModes(existing.sourceModes, source.sourceModes),
-      distractors: mergeDistractors(existing.distractors, source.distractors),
-      partOfSpeechTags: normalizePartOfSpeechTags([
-        ...(existing.partOfSpeechTags ?? []),
-        ...(source.partOfSpeechTags ?? []),
-      ]),
-      pronunciation: existing.pronunciation ?? firstNonEmpty(source.pronunciation),
-      exampleSentence: existing.exampleSentence ?? firstNonEmpty(source.exampleSentence),
-      exampleSentenceJa: existing.exampleSentenceJa ?? firstNonEmpty(source.exampleSentenceJa),
-      customSections: existing.customSections ?? source.customSections,
-    };
-  }
-
-  return deduped;
 }
 
 async function generateQuizContentWithRetry(

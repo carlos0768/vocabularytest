@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { CEFR_LEVEL_ORDER, EIKEN_TO_CEFR_BAND, type CefrLevel } from '@/lib/reels/eiken-cefr';
+import { cefrIndex, CEFR_LEVEL_ORDER, EIKEN_TO_CEFR_BAND, type CefrLevel } from '@/lib/reels/eiken-cefr';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { normalizeHeadword } from '../../../shared/lexicon';
 
@@ -20,10 +20,6 @@ export interface EikenCefrFilterResult<T> {
   words: T[];
   removedCount: number;
   unknownCount: number;
-}
-
-function cefrIndex(level: string): number {
-  return CEFR_LEVEL_ORDER.indexOf(level.toUpperCase() as CefrLevel);
 }
 
 /**

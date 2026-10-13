@@ -18,6 +18,7 @@ import {
 } from '@/lib/quiz/option-report';
 import { judgeReportedOption } from '@/lib/quiz/option-report.server';
 import { normalizeJapaneseSense } from '@/lib/quiz/distractor-safety';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 /**
  * 四択の「選択肢がおかしい」報告。
@@ -163,8 +164,7 @@ export async function handleQuizOptionReportPost(request: NextRequest, deps?: Re
     const judge = deps?.judge ?? judgeReportedOption;
 
     const supabase = await createClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();

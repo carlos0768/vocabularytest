@@ -48,7 +48,7 @@ function isMissingExampleColumnError(error: { code?: unknown } | null): boolean 
  * 見つからない entryId は単に欠落する。呼び出し側は「欠落＝生成が要る」
  * として扱えばよい。
  */
-export async function fetchCachedClassicalExamples(
+async function fetchCachedClassicalExamples(
   supabaseAdmin: SupabaseClient,
   entryIds: readonly string[],
 ): Promise<Map<string, CachedClassicalExample>> {
@@ -85,7 +85,7 @@ export async function fetchCachedClassicalExamples(
  * 英語側の saveExamplesToLexicon と同じ規約で、後から来たスキャンが
  * 貯まった例文を差し替えてしまわないようにするため。
  */
-export async function saveClassicalExamplesToDictionary(
+async function saveClassicalExamplesToDictionary(
   supabaseAdmin: SupabaseClient,
   items: ReadonlyArray<{ entryId: string } & CachedClassicalExample>,
 ): Promise<{ updated: number; errors: number }> {

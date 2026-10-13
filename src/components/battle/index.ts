@@ -1,4 +1,3 @@
-export { BattleEntrySection } from './BattleEntrySection';
 export {
   BattleScreen,
   BattleScreenHeader,
@@ -6,7 +5,6 @@ export {
   BattleNotice,
   BattleWaitingPanel,
 } from './BattleScreen';
-export { BattleAvatar } from './BattleAvatar';
 export {
   BattleAllowanceStrip,
   BattleBotOffer,

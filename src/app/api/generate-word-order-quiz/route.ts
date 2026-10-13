@@ -6,6 +6,7 @@ import {
   generateWordOrderQuizForWords,
   type WordOrderQuizWordInput,
 } from '@/lib/ai/generate-word-order-quiz';
+import { getBearerToken } from '@/lib/api/bearer-token';
 
 const requestSchema = z.object({
   words: z.array(z.object({
@@ -34,8 +35,7 @@ export async function handleGenerateWordOrderQuizPost(
   try {
     const { createClient, generate } = getDeps(deps);
     const supabase = await createClient(request);
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearerToken = getBearerToken(request);
     const { data: { user }, error: authError } = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();

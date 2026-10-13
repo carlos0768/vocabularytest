@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { normalizeSingleLineEnvValue } from '@/lib/env';
+import { isRecord } from '@/lib/utils';
 
 export interface CachedSupabaseSessionSnapshot {
   accessToken: string;
@@ -10,10 +11,6 @@ export interface CachedSupabaseSessionSnapshot {
 
 const BASE64_PREFIX = 'base64-';
 const SESSION_GRACE_SECONDS = 300;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function parseSupabaseProjectRef(): string | null {
   const supabaseUrl = normalizeSingleLineEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);

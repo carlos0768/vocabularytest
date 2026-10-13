@@ -5,6 +5,27 @@
  */
 
 /**
+ * AIレスポンスからJSON部分の文字列だけを取り出す（パースはしない）
+ *
+ * ```json ... ``` フェンスがあればその中身、無ければ最初の `{` から最後の `}` まで。
+ * どちらも無ければ入力をそのまま返す。
+ */
+export function extractJsonContent(content: string): string {
+  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (jsonMatch) {
+    return jsonMatch[1].trim();
+  }
+
+  const jsonStartIndex = content.indexOf('{');
+  const jsonEndIndex = content.lastIndexOf('}');
+  if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+    return content.slice(jsonStartIndex, jsonEndIndex + 1);
+  }
+
+  return content;
+}
+
+/**
  * AIレスポンスからJSONを抽出してパース
  *
  * AIはMarkdownコードブロック（```json ... ```）で返すことがあるため、
@@ -172,20 +193,6 @@ function findLastCompleteObjectEnd(json: string): number {
 }
 
 /**
- * 安全にJSONをパース（失敗時はnullを返す）
- *
- * @param text パースするテキスト
- * @returns パース結果またはnull
- */
-export function safeParseJson<T = unknown>(text: string): T | null {
-  try {
-    return parseJsonResponse<T>(text);
-  } catch {
-    return null;
-  }
-}
-
-/**
  * 安全にJSONをパース（結果オブジェクト形式）
  *
  * @param text パースするテキスト
@@ -201,20 +208,4 @@ export function safeParseJSON<T = unknown>(text: string): { success: true; data:
       error: error instanceof Error ? error.message : 'Unknown parse error',
     };
   }
-}
-
-/**
- * オブジェクトが空かどうかをチェック
- */
-export function isEmptyObject(obj: unknown): boolean {
-  if (obj === null || obj === undefined) return true;
-  if (typeof obj !== 'object') return false;
-  return Object.keys(obj as object).length === 0;
-}
-
-/**
- * 配列が空かどうかをチェック
- */
-export function isEmptyArray(arr: unknown): boolean {
-  return !Array.isArray(arr) || arr.length === 0;
 }

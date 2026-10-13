@@ -23,6 +23,7 @@ import { generateWordShareImage } from '@/lib/reels/share-image';
 import { saveSharedWordbookTags } from '@/lib/shared-projects/client';
 import type { SharedProjectPreviewPayload } from '@/lib/shared-projects/types';
 import type { Project, Word } from '@/types';
+import { thumbColor } from '@/lib/ui/thumb-color';
 import { formatSharedTag, parseSharedTagsInput } from '../../../../shared/shared-tags';
 
 const SHARE_PREVIEW_CLEAR_WORD_COUNT = 5;
@@ -1149,7 +1150,7 @@ export default function SharedDetailPage() {
                     style={{
                       background: book.iconImage
                         ? `center / cover url(${book.iconImage})`
-                        : shareThumbColor(book.id),
+                        : thumbColor(book.id),
                     }}
                   >
                     {!book.iconImage && book.title.charAt(0)}
@@ -1191,14 +1192,6 @@ function SharedHeaderBtn({
       {children}
     </button>
   );
-}
-
-const SHARE_THUMBS = ['#137FEC', '#664DB3', '#228B22', '#2E66BF', '#D97340', '#3373B3', '#CC4D59', '#3DA1B8'];
-
-function shareThumbColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return SHARE_THUMBS[Math.abs(h) % SHARE_THUMBS.length];
 }
 
 /** 品詞の1文字略記（project/* の WordRow と同じ見た目） */

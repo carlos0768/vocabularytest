@@ -7,7 +7,7 @@ import { mergeDuplicateHeadwords, type ValidatedAIResponse } from './ai-response
 // Based on research findings for Gemini 2.5 Flash capabilities
 
 // Bounding box coordinates (normalized 0-1000 as per Gemini's output format)
-export const BoundingBoxSchema = z.object({
+const BoundingBoxSchema = z.object({
   y_min: z.number().min(0).max(1000),
   x_min: z.number().min(0).max(1000),
   y_max: z.number().min(0).max(1000),
@@ -15,7 +15,7 @@ export const BoundingBoxSchema = z.object({
 });
 
 // Marker color detection
-export const MarkerColorSchema = z.enum([
+const MarkerColorSchema = z.enum([
   'yellow',
   'pink',
   'green',
@@ -28,7 +28,7 @@ export const MarkerColorSchema = z.enum([
   'unknown',
 ]).default('unknown');
 
-export const MarkTypeSchema = z.enum(['underline', 'highlight', 'unknown']).default('unknown');
+const MarkTypeSchema = z.enum(['underline', 'highlight', 'unknown']).default('unknown');
 
 // Single highlighted word with detection metadata
 export const HighlightedWordSchema = z.object({

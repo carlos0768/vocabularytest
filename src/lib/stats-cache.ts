@@ -190,7 +190,7 @@ function buildMasteryHistory(
 /**
  * キャッシュ済みの統計データを返す（なければnull）
  */
-export function getCachedStats(): CachedStats | null {
+function getCachedStats(): CachedStats | null {
   if (!cachedStats) return null;
 
   // localStorageデータは常に最新を反映
@@ -217,46 +217,9 @@ export function getCachedStats(): CachedStats | null {
   };
 }
 
-export function getCachedStatsForUser(userId: string): CachedStats | null {
+function getCachedStatsForUser(userId: string): CachedStats | null {
   if (cachedUserId !== userId) return null;
   return getCachedStats();
-}
-
-/**
- * キャッシュされたユーザーIDを返す
- */
-export function getCachedUserId(): string | null {
-  return cachedUserId;
-}
-
-/**
- * バックグラウンドで統計データをプリフェッチする。
- * Freeユーザー: home-cache から即座に集計（DBクエリなし）
- * Proユーザー: Supabase RPC 1クエリ
- */
-export function prefetchStats(
-  subscriptionStatus: SubscriptionStatus,
-  userId: string | null,
-  isPro: boolean,
-  wasPro: boolean = false,
-): void {
-  const resolvedUserId = userId ?? getGuestUserId();
-
-  // 同じユーザーのキャッシュが既にあればスキップ
-  if (cachedStats && cachedUserId === resolvedUserId) return;
-
-  // 既にフェッチ中ならスキップ
-  if (fetchPromise && fetchPromiseUserId === resolvedUserId) return;
-
-  const promise = fetchStatsData(subscriptionStatus, resolvedUserId, isPro, wasPro);
-  fetchPromise = promise;
-  fetchPromiseUserId = resolvedUserId;
-  void promise.finally(() => {
-    if (fetchPromise === promise) {
-      fetchPromise = null;
-      fetchPromiseUserId = null;
-    }
-  });
 }
 
 /**

@@ -30,7 +30,7 @@ const PARENTHETICAL = /[（(【〔［[][^）)】〕］\]]*[）)】〕］\]]/g;
 const BRACKET_CHARACTERS = /[（)(）【】〔〕［\][]/g;
 
 /** 括弧書きを中身ごと取り除く。 */
-export function stripParentheticals(value: string): string {
+function stripParentheticals(value: string): string {
   return value.replace(PARENTHETICAL, ' ').replace(/\s+/g, ' ').trim();
 }
 
@@ -180,7 +180,7 @@ function comparableForms(text: string, readings?: JapaneseReadings): string[] {
  * 登録されている訳の、突き合わせ可能な形すべて。
  * 表記から作った候補に、読みが分かっているものを足す。
  */
-export function japaneseAnswerReadingForms(
+function japaneseAnswerReadingForms(
   japanese: string,
   readings?: JapaneseReadings,
 ): string[] {
@@ -267,7 +267,7 @@ export function normalizeEnglishAnswer(value: string): string {
  * 綴りの側にも「take (after)」のような補足が入っていることがある。
  * 括弧の中まで言わないと不正解、では厳しすぎるので、落とした形も認める。
  */
-export function englishAnswerCandidates(english: string): string[] {
+function englishAnswerCandidates(english: string): string[] {
   const candidates = new Set<string>();
 
   for (const source of [english, stripParentheticals(english)]) {

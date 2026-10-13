@@ -1,4 +1,5 @@
 import type { SignupProfileFields, SignupProfileEikenLevel } from '@/lib/auth/signup-profile';
+import { isRecord } from '@/lib/utils';
 
 export const AUTH_OAUTH_PROVIDERS = ['google', 'apple'] as const;
 export const OAUTH_REDIRECT_COOKIE = 'merken_oauth_next';
@@ -106,10 +107,6 @@ export function readOAuthRedirectCookie(cookieHeader: string | null | undefined)
   } catch {
     return DEFAULT_REDIRECT_PATH;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 export function readOAuthOnboardingCookie(cookieHeader: string | null | undefined): SignupProfileFields | null {

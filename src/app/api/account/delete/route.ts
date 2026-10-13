@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveAuthenticatedUser } from '@/app/api/share-import/shared';
+import { resolveAuthenticatedUser } from '@/lib/api/route-auth';
 import { cancelSubscriptionImmediately } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isActiveProSubscription } from '@/lib/subscription/status';

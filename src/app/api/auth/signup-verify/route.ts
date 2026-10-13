@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { readSingleLineEnv } from '@/lib/env';
 import {
   fetchDefaultOfficialWordbooksForLocalImport,
   persistDefaultOfficialWordbooksToDb,
@@ -15,36 +13,8 @@ import {
   normalizeOtpEmail,
 } from '@/lib/auth/otp-lifecycle';
 import { NEW_USER_SIGNUP_ENABLED, SIGNUP_CLOSED_API_ERROR } from '@/lib/auth/signup-feature-flag';
-
-// Service Role client for admin operations
-function getAdminClient() {
-  const supabaseUrl = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const serviceRoleKey = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
-
-// Server client for setting session cookies
-async function getServerClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-}
+import { isUniqueViolation } from '@/lib/supabase/postgres-errors';
+import { buildDefaultAccountId } from '@/lib/auth/signup-profile';
 
 const requestSchema = z.object({
   email: z.string().trim().email().max(254),
@@ -63,16 +33,11 @@ type SignupProfileFields = Pick<SignupVerifyBody, 'display_name' | 'user_handle'
 export type SignupVerifyRouteDeps = {
   /** テスト用。省略時は `NEW_USER_SIGNUP_ENABLED` */
   signupEnabled?: boolean;
-  getAdminClient?: typeof getAdminClient;
-  getServerClient?: typeof getServerClient;
+  getAdminClient?: typeof getSupabaseAdmin;
+  getServerClient?: typeof createClient;
   fetchDefaultOfficialWordbooksForLocalImport?: typeof fetchDefaultOfficialWordbooksForLocalImport;
   persistDefaultOfficialWordbooksToDb?: typeof persistDefaultOfficialWordbooksToDb;
 };
-
-function buildDefaultAccountId(userId: string): string {
-  const compact = userId.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
-  return `mk${compact.slice(0, 12)}`.slice(0, 24);
-}
 
 function hasSignupProfileFields(fields: SignupProfileFields): boolean {
   return fields.display_name !== undefined
@@ -84,10 +49,6 @@ function isMissingAccountIdError(error: { code?: string | null; message?: string
   if (!error || error.code !== '23502') return false;
   const text = `${error.message ?? ''} ${error.details ?? ''}`;
   return text.includes('account_id');
-}
-
-function isUniqueViolation(error: { code?: string | null } | null): boolean {
-  return error?.code === '23505';
 }
 
 // account_id column: NOT NULL, lowercase, ^[a-z0-9_]{4,24}$ (see profiles_account_id_format).
@@ -129,7 +90,7 @@ function isAccountIdUniqueViolation(error: { code?: string | null; message?: str
 }
 
 async function saveSignupProfileFields(
-  adminClient: ReturnType<typeof getAdminClient>,
+  adminClient: ReturnType<typeof getSupabaseAdmin>,
   userId: string,
   fields: SignupProfileFields,
 ): Promise<{ code?: string | null; message?: string | null; details?: string | null } | null> {
@@ -191,7 +152,7 @@ export async function handleSignupVerifyPost(
     }
     const { email, code, password, display_name, user_handle, eiken_level } = parsed.data;
 
-    const adminClient = (deps.getAdminClient ?? getAdminClient)();
+    const adminClient = (deps.getAdminClient ?? getSupabaseAdmin)();
     const normalizedEmail = normalizeOtpEmail(email);
     const normalizedCode = code;
 
@@ -334,7 +295,7 @@ export async function handleSignupVerifyPost(
     }
 
     // トークンを使ってセッションを設定
-    const serverClient = await (deps.getServerClient ?? getServerClient)();
+    const serverClient = await (deps.getServerClient ?? createClient)();
     const { data: sessionData, error: sessionError } = await serverClient.auth.verifyOtp({
       token_hash: linkData.properties.hashed_token,
       type: 'magiclink',

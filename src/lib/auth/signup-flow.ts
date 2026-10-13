@@ -1,3 +1,5 @@
+import { isRecord } from '@/lib/utils';
+
 export const SIGNUP_STEPS = ['profile', 'level', 'form', 'otp'] as const;
 export type SignupStep = typeof SIGNUP_STEPS[number];
 
@@ -76,10 +78,6 @@ export function buildSignupVerifyRequestBody(params: {
       eiken_level: params.onboarding.eikenLevel,
     } : {}),
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 export function resolveSignupRouteError(

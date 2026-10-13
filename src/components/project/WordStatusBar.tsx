@@ -30,7 +30,7 @@ export function StackedBar({ total, m, a, l, n }: { total: number; m: number; a:
   );
 }
 
-export function BarDot({ color, label, count }: { color: string; label: string; count: number }) {
+function BarDot({ color, label, count }: { color: string; label: string; count: number }) {
   return (
     <span className="inline-flex items-center gap-[5px]">
       <span className="h-[7px] w-[7px] rounded-[3.5px]" style={{ background: color }} />

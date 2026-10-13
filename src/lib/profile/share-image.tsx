@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { loadJapaneseFont } from '@/lib/og/japanese-font';
 import { profileAvatarColor } from '@/lib/profile/avatar-color';
 import { fitProfileShareName, type ProfileSharePreview } from '@/lib/profile/share';
 
@@ -7,7 +8,7 @@ import { fitProfileShareName, type ProfileSharePreview } from '@/lib/profile/sha
 // preview が null(見つからない ID)なら汎用カード。
 // DB を読まないので、データを差し込んで見た目だけ確かめることもできる。
 
-export const PROFILE_SHARE_IMAGE_SIZE = { width: 1200, height: 630 };
+const PROFILE_SHARE_IMAGE_SIZE = { width: 1200, height: 630 };
 
 // globals.css のライトテーマのトークンと同じ値
 const INK = '#1a1a1a';
@@ -20,32 +21,6 @@ const STAT_TINTS = {
   words: '#E7F0FD',
   mastered: '#E3F3E8',
 } as const;
-
-// 描画するグリフだけを Google Fonts からサブセットで読む
-// (share/[shareId] などの opengraph-image と同じ方式)。
-async function loadJapaneseFont(text: string): Promise<ArrayBuffer | null> {
-  try {
-    const family = 'Noto+Sans+JP:wght@700';
-    const url = `https://fonts.googleapis.com/css2?family=${family}&text=${encodeURIComponent(text)}`;
-    const cssResponse = await fetch(url, {
-      headers: {
-        // Force a TrueType payload (satori does not support woff2).
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/534.30 (KHTML, like Gecko)',
-      },
-    });
-    if (!cssResponse.ok) return null;
-    const css = await cssResponse.text();
-    const match = css.match(/src:\s*url\(([^)]+)\)\s*format\(['"]?(?:opentype|truetype)['"]?\)/);
-    if (!match) return null;
-    const fontResponse = await fetch(match[1]);
-    if (!fontResponse.ok) return null;
-    return await fontResponse.arrayBuffer();
-  } catch (error) {
-    console.warn('OGP font load failed:', error);
-    return null;
-  }
-}
 
 function StatTile({ label, value, unit, tint }: { label: string; value: number; unit: string; tint: string }) {
   return (

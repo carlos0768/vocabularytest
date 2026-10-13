@@ -2,6 +2,7 @@ import { shouldSkipEnglishEnrichment } from '@/lib/classical/is-classical';
 import { normalizePartOfSpeechTags } from '@/lib/ai/part-of-speech';
 import { createInternalWorkerUrl, getInternalWorkerAuthorization } from '@/lib/api/internal-worker';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { chunkArray } from '@/lib/utils';
 import type { LexiconEntry } from '@/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
@@ -90,15 +91,6 @@ export interface WordLexiconResolutionDeps {
   ) => Promise<Map<string, LexiconPos>>;
   upsertRuntimeEntries?: (entries: RuntimeLexiconEntryUpsert[]) => Promise<void>;
   updateMasterTranslations?: (updates: MasterTranslationUpdate[]) => Promise<void>;
-}
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  if (items.length === 0) return [];
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function normalizeUsableJapanese(value: string | null | undefined): string {

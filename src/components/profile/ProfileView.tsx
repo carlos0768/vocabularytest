@@ -26,7 +26,7 @@ const HEAT_COLORS = [
 ];
 
 // サーバー側(シェア画像)でも同じ色を出すため lib に置いている
-export { THUMBS, profileAvatarColor } from '@/lib/profile/avatar-color';
+export { profileAvatarColor } from '@/lib/profile/avatar-color';
 
 function heatLevel(count: number): number {
   if (count <= 0) return 0;

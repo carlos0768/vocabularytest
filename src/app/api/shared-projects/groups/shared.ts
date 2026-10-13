@@ -26,6 +26,8 @@ import type {
 } from '@/lib/shared-projects/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../../shared/db';
 import { getSharedProjectMetrics } from '../shared';
+import { isUniqueViolationOrDuplicateKey } from '@/lib/supabase/postgres-errors';
+import { includesSearchText, normalizeSearchQuery } from '@/lib/api/listing';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -94,9 +96,9 @@ const CREATE_INVITE_CODE_RETRIES = 5;
 const DEFAULT_PUBLIC_GROUP_PAGE_SIZE = 12;
 const MAX_PUBLIC_GROUP_PAGE_SIZE = 36;
 export const STUDY_GROUP_STRUGGLING_PREVIEW_LIMIT = 5;
-export const STUDY_GROUP_STRUGGLING_MIN_LEARNERS = 2;
+const STUDY_GROUP_STRUGGLING_MIN_LEARNERS = 2;
 
-export function normalizeGroupInviteCode(input: string): string | null {
+function normalizeGroupInviteCode(input: string): string | null {
   const normalized = input.trim().replace(/[\s-]+/g, '');
   return GROUP_INVITE_CODE_PATTERN.test(normalized) ? normalized : null;
 }
@@ -269,7 +271,7 @@ export async function createStudyGroup(
       .single<StudyGroupRow>();
 
     if (groupError) {
-      if (isUniqueViolation(groupError) && attempt < CREATE_INVITE_CODE_RETRIES - 1) {
+      if (isUniqueViolationOrDuplicateKey(groupError) && attempt < CREATE_INVITE_CODE_RETRIES - 1) {
         continue;
       }
       throw new Error(groupError.message || 'study_group_create_failed');
@@ -1453,7 +1455,7 @@ async function ensureProjectShareId(
       .maybeSingle<ProjectRow>();
 
     if (error) {
-      if (isUniqueViolation(error) && attempt < CREATE_INVITE_CODE_RETRIES - 1) {
+      if (isUniqueViolationOrDuplicateKey(error) && attempt < CREATE_INVITE_CODE_RETRIES - 1) {
         continue;
       }
       throw new Error(error.message || 'study_group_project_share_id_failed');
@@ -1664,14 +1666,6 @@ function normalizeStudyGroupVisibility(value: string | null | undefined): StudyG
   return value === 'public' ? 'public' : 'private';
 }
 
-function normalizeSearchQuery(query?: string | null): string {
-  return (query ?? '').trim().toLowerCase();
-}
-
-function includesSearchText(value: string | null | undefined, query: string): boolean {
-  return value?.toLowerCase().includes(query) ?? false;
-}
-
 function clampPublicGroupPageSize(limit?: number): number {
   if (!Number.isFinite(limit)) return DEFAULT_PUBLIC_GROUP_PAGE_SIZE;
   return Math.max(1, Math.min(MAX_PUBLIC_GROUP_PAGE_SIZE, Math.floor(Number(limit))));
@@ -1723,10 +1717,4 @@ function generateCompactCode(length: number): string {
     .map((byte) => byte.toString(36).padStart(2, '0'))
     .join('')
     .slice(0, length);
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const maybeError = error as { code?: string | null; message?: string | null };
-  const message = maybeError.message?.toLowerCase() ?? '';
-  return maybeError.code === '23505' || message.includes('duplicate key');
 }

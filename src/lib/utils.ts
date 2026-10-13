@@ -38,56 +38,13 @@ export function getGuestUserId(): string {
 }
 
 // Daily scan limit tracking for free users
-const SCAN_COUNT_KEY = 'scanvocab_scan_count';
-const SCAN_DATE_KEY = 'scanvocab_scan_date';
 // Free plan limits (must match server-side in /api/extract and /api/grammar)
 export const FREE_DAILY_SCAN_LIMIT = 3;
 export const FREE_WORD_LIMIT = 100;
 // Free plan is limited by wordbook (project) count, enforced server-side by the
 // enforce_free_project_limit trigger. Words per wordbook are unlimited for Free.
 export const FREE_WORDBOOK_LIMIT = 50;
-
-export function getDailyScanInfo(): { count: number; remaining: number; canScan: boolean } {
-  if (typeof window === 'undefined') {
-    return { count: 0, remaining: FREE_DAILY_SCAN_LIMIT, canScan: true };
-  }
-
-  const today = new Date().toISOString().split('T')[0];
-  const storedDate = localStorage.getItem(SCAN_DATE_KEY);
-
-  // Reset count if it's a new day
-  if (storedDate !== today) {
-    localStorage.setItem(SCAN_DATE_KEY, today);
-    localStorage.setItem(SCAN_COUNT_KEY, '0');
-    return { count: 0, remaining: FREE_DAILY_SCAN_LIMIT, canScan: true };
-  }
-
-  const count = parseInt(localStorage.getItem(SCAN_COUNT_KEY) || '0', 10);
-  const remaining = Math.max(0, FREE_DAILY_SCAN_LIMIT - count);
-
-  return { count, remaining, canScan: count < FREE_DAILY_SCAN_LIMIT };
-}
-
-export function incrementScanCount(): void {
-  if (typeof window === 'undefined') return;
-
-  const today = new Date().toISOString().split('T')[0];
-  localStorage.setItem(SCAN_DATE_KEY, today);
-
-  const currentCount = parseInt(localStorage.getItem(SCAN_COUNT_KEY) || '0', 10);
-  localStorage.setItem(SCAN_COUNT_KEY, String(currentCount + 1));
-}
-
 // Format date for display
-export function formatDate(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
 // ---- Stats sync callback mechanism ----
 // Pro users register a callback to sync stats to Supabase on each mutation.
 
@@ -230,38 +187,6 @@ export function getWeeklyStats(): WeeklyStatsEntry[] {
     result.push(found ?? { date: dateStr, totalCount: 0, correctCount: 0, masteredCount: 0 });
   }
   return result;
-}
-
-export function updateTodayMasteredCount(masteredTotal: number): void {
-  if (typeof window === 'undefined') return;
-
-  const today = new Date().toISOString().split('T')[0];
-  let entries: WeeklyStatsEntry[] = [];
-
-  try {
-    const stored = localStorage.getItem(WEEKLY_STATS_KEY);
-    if (stored) entries = JSON.parse(stored);
-  } catch { /* ignore */ }
-
-  entries = entries.map((entry) => ({
-    ...entry,
-    masteredCount: typeof entry.masteredCount === 'number' ? entry.masteredCount : 0,
-  }));
-
-  const todayEntry = entries.find(e => e.date === today);
-  if (todayEntry) {
-    todayEntry.masteredCount = masteredTotal;
-  } else {
-    entries.push({ date: today, totalCount: 0, correctCount: 0, masteredCount: masteredTotal });
-  }
-
-  // Keep only last 14 days
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 14);
-  const cutoffStr = cutoff.toISOString().split('T')[0];
-  entries = entries.filter(e => e.date >= cutoffStr);
-
-  localStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(entries));
 }
 
 // Daily stats tracking
@@ -451,23 +376,6 @@ export function getWrongAnswers(): WrongAnswer[] {
   }
 }
 
-export function removeWrongAnswer(wordId: string): void {
-  if (typeof window === 'undefined') return;
-
-  const wrongAnswers = getWrongAnswers();
-  const filtered = wrongAnswers.filter(w => w.wordId !== wordId);
-  localStorage.setItem(WRONG_ANSWERS_KEY, JSON.stringify(filtered));
-
-  statsSyncCallback?.('remove_wrong_answer', { wordId });
-}
-
-export function clearAllWrongAnswers(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(WRONG_ANSWERS_KEY);
-
-  statsSyncCallback?.('clear_wrong_answers', {});
-}
-
 // Weekly activity heatmap tracking
 const ACTIVITY_HISTORY_KEY = 'scanvocab_activity_history';
 
@@ -510,7 +418,7 @@ export function getActivityHistory(weeks: number = 4): DailyActivity[] {
 }
 
 // Record activity for today (called when answering quiz)
-export function recordDailyActivity(isCorrect: boolean): void {
+function recordDailyActivity(isCorrect: boolean): void {
   if (typeof window === 'undefined') return;
 
   const today = new Date().toISOString().split('T')[0];
@@ -561,4 +469,27 @@ export function clearAllUserStats(): void {
   localStorage.removeItem(LAST_ACTIVITY_KEY);
   localStorage.removeItem(WRONG_ANSWERS_KEY);
   localStorage.removeItem(ACTIVITY_HISTORY_KEY);
+}
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+// Keeps only the string items that are not blank (items are returned untrimmed).
+export function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+}
+
+export function chunkArray<T>(items: T[], size: number): T[][] {
+  if (items.length === 0) return [];
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

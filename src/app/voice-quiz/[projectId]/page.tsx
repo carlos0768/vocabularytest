@@ -26,7 +26,7 @@ import {
   speakVoiceQuiz,
   stopVoiceQuizAudio,
 } from '@/lib/quiz/voice-quiz-speech';
-import { bytesToBase64, passthroughEncodingFor, toLinear16 } from '@/lib/speech/recorded-audio';
+import { bytesToBase64, passthroughEncodingFor, pickRecordingMimeType, toLinear16 } from '@/lib/speech/recorded-audio';
 import { VOICE_QUIZ_RESULT_ANNOUNCEMENTS, type VoiceQuizResultKey } from '@/lib/quiz/voice-quiz-audio';
 import {
   buildVoiceQuizAnswerAnnouncement,
@@ -56,8 +56,23 @@ import {
 } from '@/lib/quiz/voice-quiz-answer';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { useAuth } from '@/hooks/use-auth';
-import { createBrowserClient } from '@/lib/supabase';
+import { jsonHeadersWithAccessToken } from '@/lib/supabase/auth-headers';
 import type { Word, SubscriptionStatus } from '@/types';
+import {
+  AttemptPill,
+  CloseButton,
+  CountdownRing,
+  EYEBROW,
+  HARD_SHADOW,
+  HARD_SHADOW_SM,
+  MisheardText,
+  NoticeScreen,
+  PhaseOrb,
+  SOLID_SURFACE,
+  SegmentedOptions,
+  SoundWave,
+  StatChip,
+} from '@/components/voice-quiz/VoiceQuizParts';
 
 const TIMER_TICK_MS = 50;
 
@@ -76,26 +91,6 @@ const MAX_CONSECUTIVE_RECOGNITION_ERRORS = 3;
 const AUTO_ADVANCE_CORRECT_MS = 1000;
 const AUTO_ADVANCE_INCORRECT_MS = 4200;
 
-/* --- Merken Design System (Solid) のトークン --- */
-/** 面を持つ要素の枠。ハードシャドウは大きさに応じて2種類使い分ける。 */
-const SOLID_SURFACE =
-  'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]';
-const HARD_SHADOW = 'shadow-[3px_4px_0_var(--solid-shadow)]';
-const HARD_SHADOW_SM = 'shadow-[2px_3px_0_var(--solid-shadow)]';
-/** 見出しの上に置く小さなラベル。 */
-const EYEBROW = 'font-mono text-[10px] font-black uppercase tracking-[0.14em]';
-
-/**
- * 録音に使う MIME の候補。opus で録れれば圧縮済みのまま送れる。
- * どれも通らない端末 (iOS Safari) では、ブラウザの既定で録って
- * LINEAR16 に変換してから送る —— ここで諦めると音読自体ができない。
- */
-const CANDIDATE_MIME_TYPES = [
-  'audio/webm;codecs=opus',
-  'audio/webm',
-  'audio/ogg;codecs=opus',
-  'audio/mp4',
-];
 
 /**
  * 録音の設定。`mimeType` が null なら MediaRecorder に何も渡さず、
@@ -104,35 +99,10 @@ const CANDIDATE_MIME_TYPES = [
  */
 type RecordingSetup = { mimeType: string | null };
 
-/**
- * 録音に使う MIME を選ぶ。エンコーディングは録音後の実際の出力から決める。
- * null は「この端末では録音できない」。
- */
+/** null は「この端末では録音できない」。 */
 function pickRecordingSetup(): RecordingSetup | null {
   if (typeof MediaRecorder === 'undefined') return null;
-  const supported = CANDIDATE_MIME_TYPES.find((mimeType) =>
-    MediaRecorder.isTypeSupported(mimeType),
-  );
-  return { mimeType: supported ?? null };
-}
-
-/**
- * 認識APIに付ける見出し。
- *
- * このアプリの他の認証付きAPIと同じく、アクセストークンを明示的に載せる。
- * Cookie だけに頼ると、ホーム画面に追加した iOS の PWA が Safari とは別の
- * 保存領域を持つために、ログイン済みでも 401 で弾かれることがある ——
- * 端末側の音声認識が「なぜかスマホだけ失敗する」形で出る。
- */
-async function recognizeRequestHeaders(): Promise<HeadersInit> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  try {
-    const { data: { session } } = await createBrowserClient().auth.getSession();
-    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-  } catch {
-    // 取れなければ Cookie に任せる。ここで諦めると出題そのものが止まる。
-  }
-  return headers;
+  return { mimeType: pickRecordingMimeType() };
 }
 
 /**
@@ -636,7 +606,7 @@ export default function VoiceQuizPage() {
             );
             const response = await fetch('/api/voice-quiz/recognize', {
               method: 'POST',
-              headers: await recognizeRequestHeaders(),
+              headers: await jsonHeadersWithAccessToken(),
               body: JSON.stringify({
                 audioBase64,
                 encoding: passthrough ?? 'LINEAR16',
@@ -1560,238 +1530,6 @@ export default function VoiceQuizPage() {
           }
         />
       </Modal>
-    </div>
-  );
-}
-
-function CloseButton({ onClick, label = '閉じる' }: { onClick: () => void; label?: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className={cn(
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px',
-        HARD_SHADOW_SM,
-      )}
-    >
-      <Icon name="close" size={20} />
-    </button>
-  );
-}
-
-/** 開始画面の設定行。解答時間と試行回数で見た目を揃える。 */
-function SegmentedOptions({
-  label,
-  options,
-  selected,
-  onSelect,
-  format,
-  className,
-  extra,
-}: {
-  label: string;
-  options: readonly number[];
-  selected: number;
-  onSelect: (option: number) => void;
-  format: (option: number) => string;
-  className?: string;
-  /** 定型の選択肢のあとに並べる自由入力など。 */
-  extra?: React.ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <p className={cn(EYEBROW, 'mb-2 text-left text-[var(--color-muted)]')}>{label}</p>
-      <div className="flex gap-2" role="group" aria-label={label}>
-        {options.map((option) => {
-          const isSelected = selected === option;
-          return (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => onSelect(option)}
-              className={cn(
-                'flex-1 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] py-3 font-display text-base font-black transition-all duration-100 active:translate-x-px active:translate-y-px',
-                isSelected
-                  ? cn('bg-[var(--solid-ink)] text-[var(--color-surface)]', HARD_SHADOW_SM)
-                  : 'bg-[var(--color-surface)] text-[var(--solid-ink)]',
-              )}
-            >
-              {format(option)}
-            </button>
-          );
-        })}
-        {extra}
-      </div>
-    </div>
-  );
-}
-
-function StatChip({
-  icon,
-  label,
-  value,
-  tone = 'default',
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  tone?: 'default' | 'error';
-}) {
-  const errorTone = tone === 'error';
-  return (
-    <div className="rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] px-3 py-2.5 text-left">
-      <div className="flex items-center gap-1.5">
-        <Icon
-          name={icon}
-          size={14}
-          className={errorTone ? 'text-[var(--color-error,#ef4444)]' : 'text-[var(--color-muted)]'}
-        />
-        <span className={cn(EYEBROW, 'text-[var(--color-muted)]')}>{label}</span>
-      </div>
-      <p
-        className={cn(
-          'mt-0.5 font-mono text-base font-black tabular-nums',
-          errorTone ? 'text-[var(--color-error,#ef4444)]' : 'text-[var(--solid-ink)]',
-        )}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-/** 各フェーズの中央に置く大きな円。 */
-function PhaseOrb({
-  icon,
-  className,
-  iconClassName,
-}: {
-  icon: string;
-  className?: string;
-  iconClassName?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex h-36 w-36 items-center justify-center rounded-full border-2 border-[var(--solid-ink)]',
-        HARD_SHADOW,
-        className,
-      )}
-    >
-      <Icon name={icon} size={52} className={iconClassName} />
-    </div>
-  );
-}
-
-/** 残り時間を示すリング。中央のマイクを囲む。 */
-function CountdownRing({ progress, tone }: { progress: number; tone: string }) {
-  const radius = 54;
-  const circumference = 2 * Math.PI * radius;
-  const clamped = Math.max(0, Math.min(1, progress));
-  return (
-    <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
-      <circle cx="60" cy="60" r={radius} fill="none" stroke="var(--color-border)" strokeWidth="8" />
-      <circle
-        cx="60"
-        cy="60"
-        r={radius}
-        fill="none"
-        stroke={tone}
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={circumference * (1 - clamped)}
-      />
-      <circle cx="60" cy="60" r={radius + 4} fill="none" stroke="var(--solid-ink)" strokeWidth="2" />
-    </svg>
-  );
-}
-
-/** 読み上げ中のイコライザ。 */
-function SoundWave() {
-  return (
-    <div className="flex h-6 items-end gap-1.5" aria-hidden="true">
-      {[0, 140, 280, 420, 560].map((delay) => (
-        <span
-          key={delay}
-          className="voice-quiz-wave block h-6 w-1.5 rounded-full bg-[var(--color-accent)]"
-          style={{ animationDelay: `${delay}ms` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** 何回目の試行かを示すピル。 */
-function AttemptPill({
-  current,
-  total,
-  remaining,
-}: {
-  current: number;
-  total: number;
-  remaining?: boolean;
-}) {
-  return (
-    <span className="inline-flex items-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-1 font-mono text-[11px] font-black tabular-nums text-[var(--solid-ink)]">
-      {remaining ? `残り${total - current}回` : `${current} / ${total}`}
-    </span>
-  );
-}
-
-/** 認識された(=間違えた)発話。 */
-function MisheardText({ text }: { text: string }) {
-  return <p className="font-mono text-sm text-[var(--color-muted)] line-through">{text}</p>;
-}
-
-function NoticeScreen({
-  onBack,
-  icon,
-  title,
-  message,
-  action,
-}: {
-  onBack: () => void;
-  icon: string;
-  title: string;
-  message: string;
-  /** 戻る以外にできることがあるとき (途中まで解いた結果を見る、など)。 */
-  action?: { label: string; onClick: () => void };
-}) {
-  return (
-    <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-      <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
-        <CloseButton onClick={onBack} />
-      </header>
-      <main className="flex-1 flex items-center justify-center px-6">
-        <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-7 text-center animate-fade-in-up')}>
-          <div
-            className={cn(
-              'mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-warning-light)]',
-              HARD_SHADOW_SM,
-            )}
-          >
-            <Icon name={icon} size={30} className="text-[var(--color-warning)]" />
-          </div>
-          <p className="font-display text-lg font-black leading-snug text-[var(--solid-ink)]">{title}</p>
-          <p className="mt-3 mb-6 text-sm leading-6 text-[var(--color-muted)]">{message}</p>
-          {action && (
-            <SolidButton
-              variant="accent"
-              size="lg"
-              onClick={action.onClick}
-              className={cn('mb-3 w-full', HARD_SHADOW)}
-            >
-              {action.label}
-            </SolidButton>
-          )}
-          <SolidButton size="lg" onClick={onBack} className={cn('w-full', HARD_SHADOW_SM)}>
-            戻る
-          </SolidButton>
-        </div>
-      </main>
     </div>
   );
 }

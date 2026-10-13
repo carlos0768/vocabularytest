@@ -7,8 +7,6 @@ import type {
   Word,
   CustomSection,
   VocabularyType,
-  LexiconEntry,
-  LexiconSense,
   Collection,
   CollectionProject,
   RelatedWord,
@@ -22,7 +20,6 @@ import { normalizeProjectKind } from '../types';
 import { normalizeSourceLabels } from '../source-labels';
 import { normalizeSharedTags } from '../shared-tags';
 import {
-  normalizeLexiconDatasetSources,
   normalizeLexiconTranslation,
 } from '../lexicon';
 import {
@@ -424,59 +421,6 @@ function normalizeJapaneseSource(value: unknown): Word['japaneseSource'] | undef
   return value === 'scan' || value === 'ai' ? value : undefined;
 }
 
-export function mapLexiconSenseFromRow(row: LexiconSenseRow): LexiconSense {
-  return {
-    id: row.id,
-    lexiconEntryId: row.lexicon_entry_id,
-    translationJa: row.translation_ja,
-    normalizedTranslationJa: row.normalized_translation_ja,
-    distinctKey: toNonEmptyString(row.distinct_key) ?? undefined,
-    meaningSummary: toNonEmptyString(row.meaning_summary) ?? undefined,
-    usageNotes: toNonEmptyString(row.usage_notes) ?? undefined,
-    exampleSentence: toNonEmptyString(row.example_sentence) ?? undefined,
-    exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
-    translationSource: toNonEmptyString(row.translation_source) ?? undefined,
-    isPrimary: row.is_primary ?? false,
-    createdAt: row.created_at ?? new Date(0).toISOString(),
-    updatedAt: row.updated_at ?? new Date(0).toISOString(),
-  };
-}
-
-export function mapLexiconEntryFromRow(row: LexiconEntryRow): LexiconEntry {
-  const primarySenseTranslation = normalizeLexiconTranslation(row.translation_ja);
-  return {
-    id: row.id,
-    headword: row.headword,
-    normalizedHeadword: row.normalized_headword,
-    pos: row.pos,
-    cefrLevel: row.cefr_level ?? undefined,
-    datasetSources: normalizeLexiconDatasetSources(row.dataset_sources ?? []),
-    primarySense: row.primary_sense_id && primarySenseTranslation
-      ? {
-          id: row.primary_sense_id,
-          lexiconEntryId: row.id,
-          translationJa: primarySenseTranslation,
-          normalizedTranslationJa: row.normalized_translation_ja ?? primarySenseTranslation,
-          distinctKey: toNonEmptyString(row.distinct_key) ?? undefined,
-          meaningSummary: toNonEmptyString(row.meaning_summary) ?? undefined,
-          usageNotes: toNonEmptyString(row.usage_notes) ?? undefined,
-          exampleSentence: toNonEmptyString(row.example_sentence) ?? undefined,
-          exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
-          translationSource: row.translation_source ?? undefined,
-          isPrimary: true,
-          createdAt: row.created_at ?? new Date(0).toISOString(),
-          updatedAt: row.updated_at ?? new Date(0).toISOString(),
-        }
-      : undefined,
-    translationJa: primarySenseTranslation ?? undefined,
-    translationSource: row.translation_source ?? undefined,
-    exampleSentence: toNonEmptyString(row.example_sentence) ?? undefined,
-    exampleSentenceJa: toNonEmptyString(row.example_sentence_ja) ?? undefined,
-    createdAt: row.created_at ?? new Date(0).toISOString(),
-    updatedAt: row.updated_at ?? new Date(0).toISOString(),
-  };
-}
-
 function normalizePartOfSpeechTags(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const deduped = new Set<string>();
@@ -581,11 +525,6 @@ function normalizeWordMorphologyValue(value: unknown): WordMorphology | undefine
   };
 }
 
-const DERIVED_WORD_POS_VALUES = new Set(['noun', 'verb', 'adjective', 'adverb']);
-const DERIVED_WORD_EXAM_TAG_VALUES = new Set([
-  'kyotsu', 'kokkouritsu', 'shiritsu', 'toefl', 'ielts', 'eiken',
-]);
-
 function normalizeWordOrderQuizCache(value: unknown): WordOrderQuizCache | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const record = value as Record<string, unknown>;
@@ -671,63 +610,6 @@ function normalizeCustomSections(raw: unknown): CustomSection[] | undefined {
 }
 
 export type WordInput = Omit<Word, 'id' | 'createdAt' | 'easeFactor' | 'intervalDays' | 'repetition' | 'isFavorite' | 'lastReviewedAt' | 'nextReviewAt' | 'status'>;
-
-export function mapWordToInsert(word: WordInput): {
-  project_id: string;
-  english: string;
-  japanese: string;
-  japanese_source?: Word['japaneseSource'];
-  vocabulary_type?: VocabularyType | null;
-  lexicon_entry_id?: string;
-  lexicon_sense_id?: string;
-  distractors: string[];
-  example_sentence?: string;
-  example_sentence_ja?: string;
-  pronunciation?: string;
-  part_of_speech_tags?: string[];
-  related_words?: RelatedWord[];
-  usage_patterns?: UsagePattern[];
-  insights_generated_at?: string;
-  insights_version?: number;
-  word_order_quiz?: WordOrderQuizCache;
-  morphology?: WordMorphology;
-  classical_entry_id?: string;
-  status: string;
-  ease_factor: number;
-  interval_days: number;
-  repetition: number;
-  is_favorite: boolean;
-  custom_sections?: CustomSection[];
-} {
-  const defaultSR = getDefaultSpacedRepetitionFields();
-  return {
-    project_id: word.projectId,
-    english: word.english,
-    japanese: word.japanese,
-    japanese_source: word.japaneseSource,
-    vocabulary_type: word.vocabularyType ?? null,
-    lexicon_entry_id: word.lexiconEntryId,
-    lexicon_sense_id: word.lexiconSenseId,
-    distractors: word.distractors,
-    example_sentence: word.exampleSentence,
-    example_sentence_ja: word.exampleSentenceJa,
-    pronunciation: word.pronunciation,
-    part_of_speech_tags: word.partOfSpeechTags,
-    related_words: word.relatedWords,
-    usage_patterns: word.usagePatterns,
-    insights_generated_at: word.insightsGeneratedAt,
-    insights_version: word.insightsVersion,
-    word_order_quiz: word.wordOrderQuiz,
-    morphology: word.morphology,
-    ...(word.classicalEntryId ? { classical_entry_id: word.classicalEntryId } : {}),
-    status: 'new',
-    ease_factor: defaultSR.easeFactor,
-    interval_days: defaultSR.intervalDays,
-    repetition: defaultSR.repetition,
-    is_favorite: false,
-    custom_sections: word.customSections,
-  };
-}
 
 export function mapWordToInsertWithId(word: Word): {
   id: string;

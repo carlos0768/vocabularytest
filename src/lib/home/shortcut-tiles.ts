@@ -11,7 +11,7 @@ export type HomeShortcutTile<P, G, B> =
   | { kind: 'recommendation'; book: B };
 
 /** グリッド全体の枠数 */
-export const HOME_SHORTCUT_GRID_SIZE = 8;
+const HOME_SHORTCUT_GRID_SIZE = 8;
 
 /**
  * コンテンツ（単語帳/グループ/おすすめ）に使える枠数。

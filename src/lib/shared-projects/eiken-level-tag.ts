@@ -1,4 +1,4 @@
-import { CEFR_LEVEL_ORDER, EIKEN_TO_CEFR_BAND, type CefrLevel } from '@/lib/reels/eiken-cefr';
+import { cefrIndex, EIKEN_TO_CEFR_BAND, type CefrLevel } from '@/lib/reels/eiken-cefr';
 import { EIKEN_LEVEL_ORDER } from '@/lib/ai/prompts/eiken';
 import { lookupLexiconCefrLevels, type EikenCefrFilterDeps } from '@/lib/lexicon/eiken-cefr-filter';
 import { normalizeHeadword } from '../../../shared/lexicon';
@@ -20,11 +20,7 @@ const EIKEN_LEVEL_TAG_PATTERN = /^[#＃]?英検準?[1-5]級$/;
  * Words with a lexicon CEFR level below this count are too few to call a
  * level for the whole wordbook, so no tag is emitted.
  */
-export const MIN_KNOWN_WORDS_FOR_LEVEL_TAG = 3;
-
-function cefrIndex(level: string): number {
-  return CEFR_LEVEL_ORDER.indexOf(level.toUpperCase() as CefrLevel);
-}
+const MIN_KNOWN_WORDS_FOR_LEVEL_TAG = 3;
 
 /** Midpoint of a grade's CEFR band on the A1..C2 index scale. */
 function bandCenter(eikenLevel: string): number | null {

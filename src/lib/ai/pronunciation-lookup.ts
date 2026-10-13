@@ -136,7 +136,7 @@ async function generatePronunciationBatch(
  * 指定した単語リストの IPA 発音記号をAIで生成する。
  * 生成できた単語のみ結果に含む。
  */
-export async function lookupPronunciations(
+async function lookupPronunciations(
   words: PronunciationWordInput[],
 ): Promise<PronunciationResult[]> {
   if (words.length === 0) return [];

@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { sendOtpEmail, generateOtpCode } from '@/lib/resend/client';
 import { z } from 'zod';
 import { parseJsonWithSchema } from '@/lib/api/validation';
-import { readSingleLineEnv } from '@/lib/env';
 import {
   buildOtpInsertPayload,
   evaluateAuthOtpCode,
@@ -14,36 +12,6 @@ import {
   normalizeOtpEmail,
   resolveAuthOtpSendPolicy,
 } from '@/lib/auth/otp-lifecycle';
-
-// Service Role client for admin operations
-function getAdminClient() {
-  const supabaseUrl = readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const serviceRoleKey = readSingleLineEnv('SUPABASE_SERVICE_ROLE_KEY');
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
-
-// Server client for setting session cookies
-async function getServerClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    readSingleLineEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-}
 
 const emailSchema = z.string().trim().email().max(254);
 const codeSchema = z.string().trim().regex(/^\d{6}$/);
@@ -74,8 +42,8 @@ const requestSchema = z.discriminatedUnion('action', [
 ]);
 
 export type ResetPasswordRouteDeps = {
-  getAdminClient?: typeof getAdminClient;
-  getServerClient?: typeof getServerClient;
+  getAdminClient?: typeof getSupabaseAdmin;
+  getServerClient?: typeof createClient;
   generateOtpCode?: typeof generateOtpCode;
   sendOtpEmail?: typeof sendOtpEmail;
 };
@@ -117,7 +85,7 @@ async function handleSendOtp(
   { email }: z.infer<typeof sendOtpSchema>,
   deps: ResetPasswordRouteDeps,
 ) {
-  const adminClient = (deps.getAdminClient ?? getAdminClient)();
+  const adminClient = (deps.getAdminClient ?? getSupabaseAdmin)();
   const normalizedEmail = normalizeOtpEmail(email);
 
   // Check if user exists
@@ -175,7 +143,7 @@ async function handleVerifyOtp(
   { email, code }: z.infer<typeof verifyOtpSchema>,
   deps: ResetPasswordRouteDeps,
 ) {
-  const adminClient = (deps.getAdminClient ?? getAdminClient)();
+  const adminClient = (deps.getAdminClient ?? getSupabaseAdmin)();
   const normalizedEmail = normalizeOtpEmail(email);
   const normalizedCode = code;
 
@@ -249,7 +217,7 @@ async function handleSetPassword(
   { email, newPassword }: z.infer<typeof setPasswordSchema>,
   deps: ResetPasswordRouteDeps,
 ) {
-  const adminClient = (deps.getAdminClient ?? getAdminClient)();
+  const adminClient = (deps.getAdminClient ?? getSupabaseAdmin)();
   const normalizedEmail = normalizeOtpEmail(email);
 
   // Verify OTP was already verified
@@ -308,7 +276,7 @@ async function handleSetPassword(
     .eq('email', normalizedEmail);
 
   // Log the user in
-  const serverClient = await (deps.getServerClient ?? getServerClient)();
+  const serverClient = await (deps.getServerClient ?? createClient)();
   const { error: signInError } = await serverClient.auth.signInWithPassword({
     email: normalizedEmail,
     password: newPassword,

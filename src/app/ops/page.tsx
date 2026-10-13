@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui';
 import { useAdminSecret } from './use-admin-secret';
+import { formatNumber } from './finance/format';
 
 // 管理ダッシュボードのハブ。ADMIN_SECRET を入力すると、その日のスキャン状況・
 // ユーザー数・直近のAPIコスト/スキャン毎トークン消費を1画面で確認でき、
@@ -35,10 +36,6 @@ type OpsDashboard = {
     };
   };
 };
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('ja-JP').format(value);
-}
 
 function formatYen(value: number): string {
   return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', maximumFractionDigits: 2 }).format(value);

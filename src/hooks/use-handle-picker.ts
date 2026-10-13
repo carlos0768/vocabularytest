@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export const USER_HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/;
+const USER_HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/;
 
 /**
  * The ユーザーID picker of the onboarding profile step: normalizes what is

@@ -23,6 +23,7 @@ import {
 import { lookupLexiconCefrLevels } from '@/lib/lexicon/eiken-cefr-filter';
 import { createSharedSearchEmbedding } from '@/lib/shared-projects/tag-embeddings';
 import { getCachedMorphologyByHeadword } from '@/lib/morphology/lexicon';
+import { toStringArray } from '@/lib/utils';
 import {
   normalizeSnapshotTranslations,
   snapshotTranslationsFromWordTranslationRows,
@@ -95,22 +96,17 @@ type OfficialWordRow = {
 
 // ---------- small helpers ----------
 
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-}
-
 function firstOrNull<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null;
   return value ?? null;
 }
 
-export function reelItemKey(source: ReelSource, wordId: string): string {
+function reelItemKey(source: ReelSource, wordId: string): string {
   return `${source === 'shared' ? 's' : 'o'}:${wordId}`;
 }
 
 /** item key ('s:<id>' | 'o:<id>') → { source, wordId }。不正な形式は null。 */
-export function parseReelItemKey(itemKey: string): { source: ReelSource; wordId: string } | null {
+function parseReelItemKey(itemKey: string): { source: ReelSource; wordId: string } | null {
   const match = /^([so]):(.+)$/.exec(itemKey.trim());
   if (!match) return null;
   return { source: match[1] === 's' ? 'shared' : 'official', wordId: match[2] };
@@ -850,7 +846,7 @@ export async function buildReelFeedPage(options: {
  * Validate that a reel word exists and belongs to public reel content,
  * returning its book ref ('s:<shareId>' | 'o:<officialSlug>').
  */
-export async function resolveReelWordSource(
+async function resolveReelWordSource(
   source: ReelSource,
   wordId: string,
   admin: SupabaseAdminClient = getSupabaseAdmin(),

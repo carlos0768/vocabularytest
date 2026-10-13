@@ -1,45 +1,77 @@
-# Docs Entry Point
+# Docs 入口
 
-このリポジトリでAIまたは人間が作業を始める時の入口です。
+このリポジトリで作業を始める人 (人間・AI) が最初に読むファイルです。
 
-## 作業前に読む順番
+## 最初に読む順番
 
-1. `docs/README.md`（このファイル）
-2. `docs/maintenance/AI_HANDOFF.md`
-3. 作業対象に近い恒久docsまたはrunbook
-4. 実コード
+1. `CLAUDE.md` — プロダクト概要・機能ごとの仕様と「なぜそうなっているか」・危険箇所
+2. このファイル — 検証の回し方、コードの置き場所の約束、資料の地図
+3. 触る領域の恒久 docs (下の「資料の地図」)
+4. 実コードとその隣のテスト (`*.test.ts`)
 
-矛盾した場合は、実コード、`docs/README.md`、該当runbook、古い調査メモの順に確認してください。
+docs と実コードが食い違ったら実コードが正です。食い違いを見つけたら、直すか、この README の「既知の残課題」に書いてください。
 
-## 現在の最重要方針
+## 変更前後に必ず通すもの
 
-- `codex/prelaunch-safety-baseline` は古い `main` 由来なので、今後の公開前作業には使いません。
-- 最新UIを守るため、作業ブランチは `codex/prelaunch-safety-baseline-current-ui` を使います。
-- 旧ブランチの56コミットを丸ごとcherry-pickしません。
-- 旧ブランチの保守性向上作業は、最新UIを守った状態でこのブランチへ再実装済みです。
-- `docs/maintenance/*CHECKPOINT.md` やaudit系docsは、旧ブランチでの完了記録を含みます。最新UIブランチでの現在地は、`docs/maintenance/AI_HANDOFF.md` と `docs/maintenance/TASKS.md` を正としてください。
-- `src/components/redesign/**` と `src/app/globals.css` は原則変更しません。Home/Project/Quizを触る場合も、最新UIの見た目・文言・レイアウトを巻き戻さないことを最優先にします。
+| コマンド | 中身 | CI |
+|---|---|---|
+| `npm run typecheck` | `tsc --noEmit` (テストファイル込み) | ✅ `.github/workflows/ci.yml` |
+| `npm run lint` | ESLint + SQL injection guard | ✅ `ci.yml` |
+| `npm test` | `src/` と `shared/` の `*.test.ts(x)` を**自動で全部**拾って実行。`npm test -- src/lib/quiz` で絞れる | ✅ `ci.yml` |
+| `npm run test:security` / `npm run security:all` | ルートのセキュリティテスト・secrets / 依存監査 | ✅ `security.yml` |
+| `npm run build` | 本番ビルド | Vercel |
 
-## 恒久情報
+テストは置けば走ります (一覧への登録は不要)。`src/` `shared/` の外に置いたテストは走りません。
 
-- `docs/architecture.md`: システム構成と主要データフロー
-- `docs/boundaries.md`: 触ってよい領域と危険領域
-- `docs/invariants.md`: 破ってはいけない不変条件
-- `docs/commands.md`: コマンド一覧
-- `docs/runbooks.md`: 運用runbook入口
-- `docs/ops/`: 障害対応、外部サービス、運用手順
-- `docs/security/`: セキュリティ確認
+## コードの置き場所の約束
 
-## 工事中の一時情報
+巨大ファイルとコピペが増えた主な原因は「既にある共通部品を知らずに、その場で書き直す」ことでした。書く前に下を探してください。
 
-- `docs/maintenance/AI_HANDOFF.md`: 次のAIが最初に読む引き継ぎ
-- `docs/maintenance/TASKS.md`: 公開前タスクの現在地
-- `docs/maintenance/PRELAUNCH_RELEASE_CHECKLIST.md`: 公開判断前の最終チェックリスト
-- `docs/maintenance/MAIN_PUSH_RELEASE_NOTES_2026-05-10.md`: 2026-05-10にmainへ入った変更範囲と本番投入前の注意点
-- `docs/maintenance/ARCHITECTURE_MAINTAINABILITY_AUDIT.md`: 大局的な保守性棚卸し
-- `docs/maintenance/REFACTOR_PLAN.md`: 旧P2-Cの分解計画
-- `docs/maintenance/P2C_CHECKPOINT.md`: 旧P2-C完了後の固定済みcontractと残リスク
-- `docs/maintenance/SCAN_PROCESS_CHECKPOINT.md`: 旧scan process追加分割後の状態
-- `docs/maintenance/HOME_PAGE_AUDIT.md`, `docs/maintenance/PROJECT_PAGE_AUDIT.md`, `docs/maintenance/QUIZ_PAGE_AUDIT.md`: UI隣接巨大ファイルの棚卸し
+| やりたいこと | 置き場所・使うもの |
+|---|---|
+| ページ (`src/app/**/page.tsx`) | 画面の組み立てと状態だけ。純粋な計算は `src/lib/<機能>/` に出してテストを書く。表示部品は `src/components/<機能>/` に出す |
+| API ルート (`src/app/api/**/route.ts`) | 入出力と認可だけ。処理本体は `src/lib/<機能>/` (例: `lib/scan/`, `lib/battle/`) |
+| service role の Supabase クライアント | `src/lib/supabase/admin.ts` (ルートごとに `createClient(url, serviceKey)` を書かない) |
+| Cookie セッションの Supabase クライアント (サーバー) | `src/lib/supabase/server.ts` |
+| `Authorization: Bearer` の取り出し | `src/lib/api/bearer-token.ts` (`getBearerToken`) |
+| ルートでのログインユーザー解決 | `src/lib/api/route-auth.ts`、Pro 限定は `src/lib/api/pro-auth.ts` |
+| 一意制約違反 (23505) の判定 | `src/lib/supabase/postgres-errors.ts` |
+| 公開一覧のカーソル・検索語の正規化 | `src/lib/api/listing.ts` |
+| ブラウザから JSON API を叩くときのトークン付きヘッダー | `src/lib/supabase/auth-headers.ts` |
+| JST の暦日 (日次上限・「今日」) | `src/lib/date/jst.ts` (対戦の上限は SQL の `battle_day_key` と対なので挙動を変えない) |
+| 単語帳・アバターのサムネ色 | `src/lib/ui/thumb-color.ts` (デスクトップは別配色の `components/desktop/desktop-data.ts`) |
+| OG 画像の日本語フォント | `src/lib/og/japanese-font.ts` |
+| 録音 (MediaRecorder) の MIME 選択・GCP 向け変換 | `src/lib/speech/recorded-audio.ts` |
+| AI 出力の JSON 取り出し | `src/lib/ai/utils/json.ts` |
+| 汎用の小物 (`cn`, `shuffleArray`, `chunkArray`, `sleep`, `isRecord` など) | `src/lib/utils.ts` (クライアントからも読むので server 専用 import を入れない) |
+| ドメイン型 | `shared/types/` が正。`src/types/` は再エクスポート |
 
-`maintenance/` は作業中のホワイトボードです。恒久化すべき内容は後続作業で正式docsへ移します。
+`export` は「ファイルの外から使われている」という意味にそろえてあります (2026-10 に未使用 export を一掃)。ファイル内でしか使わないものは `export` しないでください。使われなくなったコードは消してください —— `*.legacy.tsx` のような「念のため残した旧版」は、誰も使っていないのに後続の変更で律儀に編集され続けていました。
+
+## 資料の地図
+
+恒久 docs:
+
+- `architecture.md` — システム構成と主要データフロー
+- `boundaries.md` — 触ってよい領域と危険領域
+- `invariants.md` — 破ってはいけない不変条件
+- `commands.md` — コマンド一覧と危険度
+- `runbooks.md` — 作業手順 (テスト追加・migration 追加など)
+- `ops/` — 障害対応 runbook と本番運用 (`ops/README.md` が入口)
+  - ログイン: `ops/login-auth-failure-runbook.md` / スキャン: `ops/scan-failure-runbook.md` / 課金: `ops/billing-stripe-failure-runbook.md` / Supabase: `ops/supabase-incident-runbook.md` / AI コスト急増: `ops/ai-cost-spike-runbook.md` / Sentry: `ops/sentry-runbook.md`
+- `security/` — セキュリティガードと依存ポリシー
+- 機能別の仕様: `OFFLINE-MODE-DESIGN.md`, `paraphrase-quiz.md`, `official-wordbook-editor.md`, `subscription-policy.md`, `word-translations-rework-2026-06-22.md` ほか
+
+調査メモ・日付つきのレポート (`*-2026-MM-DD.md`, `research/`, `ux/`, `ui_tactics/`) は書いた時点のスナップショットです。現状の説明としては使わないでください。
+
+`maintenance/_archive/` は終わった保守作業の作業ログです (2026-05 の公開前整備など)。経緯を調べるとき以外は読まなくて構いません。
+
+## 既知の残課題
+
+- 巨大なページ・ルートがまだ残っています。分割するときは、純粋関数を `src/lib/` に出してテストを書く → 表示部品を `src/components/` に出す、の順で、1 回の変更で 1 ファイルずつ進めてください。
+  - ページ本体の関数がまだ長いもの: `src/app/project/[id]/page.tsx` (約 2,000 行)、`src/app/quiz/[projectId]/page.tsx`、`src/app/home-client.tsx`、`src/app/share/[shareId]/page.tsx`、`src/app/shared/SharedPageClient.tsx`。次の一手はデータ取得・同期の `useEffect` 群をカスタムフックへ出すこと
+  - `src/app/api/scan-jobs/process/route.ts` の `processJobById` (1 関数で千行超。前段の補助関数は `lib/scan/` へ出し済み。contract test が厚いので、段階 (抽出 → 解決 → 保存 → 後処理) ごとに関数へ切り出すのが次の一手)
+  - `src/app/api/shared-projects/shared.ts`, `groups/shared.ts`, `src/app/api/reels/shared.ts` は API ルート間で共有される実質ライブラリ。`src/lib/` へ移すのが筋
+- 401 の応答本文がルートごとにばらばら (`{ error: 'Unauthorized' }` / `{ success: false, error: '認証が必要です。' }` など)。クライアントが本文で分岐していないか確かめてから揃えること
+- `src/app/api/subscription/**` (課金) は service role クライアントをルートごとに作ったまま。危険箇所なので整理は単独の変更で行うこと
+- ルート直下に試作物・素材 (`stitch/`, `uisu/`, `appimages/`, `*.png`, `*.pdf`, `pro-free-comparison.html` など) が残っている。アプリからは参照されていない

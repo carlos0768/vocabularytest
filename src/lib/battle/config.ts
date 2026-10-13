@@ -48,7 +48,7 @@ export const BATTLE_CHOICE_COUNT = 4;
 /** A battle needs at least this many usable words across both wordbooks. */
 export const BATTLE_MIN_SOURCE_WORDS = 4;
 
-export const BATTLE_INVITE_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/;
+const BATTLE_INVITE_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/;
 
 export function clampQuestionCount(value: number): number {
   if (!Number.isFinite(value)) return BATTLE_DEFAULT_QUESTION_COUNT;

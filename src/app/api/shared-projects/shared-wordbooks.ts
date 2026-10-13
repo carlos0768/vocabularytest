@@ -5,7 +5,7 @@ import type {
   SharedProjectPreviewPayload,
   SharedUserSummary,
 } from '@/lib/shared-projects/types';
-import type { Project, Word } from '@/types';
+import type { Word } from '@/types';
 import { mapProjectFromRow, type ProjectRow } from '../../../../shared/db';
 import { normalizeSharedTags } from '../../../../shared/shared-tags';
 import {
@@ -15,6 +15,12 @@ import {
 } from '@/lib/shared-projects/snapshot-translations';
 import { createSharedTagsEmbedding } from '@/lib/shared-projects/tag-embeddings';
 import { computeEikenLevelTagForWords, mergeEikenLevelTag } from '@/lib/shared-projects/eiken-level-tag';
+import {
+  decodeOffsetCursor,
+  encodeOffsetCursor,
+  includesSearchText,
+  normalizeHandleSearchQuery,
+} from '@/lib/api/listing';
 
 type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
@@ -230,14 +236,6 @@ function clampSharePreviewWordLimit(limit: number): number {
   return Math.max(0, Math.min(MAX_SHARE_PREVIEW_WORD_LIMIT, Math.floor(limit)));
 }
 
-function normalizeSearchQuery(query?: string | null): string {
-  return (query ?? '').trim().replace(/^@+/, '').toLowerCase();
-}
-
-function includesSearchText(value: string | null | undefined, query: string): boolean {
-  return value?.toLowerCase().includes(query) ?? false;
-}
-
 function rowMatchesSearch(
   row: SharedWordbookRow,
   profile: SharedProfileSummary | undefined,
@@ -250,22 +248,6 @@ function rowMatchesSearch(
   return normalizeStringArray(row.shared_tags).some((tag) => includesSearchText(tag, query));
 }
 
-function encodeOffsetCursor(offset: number): string {
-  return Buffer.from(JSON.stringify({ offset }), 'utf8').toString('base64url');
-}
-
-function decodeOffsetCursor(cursor: string | null): number {
-  if (!cursor) return 0;
-  try {
-    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as { offset?: unknown };
-    return typeof parsed.offset === 'number' && Number.isFinite(parsed.offset) && parsed.offset > 0
-      ? Math.floor(parsed.offset)
-      : 0;
-  } catch {
-    return 0;
-  }
-}
-
 // ============ Public discovery reads ============
 
 export async function listPublicSharedWordbooks(
@@ -273,7 +255,7 @@ export async function listPublicSharedWordbooks(
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<PublicSharedProjectListPayload> {
   const limit = clampPublicPageSize(options.limit);
-  const query = normalizeSearchQuery(options.query);
+  const query = normalizeHandleSearchQuery(options.query);
   const offset = decodeOffsetCursor(options.cursor ?? null);
 
   // Fetch a generous window so we can filter by search text in-memory.
@@ -307,7 +289,7 @@ export async function listPublicSharedWordbookUsers(
   admin: SupabaseAdminClient = getSupabaseAdmin(),
 ): Promise<{ users: SharedUserSummary[]; nextCursor: string | null }> {
   const limit = clampPublicPageSize(options.limit);
-  const query = normalizeSearchQuery(options.query);
+  const query = normalizeHandleSearchQuery(options.query);
   const offset = decodeOffsetCursor(options.cursor ?? null);
 
   const { data, error } = await admin
@@ -849,5 +831,3 @@ export async function setSharedWordbookLike(
 
   return { liked, likeCount };
 }
-
-export type { Project };

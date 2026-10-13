@@ -1,6 +1,6 @@
-import type { Project, Word, WordStatus } from '@/types';
+import type { Project } from '@/types';
 
-export const DESKTOP_THUMBS = [
+const DESKTOP_THUMBS = [
   '#15803d',
   '#1f6f73',
   '#b45309',
@@ -10,14 +10,6 @@ export const DESKTOP_THUMBS = [
   '#4d7c0f',
   '#1e3a8a',
 ];
-
-export const DESKTOP_STATUS_LABEL: Record<WordStatus, string> = {
-  mastered: '習得',
-  active: '定着中',
-  review: '学習中',
-  new: '未学習',
-};
-
 const POS_LABELS: Record<string, string> = {
   noun: '名詞',
   verb: '動詞',
@@ -125,17 +117,9 @@ export function desktopUpdatedLabel(iso?: string | null) {
   return `${Math.floor(days / 30)}ヶ月前`;
 }
 
-export function desktopCountWords(words: Word[]) {
-  return words.reduce(
-    (acc, word) => {
-      acc.total += 1;
-      if (word.status === 'mastered') acc.mastered += 1;
-      else if (word.status === 'active') acc.active += 1;
-      else if (word.status === 'review') acc.review += 1;
-      else acc.neww += 1;
-      if (word.isFavorite) acc.favorite += 1;
-      return acc;
-    },
-    { total: 0, mastered: 0, active: 0, review: 0, neww: 0, favorite: 0 },
-  );
-}
+/**
+ * 写真・ドロップ領域の空き地に敷く斜めストライプ。
+ * Two ink washes over the page ground, so the hatch stays a hatch in both themes.
+ */
+export const STRIPE_BG =
+  'repeating-linear-gradient(135deg, color-mix(in srgb, var(--solid-ink) 5%, var(--color-background)), color-mix(in srgb, var(--solid-ink) 5%, var(--color-background)) 10px, color-mix(in srgb, var(--solid-ink) 9%, var(--color-background)) 10px, color-mix(in srgb, var(--solid-ink) 9%, var(--color-background)) 20px)';

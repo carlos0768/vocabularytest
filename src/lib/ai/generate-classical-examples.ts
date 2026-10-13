@@ -56,7 +56,7 @@ const classicalExampleSchema = z.object({
 });
 
 /** Gemini Controlled Generation schema mirroring `classicalExampleSchema`. */
-export const CLASSICAL_EXAMPLE_RESPONSE_SCHEMA: ResponseSchema = {
+const CLASSICAL_EXAMPLE_RESPONSE_SCHEMA: ResponseSchema = {
   type: 'OBJECT',
   properties: {
     exampleSentence: { type: 'STRING' },

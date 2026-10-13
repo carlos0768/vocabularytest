@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
 import type { FriendProfile } from '@/lib/friends/types';
+import { displayName } from '@/lib/profile/display-name';
 import { followSuggestionLabel, type FollowSuggestion } from '@/lib/follows/suggestions';
 import type { FollowingTodayActivity } from '@/lib/follows/today-activity';
 
@@ -33,10 +34,6 @@ function writeDismissed(ids: Set<string>) {
 
 const CARD_CLASS =
   'relative flex w-[83px] shrink-0 snap-start flex-col items-center rounded-[11px] border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2 pb-2.5 pt-2.5';
-
-function displayName(profile: FriendProfile): string {
-  return profile.username?.trim() || `@${profile.accountId}`;
-}
 
 function Avatar({ profile }: { profile: FriendProfile }) {
   return (
