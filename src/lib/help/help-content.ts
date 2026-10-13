@@ -7,6 +7,8 @@
  * 使えると誤解させるので載せない。機能を追加・削除したらここも直す。
  */
 
+import { LEVEL_TEST_FEATURE_ENABLED } from '@/lib/level-test/feature-flag';
+
 export type HelpPlanBadge = 'pro' | 'free-limited';
 
 export interface HelpItem {
@@ -265,13 +267,17 @@ export const HELP_SECTIONS: HelpSection[] = [
         href: '/stats',
         linkLabel: '記録を開く',
       },
-      {
-        icon: 'military_tech',
-        title: '語彙力レベル診断',
-        body: '20問に答えると、いまの語彙力が英検の何級あたりかを判定します。何度でも受けられます。',
-        href: '/level-test',
-        linkLabel: '診断を受ける',
-      },
+      ...(LEVEL_TEST_FEATURE_ENABLED
+        ? [
+            {
+              icon: 'military_tech',
+              title: '語彙力レベル診断',
+              body: '20問に答えると、いまの語彙力が英検の何級あたりかを判定します。何度でも受けられます。',
+              href: '/level-test',
+              linkLabel: '診断を受ける',
+            },
+          ]
+        : []),
       {
         icon: 'lightbulb',
         title: '豆知識',
