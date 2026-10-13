@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { DesktopHeader } from '@/components/desktop/DesktopChrome';
 import { TabletSidebar } from '@/components/tablet/TabletSidebar';
 import { markClientNavigation, useAuth } from '@/hooks/use-auth';
+import { createScrollStopTapGuard } from '@/lib/ui/scroll-stop-tap';
 import { cn } from '@/lib/utils';
 import { BottomNav } from './bottom-nav';
 
@@ -90,11 +91,14 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
     let touchStartY = 0;
     let hasMoved = false;
     let scrollTimeout: ReturnType<typeof setTimeout>;
+    // 慣性スクロールを止めるためのタップが click になる (iPad) のを防ぐ判定
+    const stopTapGuard = createScrollStopTapGuard();
 
     const handleTouchStart = (e: TouchEvent) => {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
       hasMoved = false;
+      stopTapGuard.onTouchStart();
     };
     const handleTouchMove = (e: TouchEvent) => {
       // 縦・横どちらの移動もスクロールとみなす。横スクロール(本棚など)が縦しか
@@ -106,11 +110,13 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
       const dy = Math.abs(e.touches[0].clientY - touchStartY);
       if (dx > 8 || dy > 8) {
         hasMoved = true;
+        stopTapGuard.onTouchMove();
         setScrollEnding(true);
       }
     };
     const handleTouchEnd = () => {
       clearTimeout(scrollTimeout);
+      stopTapGuard.onTouchEnd(hasMoved);
       if (hasMoved) {
         // スクロール直後の誤タップを飲み込むため、少し遮蔽を残してから解除する
         scrollTimeout = setTimeout(() => setScrollEnding(false), 200);
@@ -119,14 +125,36 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
         setScrollEnding(false);
       }
     };
+    const handleTouchCancel = () => {
+      stopTapGuard.onTouchCancel();
+    };
+    // 本文 (.ds-live-main) も window も、どこがスクロールしても拾う
+    const handleScroll = () => {
+      stopTapGuard.onScroll();
+    };
+    // iPad: overflow コンテナの慣性スクロール中に指を置くと、止まるだけでなく
+    // その場所に click まで飛び、指の下にあったリンクが開いてしまう (window が
+    // スクロールするスマホでは起きない)。止めるためのタップだったと判定できた
+    // 直後の click を 1 回だけ、React に届く前 (capture) で捨てる。
+    const handleClickCapture = (e: MouseEvent) => {
+      if (!stopTapGuard.shouldSuppressClick()) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
 
     document.addEventListener('touchstart', handleTouchStart, { passive: true });
     document.addEventListener('touchmove', handleTouchMove, { passive: true });
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    document.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+    document.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    window.addEventListener('click', handleClickCapture, { capture: true });
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchcancel', handleTouchCancel);
+      document.removeEventListener('scroll', handleScroll, { capture: true });
+      window.removeEventListener('click', handleClickCapture, { capture: true });
       clearTimeout(scrollTimeout);
     };
   }, []);

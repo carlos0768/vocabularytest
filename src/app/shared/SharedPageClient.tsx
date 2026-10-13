@@ -569,7 +569,7 @@ function BrowseSection({
 
   return (
     <div className="px-[14px] py-3">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 tablet:grid-cols-3">
         {tiles.map((tile) => (
           <button
             key={tile.key}

@@ -40,6 +40,9 @@ docs と実コードが食い違ったら実コードが正です。食い違い
 | ブラウザから JSON API を叩くときのトークン付きヘッダー | `src/lib/supabase/auth-headers.ts` |
 | JST の暦日 (日次上限・「今日」) | `src/lib/date/jst.ts` (対戦の上限は SQL の `battle_day_key` と対なので挙動を変えない) |
 | 単語帳・アバターのサムネ色 | `src/lib/ui/thumb-color.ts` (デスクトップは別配色の `components/desktop/desktop-data.ts`) |
+| 画面のレイアウト (phone / tablet / desktop) の判定 | `src/lib/ui/layout-mode.ts` (`resolveLayoutMode`)。CSS は `desktop:` / `tablet:` / `tablet-compact:` / `tablet-regular:` バリアント、JS は `useLayoutMode()` (`src/hooks/use-layout-mode.ts`)。`matchMedia('(min-width: 1024px)')` や `lg:` を新たに書かない |
+| ナビタブ (ホーム / 目標 / 作成 / 共有 / アカウント …) の定義 | `src/lib/navigation/tabs.ts`。ボトムナビ・タブレットのサイドバー・デスクトップヘッダーが同じものを読む |
+| タブレット (iPad) 専用の画面部品 | `src/components/tablet/` (`TabletOnly` で tablet のときだけマウント)。スマホ由来のページは tablet.css が中央 760px に収めるので、専用ビューは主要画面だけ |
 | OG 画像の日本語フォント | `src/lib/og/japanese-font.ts` |
 | 録音 (MediaRecorder) の MIME 選択・GCP 向け変換 | `src/lib/speech/recorded-audio.ts` |
 | AI 出力の JSON 取り出し | `src/lib/ai/utils/json.ts` |
