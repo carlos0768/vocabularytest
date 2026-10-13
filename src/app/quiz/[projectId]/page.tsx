@@ -2001,9 +2001,11 @@ export default function QuizPage() {
     <div className="desktop:hidden">
       <BattleScreen
         fill
+        wide
         bodyClassName="pt-3"
         header={
           <BattleScreenHeader
+            wide
             eyebrow={isTimeAttack ? 'TIME ATTACK' : 'QUIZ'}
             title={quizScopeLabel ?? quizKindLabel}
             onBack={backToProject}

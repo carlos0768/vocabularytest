@@ -23,6 +23,7 @@ export function BattleScreen({
   bodyClassName,
   center = false,
   fill = false,
+  wide = false,
 }: {
   header: ReactNode;
   children: ReactNode;
@@ -31,6 +32,8 @@ export function BattleScreen({
   center?: boolean;
   /** 本文を画面いっぱいに伸ばし、中で flex 配分させる（対戦中）。 */
   fill?: boolean;
+  /** 本文の最大幅を 560px ではなく 760px にする (クイズ・フラッシュカードと揃える)。 */
+  wide?: boolean;
 }) {
   return (
     <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:static desktop:z-auto desktop:h-full">
@@ -38,7 +41,8 @@ export function BattleScreen({
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div
           className={cn(
-            'mx-auto flex w-full max-w-[560px] flex-col px-[18px]',
+            'mx-auto flex w-full flex-col px-[18px]',
+            wide ? 'max-w-[760px]' : 'max-w-[560px]',
             (center || fill) && 'min-h-full',
             center && 'justify-center',
             bodyClassName,
@@ -63,6 +67,7 @@ export function BattleScreenHeader({
   onBack,
   right,
   children,
+  wide = false,
 }: {
   eyebrow: string;
   title: ReactNode;
@@ -71,6 +76,8 @@ export function BattleScreenHeader({
   onBack?: () => void;
   right?: ReactNode;
   children?: ReactNode;
+  /** 最大幅を 760px にする。`BattleScreen` の `wide` と揃えて使う。 */
+  wide?: boolean;
 }) {
   const router = useRouter();
   const showBack = Boolean(backHref || onBack);
@@ -91,7 +98,7 @@ export function BattleScreenHeader({
       className="shrink-0 border-b-2 border-[var(--color-border)] bg-[var(--color-background)] px-[18px] pb-2.5"
       style={{ paddingTop: 'max(10px, calc(env(safe-area-inset-top) + 10px))' }}
     >
-      <div className="mx-auto w-full max-w-[560px]">
+      <div className={cn('mx-auto w-full', wide ? 'max-w-[760px]' : 'max-w-[560px]')}>
         <div className="flex items-center gap-2.5">
           {showBack && (
             <button
