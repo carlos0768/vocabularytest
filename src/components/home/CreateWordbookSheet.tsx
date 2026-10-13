@@ -35,11 +35,6 @@ const METHODS: MethodOption[] = [
 interface CreateWordbookSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  /**
-   * 'sheet'（既定）はモバイル向けボトムシート。'modal' はデスクトップ向けの
-   * 中央モーダル（下から出る UI を使わない）。中身のフローは共通。
-   */
-  variant?: 'sheet' | 'modal';
 }
 
 /**
@@ -50,7 +45,7 @@ interface CreateWordbookSheetProps {
  * The optional name is carried into the scan flow as the new project
  * title, and is required for blank creation.
  */
-export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: CreateWordbookSheetProps) {
+export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProps) {
   const router = useRouter();
   const { user, subscription, isPro } = useAuth();
   const [step, setStep] = useState<'method' | 'scan'>('method');
@@ -142,52 +137,22 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
         onClick={submitting ? undefined : onClose}
       />
 
-      {/* variant='sheet': ボトムシート / variant='modal': 中央モーダル（デスクトップ） */}
-      <div
-        className={
-          variant === 'modal'
-            ? 'absolute inset-0 flex items-center justify-center p-6'
-            : 'absolute bottom-0 left-0 right-0 flex justify-center'
-        }
-      >
+      {/* 全レイアウト共通: 四方に余白のある中央の浮いたカード (単語詳細と同じ形) */}
+      <div className="absolute inset-0 flex items-center justify-center p-4 tablet:p-6 desktop:p-6">
         <div
-          className={variant === 'modal' ? 'w-full animate-fade-in' : 'w-full animate-fade-in-up'}
-          style={
-            variant === 'modal'
-              ? {
-                  maxWidth: 480,
-                  maxHeight: '100%',
-                  overflowY: 'auto',
-                  background: 'var(--color-paper)',
-                  border: '2px solid var(--solid-ink)',
-                  borderRadius: 20,
-                  padding: '18px 20px 22px',
-                  boxShadow: '6px 8px 0 var(--solid-ink)',
-                }
-              : {
-                  maxWidth: 480,
-                  // 背の低い画面 (iPhone SE など) では選択肢が画面の上にはみ出して
-                  // 見出しが押せなくなるので、画面内に収めて中をスクロールさせる。
-                  maxHeight: '92dvh',
-                  overflowY: 'auto',
-                  overscrollBehavior: 'contain',
-                  background: 'var(--color-paper)',
-                  border: '2px solid var(--solid-ink)',
-                  borderBottomWidth: 0,
-                  borderTopLeftRadius: 20,
-                  borderTopRightRadius: 20,
-                  padding: '14px 18px max(28px, env(safe-area-inset-bottom))',
-                  boxShadow: '0 -8px 24px color-mix(in srgb, var(--solid-ink) 18%, transparent)',
-                }
-          }
+          className="w-full animate-fade-in"
+          style={{
+            maxWidth: 480,
+            maxHeight: '100%',
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            background: 'var(--color-paper)',
+            border: '2px solid var(--solid-ink)',
+            borderRadius: 20,
+            padding: '18px 20px 22px',
+            boxShadow: '6px 8px 0 var(--solid-ink)',
+          }}
         >
-          {/* Drag handle（ボトムシートのみ） */}
-          {variant === 'sheet' && (
-            <div className="mb-2.5 flex justify-center">
-              <div className="h-1 w-10 rounded-full bg-[color-mix(in_srgb,_var(--solid-ink)_20%,_transparent)]" />
-            </div>
-          )}
-
           {/* Title row */}
           <div className="mb-3.5 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -202,17 +167,9 @@ export function CreateWordbookSheet({ isOpen, onClose, variant = 'sheet' }: Crea
                 </button>
               )}
               <div>
-                <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
-                  {step === 'scan' ? 'NEW SCAN' : 'NEW'}
-                </div>
-                <div className="mt-0.5 font-display text-[20px] font-extrabold leading-[1.15] text-[var(--solid-ink)]">
+                <div className="font-display text-[20px] font-extrabold leading-[1.15] text-[var(--solid-ink)]">
                   {step === 'scan' ? '写真でスキャン' : '新しい単語帳'}
                 </div>
-                {step === 'method' && (
-                  <div className="mt-1 text-[12px] font-medium text-[var(--color-muted)]">
-                    作成方法を選んでください
-                  </div>
-                )}
                 {step === 'scan' && trimmedName && (
                   <div className="mt-0.5 text-[11px] font-bold text-[var(--color-muted)]">
                     「{trimmedName}」として作成

@@ -333,7 +333,6 @@ export default function ProjectListPage() {
       <CreateWordbookSheet
         isOpen={desktopCreateOpen}
         onClose={() => setDesktopCreateOpen(false)}
-        variant="modal"
       />
     </>
   );
