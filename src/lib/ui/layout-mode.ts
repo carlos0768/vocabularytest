@@ -45,6 +45,15 @@ export const TABLET_SIZE_ATTR = 'data-tablet-size';
 /** 開発時に判定を固定するための localStorage キー (本番ビルドでは読まない) */
 export const LAYOUT_OVERRIDE_STORAGE_KEY = 'merken_layout_override';
 
+/**
+ * タブレットのサイドバーを格納しているか。横向きでもアイコンのレールに畳む。
+ * 値は localStorage に持ち、<html data-tablet-sidebar="collapsed"> で CSS に伝える
+ * (tablet.css)。ブートストラップでも読むので初回描画から畳んだ状態で出る。
+ */
+export const TABLET_SIDEBAR_STORAGE_KEY = 'merken_tablet_sidebar';
+export const TABLET_SIDEBAR_ATTR = 'data-tablet-sidebar';
+export const TABLET_SIDEBAR_COLLAPSED = 'collapsed';
+
 export function resolveLayoutMode(input: LayoutInput): LayoutSnapshot {
   const { width, height, hoverCapable, isIPadOS } = input;
   const shortSide = Math.min(width, height);
@@ -103,5 +112,6 @@ ${override}
 var r=document.documentElement;
 r.setAttribute(${JSON.stringify(LAYOUT_MODE_ATTR)},m);
 if(s){r.setAttribute(${JSON.stringify(TABLET_SIZE_ATTR)},s);}else{r.removeAttribute(${JSON.stringify(TABLET_SIZE_ATTR)});}
+try{if(localStorage.getItem(${JSON.stringify(TABLET_SIDEBAR_STORAGE_KEY)})===${JSON.stringify(TABLET_SIDEBAR_COLLAPSED)}){r.setAttribute(${JSON.stringify(TABLET_SIDEBAR_ATTR)},${JSON.stringify(TABLET_SIDEBAR_COLLAPSED)});}}catch(e){}
 }catch(e){}})();`;
 }

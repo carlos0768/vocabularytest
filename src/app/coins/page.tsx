@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/button';
 import { DesktopButton, DesktopTopbar } from '@/components/desktop/DesktopChrome';
+import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
 import { useAuth } from '@/hooks/use-auth';
 import { useCoins } from '@/hooks/use-coins';
 
@@ -156,21 +157,11 @@ export default function CoinsPage() {
     </div>
 
     {/* Mobile */}
-    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] pt-3 font-[var(--font-body)] desktop:hidden">
-      <div className="px-[18px] pb-[14px] pt-1">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          aria-label="戻る"
-          className="mb-2 flex h-[38px] w-[38px] items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        >
-          <Icon name="chevron_left" size={20} />
-        </button>
-        <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">COINS</div>
-        <div className="mt-0.5 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[var(--solid-ink)]">コイン</div>
-      </div>
+    <div className="relative min-h-screen bg-[var(--color-background)] pb-[110px] font-[var(--font-body)] desktop:hidden">
+      {/* 設定まわりと同じ、スクロールしても残るヘッダ (戻る + 見出し) */}
+      <StickyPageHeader eyebrow="COINS" title="コイン" onBack={() => router.back()} />
 
-      <div className="space-y-4 px-[18px]">
+      <div className="space-y-4 px-[18px] pt-3">
         {/* 残高カード */}
         <div className="rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4" style={{ boxShadow: '2.5px 2.5px 0 var(--solid-ink)' }}>
           <div className="flex items-center justify-between">

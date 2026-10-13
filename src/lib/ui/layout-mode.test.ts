@@ -5,6 +5,9 @@ import vm from 'node:vm';
 import {
   LAYOUT_MODE_ATTR,
   LAYOUT_OVERRIDE_STORAGE_KEY,
+  TABLET_SIDEBAR_ATTR,
+  TABLET_SIDEBAR_COLLAPSED,
+  TABLET_SIDEBAR_STORAGE_KEY,
   TABLET_SIZE_ATTR,
   layoutModeBootstrapScript,
   parseLayoutOverride,
@@ -46,7 +49,10 @@ describe('resolveLayoutMode', () => {
  * ブートストラップ文字列を偽の window / document / navigator に対して実行し、
  * `<html>` に書かれた属性を返す。
  */
-function runBootstrap(input: LayoutInput, options: { allowOverride?: boolean; override?: string | null } = {}) {
+function runBootstrap(
+  input: LayoutInput,
+  options: { allowOverride?: boolean; override?: string | null; sidebar?: string | null } = {},
+) {
   const attrs = new Map<string, string>();
   const documentElement = {
     setAttribute: (k: string, v: string) => { attrs.set(k, v); },
@@ -63,38 +69,53 @@ function runBootstrap(input: LayoutInput, options: { allowOverride?: boolean; ov
       ? { platform: 'MacIntel', maxTouchPoints: 5, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) Safari' }
       : { platform: 'Win32', maxTouchPoints: 0, userAgent: 'Mozilla/5.0 (Windows NT 10.0)' },
     localStorage: {
-      getItem: (k: string) => (k === LAYOUT_OVERRIDE_STORAGE_KEY ? options.override ?? null : null),
+      getItem: (k: string) => {
+        if (k === LAYOUT_OVERRIDE_STORAGE_KEY) return options.override ?? null;
+        if (k === TABLET_SIDEBAR_STORAGE_KEY) return options.sidebar ?? null;
+        return null;
+      },
     },
   };
   vm.runInNewContext(layoutModeBootstrapScript(options.allowOverride ?? false), sandbox);
   return {
     mode: attrs.get(LAYOUT_MODE_ATTR) ?? null,
     tabletSize: attrs.get(TABLET_SIZE_ATTR) ?? null,
+    sidebar: attrs.get(TABLET_SIDEBAR_ATTR) ?? null,
   };
 }
 
 describe('layoutModeBootstrapScript', () => {
   for (const c of CASES) {
     it(`resolveLayoutMode と同じ結果を <html> に書く: ${c.name}`, () => {
-      assert.deepEqual(runBootstrap(c.input), c.expected);
+      const { sidebar, ...result } = runBootstrap(c.input);
+      assert.deepEqual(result, c.expected);
+      assert.equal(sidebar, null);
     });
   }
 
+  it('サイドバーを格納していれば data-tablet-sidebar="collapsed" も初回描画前に付ける', () => {
+    const r = runBootstrap({ width: 1194, height: 834, ...touch }, { sidebar: TABLET_SIDEBAR_COLLAPSED });
+    assert.equal(r.sidebar, TABLET_SIDEBAR_COLLAPSED);
+    assert.equal(r.mode, 'tablet');
+    const r2 = runBootstrap({ width: 1194, height: 834, ...touch }, { sidebar: 'open' });
+    assert.equal(r2.sidebar, null);
+  });
+
   it('本番 (allowOverride=false) では localStorage の上書きを読まない', () => {
     const r = runBootstrap({ width: 1280, height: 800, ...mouse }, { allowOverride: false, override: 'tablet-compact' });
-    assert.deepEqual(r, { mode: 'desktop', tabletSize: null });
+    assert.deepEqual(r, { mode: 'desktop', tabletSize: null, sidebar: null });
   });
 
   it('開発 (allowOverride=true) では localStorage の上書きが勝つ', () => {
     const r = runBootstrap({ width: 1280, height: 800, ...mouse }, { allowOverride: true, override: 'tablet-compact' });
-    assert.deepEqual(r, { mode: 'tablet', tabletSize: 'compact' });
+    assert.deepEqual(r, { mode: 'tablet', tabletSize: 'compact', sidebar: null });
     const r2 = runBootstrap({ width: 390, height: 844, ...touch }, { allowOverride: true, override: 'desktop' });
-    assert.deepEqual(r2, { mode: 'desktop', tabletSize: null });
+    assert.deepEqual(r2, { mode: 'desktop', tabletSize: null, sidebar: null });
   });
 
   it('不正な上書き値は無視する', () => {
     const r = runBootstrap({ width: 834, height: 1194, ...touch }, { allowOverride: true, override: 'tv' });
-    assert.deepEqual(r, { mode: 'tablet', tabletSize: 'compact' });
+    assert.deepEqual(r, { mode: 'tablet', tabletSize: 'compact', sidebar: null });
   });
 
   it('例外が起きても何も投げない (try/catch で包んでいる)', () => {
