@@ -204,16 +204,16 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
     <div className="relative mx-auto min-h-screen w-full max-w-[560px] bg-[var(--color-background)] px-[18px] pb-[max(2rem,env(safe-area-inset-bottom))] font-[var(--font-body)] desktop:max-w-[720px] desktop:px-8">
       {/* ノッチ帯は全体共通の StatusBarCover が覆うので、ここではヘッダだけ固定する */}
       <header
-        className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b-2 bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md desktop:-mx-8 desktop:px-8 ${pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'}`}
+        className={`sticky z-40 -mx-[18px] flex items-center gap-2 border-b bg-[var(--color-background)]/95 px-[18px] py-2.5 backdrop-blur-md desktop:-mx-8 desktop:px-8 ${pageScrolled ? 'border-[var(--color-border)]' : 'border-transparent'}`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <button
           type="button"
           onClick={handleBack}
-          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[19px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
+          className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center text-[var(--solid-ink)]"
           aria-label="バインダーに戻る"
         >
-          <Icon name="chevron_left" size={16} />
+          <Icon name="chevron_left" size={22} />
         </button>
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[10px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
@@ -223,11 +223,11 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
         </div>
       </header>
 
-      <div className="flex flex-col gap-4 pt-3.5">
-        <SectionCard icon="image" title="バインダーアイコン" subtitle="ホームのタイルの絵柄になります" accent="#D97340">
+      <div className="flex flex-col gap-12 pt-6">
+        <Section title="バインダーアイコン" subtitle="ホームのタイルの絵柄になります">
           <div className="flex items-center gap-3">
             <span
-              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-cover bg-center text-white"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[12px] bg-cover bg-center text-white"
               style={{
                 backgroundColor: thumbColor(binderName),
                 backgroundImage: iconImage ? `url(${iconImage})` : undefined,
@@ -239,9 +239,9 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
               <div className="text-[12px] font-bold text-[var(--color-muted)]">
                 {iconImage ? '設定済み' : '未設定（フォルダの絵）'}
               </div>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1">
                 <label
-                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[12.5px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px ${savingIcon ? 'opacity-60' : ''}`}
+                  className={`inline-flex min-h-[40px] cursor-pointer items-center gap-1.5 text-[13px] font-bold text-[var(--color-accent)] ${savingIcon ? 'opacity-60' : ''}`}
                 >
                   <input
                     type="file"
@@ -266,7 +266,7 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
                     type="button"
                     disabled={savingIcon}
                     onClick={() => void handleRemoveIcon()}
-                    className="inline-flex items-center gap-1.5 rounded-[10px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[12.5px] font-bold text-[var(--color-muted)] disabled:opacity-60"
+                    className="inline-flex min-h-[40px] items-center gap-1.5 text-[13px] font-bold text-[var(--color-muted)] disabled:opacity-60"
                   >
                     <Icon name="delete" size={15} />
                     削除
@@ -275,14 +275,9 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
               </div>
             </div>
           </div>
-        </SectionCard>
+        </Section>
 
-        <SectionCard
-          icon="badge"
-          title="バインダー名"
-          subtitle={`${inBinder.length}冊すべての行き先が変わります`}
-          accent="#137FEC"
-        >
+        <Section title="バインダー名" subtitle={`${inBinder.length}冊すべての行き先が変わります`}>
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -291,69 +286,50 @@ export default function BinderSettingsPage({ params }: { params: Promise<{ name:
               disabled={renaming}
               onChange={(event) => setNameDraft(event.target.value)}
               placeholder="バインダー名"
-              className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[13.5px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
+              className="min-w-0 flex-1 border-b border-[var(--color-border)] bg-transparent py-2 text-[16px] font-bold text-[var(--solid-ink)] outline-none focus:border-[var(--solid-ink)] disabled:opacity-60"
             />
             <button
               type="button"
               onClick={() => void handleRename()}
               disabled={renaming || !nameChanged}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--solid-ink)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--color-on-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+              className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 text-[13px] font-bold text-[var(--color-accent)] disabled:opacity-40"
             >
               {renaming && <Icon name="progress_activity" size={14} className="animate-spin" />}
               {renaming ? '変更中...' : '保存'}
             </button>
           </div>
-        </SectionCard>
+        </Section>
 
-        <SectionCard
-          icon="public"
-          title="共有ライブラリに公開"
-          subtitle="バインダー内の単語帳をまとめて公開します（Pro限定）"
-          accent="#664DB3"
-        >
+        <Section title="共有ライブラリに公開" subtitle="バインダー内の単語帳をまとめて公開します（Pro限定）">
           <button
             type="button"
             onClick={() => void handlePublishBinder()}
             disabled={publishing || inBinder.length === 0}
-            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[13px] font-bold text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
+            className="inline-flex min-h-[44px] items-center gap-1.5 text-[14px] font-bold text-[var(--color-accent)] disabled:opacity-40"
           >
             <Icon name={publishing ? 'progress_activity' : 'public'} size={17} className={publishing ? 'animate-spin' : ''} />
             {publishing ? '公開中...' : `${inBinder.length}冊を公開`}
           </button>
-        </SectionCard>
+        </Section>
       </div>
     </div>
   );
 }
 
-function SectionCard({
-  icon,
+function Section({
   title,
   subtitle,
-  accent,
   children,
 }: {
-  icon: string;
   title: string;
   subtitle?: string;
-  accent: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4">
-      <div className="mb-3 flex items-center gap-2.5">
-        <span
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] text-white"
-          style={{ backgroundColor: accent }}
-        >
-          <Icon name={icon} size={18} />
-        </span>
-        <div className="min-w-0">
-          <h2 className="font-display text-[16px] font-extrabold leading-tight text-[var(--solid-ink)]">{title}</h2>
-          {subtitle && <div className="text-[11px] font-bold text-[var(--color-muted)]">{subtitle}</div>}
-        </div>
-      </div>
-      {children}
+    <section>
+      <h2 className="m-0 font-display text-[19px] font-extrabold leading-tight text-[var(--solid-ink)]">{title}</h2>
+      {subtitle && <p className="m-0 mt-1 text-[12px] leading-[1.8] text-[var(--color-muted)]">{subtitle}</p>}
+      <div className="mt-4">{children}</div>
     </section>
   );
 }

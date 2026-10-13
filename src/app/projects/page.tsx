@@ -214,29 +214,6 @@ export default function ProjectListPage() {
     });
   }, [projects, query, sort]);
 
-  // バインダー (フォルダ) ごとにグループ化。バインダー名順 → 未分類の順
-  const binderGroups = useMemo(() => {
-    const byBinder = new Map<string, typeof filtered>();
-    const unfiled: typeof filtered = [];
-    for (const project of filtered) {
-      const name = project.binder?.trim();
-      if (!name) {
-        unfiled.push(project);
-        continue;
-      }
-      const items = byBinder.get(name) ?? [];
-      items.push(project);
-      byBinder.set(name, items);
-    }
-    const groups: { binder: string | null; items: typeof filtered }[] = Array.from(byBinder.entries())
-      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
-      .map(([binder, items]) => ({ binder, items }));
-    if (unfiled.length > 0) {
-      groups.push({ binder: null, items: unfiled });
-    }
-    return groups;
-  }, [filtered]);
-
   return (
     <>
       <DesktopProjectsView
@@ -334,23 +311,15 @@ export default function ProjectListPage() {
           />
         ) : (
           <>
-            {/* バインダーは単体行で表示。中の単語帳はタップして /binder/[name] で見る */}
-            {binderGroups
-              .filter((group) => group.binder !== null)
-              .map((group) => (
-                <BinderRow key={group.binder} name={group.binder as string} count={group.items.length} />
-              ))}
-            {binderGroups
-              .filter((group) => group.binder === null)
-              .flatMap((group) => group.items)
-              .map((project) => (
-                <BookRow
-                  key={project.id}
-                  project={project}
-                  onSetBinder={handleSetBinder}
-                  onDelete={(p) => void handleDeleteProject(p)}
-                />
-              ))}
+            {/* マイ単語帳ではバインダーを出さず、バインダー内の単語帳も含めて並べる */}
+            {filtered.map((project) => (
+              <BookRow
+                key={project.id}
+                project={project}
+                onSetBinder={handleSetBinder}
+                onDelete={(p) => void handleDeleteProject(p)}
+              />
+            ))}
           </>
         )}
       </div>
@@ -471,33 +440,3 @@ function BookRow({
   );
 }
 
-// バインダー(フォルダ)行。単語帳一覧では中身を展開せず、この単体行から
-// /binder/[name] に入って中の単語帳を見せる。配色は単語帳タイルと同じ thumbColor。
-function BinderRow({ name, count }: { name: string; count: number }) {
-  const bg = thumbColor(name);
-  return (
-    <Link href={`/binder/${encodeURIComponent(name)}`}>
-      <SolidPanel
-        className="!rounded-[14px] transition-all duration-100 active:translate-x-px active:translate-y-px"
-        faceClassName="!p-[13px]"
-      >
-        <div className="flex items-center gap-[13px]">
-          <div
-            className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] text-white"
-            style={{ backgroundColor: bg }}
-          >
-            <Icon name="folder" size={22} filled />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="font-mono text-[9px] font-bold tracking-[0.08em] text-[var(--color-muted)]">BINDER</div>
-            <div className="truncate text-sm font-bold text-[var(--solid-ink)]">{name}</div>
-            <div className="mt-0.5 text-[10px] tabular-nums text-[var(--color-muted)]">{count}冊</div>
-          </div>
-          <span className="mr-0.5 inline-flex text-[var(--color-muted)]">
-            <Icon name="chevron_right" size={14} />
-          </span>
-        </div>
-      </SolidPanel>
-    </Link>
-  );
-}
