@@ -2,7 +2,7 @@
 
 /**
  * デスクトップ幅のサポート系ページ (お問い合わせ / 規約類 / 特商法)。
- * 本文はスマホと共通の枠なしコンポーネント (components/support/SupportDoc) を使う。
+ * 本文はスマホと共通のコンポーネント (components/support/SupportDoc) を使う。
  */
 
 import type { ReactNode } from 'react';
