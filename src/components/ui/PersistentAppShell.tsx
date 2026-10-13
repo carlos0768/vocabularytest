@@ -3,7 +3,9 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { DesktopHeader } from '@/components/desktop/DesktopChrome';
+import { TabletSidebar } from '@/components/tablet/TabletSidebar';
 import { markClientNavigation, useAuth } from '@/hooks/use-auth';
+import { cn } from '@/lib/utils';
 import { BottomNav } from './bottom-nav';
 
 const NO_SHELL_PATHS = [
@@ -46,8 +48,21 @@ const HIDE_BOTTOM_NAV_PATHS = [
 // その上に被らないよう出さない。
 const HIDE_DESKTOP_HEADER_PATHS = ['/project/', '/flashcard/', '/quiz/', '/quiz2/', '/quick-response/', '/voice-quiz/'];
 
+// タブレットでサイドバーを出さず 1 カラムにするパス (全画面のフロー)。
+// 学習画面は集中モード、グループ / 語法演習 / 対戦 / スキャン確認は
+// `fixed inset-x-0 top-0 h-[100dvh]` の自前の全画面レイアウトを持つ。
+// 単語帳詳細はタブレットでは専用ビュー (サイドバーあり) なので含めない。
+const TABLET_IMMERSIVE_PATHS = [
+  '/flashcard/', '/quiz/', '/quiz2/', '/quick-response/', '/voice-quiz/',
+  '/battle', '/groups', '/grammar/', '/scan/confirm',
+];
+
 function shouldHideDesktopHeader(pathname: string): boolean {
   return HIDE_DESKTOP_HEADER_PATHS.some((p) => pathname.startsWith(p));
+}
+
+function isTabletImmersive(pathname: string): boolean {
+  return TABLET_IMMERSIVE_PATHS.some((p) => pathname.startsWith(p));
 }
 
 function shouldHideShell(pathname: string): boolean {
@@ -124,14 +139,20 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
 
   const hideNav = shouldHideBottomNav(pathname);
   const hideDesktopHeader = shouldHideDesktopHeader(pathname);
+  const tabletImmersive = isTabletImmersive(pathname);
 
+  // 3 つのレイアウトのクローム。どれを出すかは CSS (<html data-layout>) が決める:
+  //   phone   → 浮いた下部ナビ (BottomNav)
+  //   tablet  → 左サイドバー (TabletSidebar, tablet.css)
+  //   desktop → 上部ヘッダー (DesktopHeader, desktop.css)
   return (
-    <div className="ds-live-shell relative">
+    <div className={cn('ds-live-shell relative', tabletImmersive && 'ds-live-shell--immersive')}>
       {!hideDesktopHeader && <DesktopHeader />}
+      {!tabletImmersive && <TabletSidebar />}
       <div className="ds-live-main relative">
         {children}
       </div>
-      {!hideNav && <div className="desktop:hidden"><BottomNav /></div>}
+      {!hideNav && <div className="desktop:hidden tablet:hidden"><BottomNav /></div>}
       {scrollEnding && (
         <div
           className="fixed inset-0 z-[9998]"
