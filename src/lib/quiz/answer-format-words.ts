@@ -35,7 +35,20 @@ export function matchesAnswerFormat<T extends VocabularyTyped>(
   if (format === 'paraphrase') {
     return options.isParaphraseEligible?.(word) ?? false;
   }
+  // 一般は全語を出す。Active は記述・Passive は四択で出し分けるのは出題画面の側
+  // (`resolveGeneralQuestionFormat`) で、ここでは絞らない。
+  if (format === 'general') return true;
+  // タイムアタックは四択だけなので Passive の語に限る (四択と同じ絞り込み)。
+  if (format === 'timeattack') return !isActiveQuizWord(word);
   return isActiveQuizWord(word) === (format === 'typing');
+}
+
+/**
+ * 一般で、この語を記述 (Active) と四択 (Passive) のどちらで出すか。
+ * 語彙モード未設定は Passive あつかい (`matchesAnswerFormat` と同じ)。
+ */
+export function resolveGeneralQuestionFormat(word: VocabularyTyped): 'typing' | 'normal' {
+  return isActiveQuizWord(word) ? 'typing' : 'normal';
 }
 
 /** その解き方で出題できる語だけを残す。並びは変えない。 */
@@ -62,5 +75,11 @@ export function countWordsByAnswerFormat<T extends VocabularyTyped>(
     if (isActiveQuizWord(word)) typing += 1;
     if (options.isParaphraseEligible?.(word)) paraphrase += 1;
   }
-  return { typing, normal: words.length - typing, paraphrase };
+  return {
+    typing,
+    normal: words.length - typing,
+    paraphrase,
+    general: words.length,
+    timeattack: words.length - typing,
+  };
 }

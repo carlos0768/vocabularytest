@@ -6,6 +6,7 @@
  * ひと目で分かること、押しやすいこと（2×2のボタン盤）を優先している。
  */
 
+import type { ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { speakEnglish } from '@/lib/speech';
 import { triggerHaptic } from '@/lib/haptics';
@@ -26,23 +27,45 @@ export type BattleChoiceState =
 
 const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
 
-export function BattleQuestionCard({ prompt, round }: { prompt: string; round: number }) {
+export function BattleQuestionCard({
+  prompt,
+  round,
+  label,
+  promptNode,
+  speakText,
+  children,
+}: {
+  prompt: string;
+  round: number;
+  /** 見出しの文言。省略すると対戦の「Qn · この単語の意味は？」。 */
+  label?: string;
+  /** 出題文を文字列ではなく要素で出したいとき (前置詞を伏せるなど)。 */
+  promptNode?: ReactNode;
+  /** 読み上げる文字列。省略すると出題文、null なら読み上げボタンを出さない。 */
+  speakText?: string | null;
+  /** 出題文の下に足す要素 (答えたあとに見せる訳など)。 */
+  children?: ReactNode;
+}) {
+  const speak = speakText === undefined ? prompt : speakText;
   return (
     <div className="w-full rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-5 py-6 text-center shadow-[3px_4px_0_var(--solid-shadow)]">
       <div className="font-mono text-[9.5px] font-bold tracking-[0.08em] text-[var(--color-muted)]">
-        Q{round} · この単語の意味は？
+        {label ?? `Q${round} · この単語の意味は？`}
       </div>
       <h1 className="mt-2 break-words font-display text-[32px] font-black leading-[1.15] tracking-[-0.01em] text-[var(--solid-ink)]">
-        {prompt}
+        {promptNode ?? prompt}
       </h1>
-      <button
-        type="button"
-        onClick={() => speakEnglish(prompt)}
-        className="mx-auto mt-3 inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
-      >
-        <Icon name="volume_up" size={12} />
-        読み上げ
-      </button>
+      {children}
+      {speak && (
+        <button
+          type="button"
+          onClick={() => speakEnglish(speak)}
+          className="mx-auto mt-3 inline-flex items-center gap-[5px] rounded-full border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-2.5 py-[5px] text-[11px] font-semibold text-[var(--color-muted)]"
+        >
+          <Icon name="volume_up" size={12} />
+          読み上げ
+        </button>
+      )}
     </div>
   );
 }
