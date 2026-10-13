@@ -126,7 +126,9 @@ test('unavailable storage never skips the chooser', () => {
   assert.equal(readTodaysQuizMode(throwingStorage, MORNING), null);
 });
 
-test('isQuizMode accepts only the three modes', () => {
+test('isQuizMode accepts only the known modes', () => {
+  assert.equal(isQuizMode('general'), true);
+  assert.equal(isQuizMode('timeattack'), true);
   assert.equal(isQuizMode('normal'), true);
   assert.equal(isQuizMode('typing'), true);
   assert.equal(isQuizMode('voice'), true);
@@ -136,6 +138,8 @@ test('isQuizMode accepts only the three modes', () => {
 });
 
 test('isQuizAnswerFormat excludes voice, which lives on its own page', () => {
+  assert.equal(isQuizAnswerFormat('general'), true);
+  assert.equal(isQuizAnswerFormat('timeattack'), true);
   assert.equal(isQuizAnswerFormat('normal'), true);
   assert.equal(isQuizAnswerFormat('typing'), true);
   // 音読チャレンジは /voice-quiz なので、四択クイズ画面の形式としては受け付けない

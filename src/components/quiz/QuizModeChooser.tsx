@@ -20,18 +20,18 @@ const MODES: ReadonlyArray<{
   scope?: string;
 }> = [
   {
-    key: 'normal',
+    key: 'general',
     icon: 'list',
-    title: '四択で解く',
-    description: '',
-    scope: 'Passive (P) の単語だけ出題されます',
+    title: '一般',
+    description: '単語ごとに自動で形式が変わります。',
+    scope: 'Active (A) は記述、Passive (P) は四択で出題されます',
   },
   {
-    key: 'typing',
-    icon: 'keyboard',
-    title: '記述で解く',
-    description: '',
-    scope: 'Active (A) の単語だけ出題されます',
+    key: 'timeattack',
+    icon: 'timer',
+    title: 'タイムアタック',
+    description: '制限時間つきの四択です。時間切れは不正解になります。',
+    scope: 'Passive (P) の単語だけ出題されます',
   },
   {
     key: 'paraphrase',
@@ -39,12 +39,6 @@ const MODES: ReadonlyArray<{
     title: '言い換えで解く',
     description: '英単語と同じ意味の英単語を選びます (plummet → drop)。',
     scope: '英語の言い換えがある単語だけ出題されます',
-  },
-  {
-    key: 'voice',
-    icon: 'mic',
-    title: '声で答える',
-    description: '読み上げられた問題に、声で答えます。マイクを使います。',
   },
 ];
 
