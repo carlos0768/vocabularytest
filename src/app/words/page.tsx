@@ -172,13 +172,13 @@ export default function WordsPage() {
 
   return (
     <div
-      className="relative flex min-h-screen w-full flex-col bg-[var(--color-background)] pb-32 desktop:mx-auto desktop:max-w-[1488px] desktop:px-6 desktop:pb-10"
+      className="tb-bleed relative flex min-h-screen w-full flex-col bg-[var(--color-background)] pb-32 desktop:mx-auto desktop:max-w-[1488px] desktop:px-6 desktop:pb-10 tablet:mx-auto tablet:max-w-[1100px] tablet:px-6 tablet:pb-10"
       style={{ fontFamily: 'var(--font-body)' }}
     >
       {/* スクロールしても上部に固定されるヘッダー(単語帳詳細と同じパターン)。
           下線はコンテンツがヘッダの下に潜り込んだときだけ出す。 */}
       <header
-        className={`sticky z-40 border-b-2 bg-[var(--color-background)]/95 px-[14px] pb-2.5 pt-2.5 backdrop-blur-md desktop:px-0 desktop:pt-3 ${
+        className={`sticky z-40 border-b-2 bg-[var(--color-background)]/95 px-[14px] pb-2.5 pt-2.5 backdrop-blur-md desktop:px-0 desktop:pt-3 tablet:px-0 tablet:pt-3 ${
           pageScrolled ? 'border-[var(--solid-ink)]' : 'border-transparent'
         }`}
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
@@ -222,7 +222,7 @@ export default function WordsPage() {
             type="button"
             onClick={() => setSheetOpen(true)}
             aria-label="絞り込み"
-            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] desktop:hidden"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] desktop:hidden tablet-regular:hidden"
           >
             <Icon name="tune" size={17} />
             {activeCount > 0 && (
@@ -235,7 +235,7 @@ export default function WordsPage() {
           {/* 並べ替え: 端末標準のピッカーを出すため select をそのまま重ねる */}
           <label className="relative flex h-10 shrink-0 items-center gap-1.5 rounded-xl border-[1.5px] border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[var(--solid-ink)]">
             <Icon name="swap_vert" size={16} className="shrink-0 text-[var(--color-muted)]" />
-            <span className="hidden max-w-[150px] truncate text-[11.5px] font-bold desktop:inline">
+            <span className="hidden max-w-[150px] truncate text-[11.5px] font-bold desktop:inline tablet:inline">
               {SORT_LABELS[filter.sort]}
             </span>
             <select
@@ -258,7 +258,7 @@ export default function WordsPage() {
 
       {/* 学習度の内訳。単語帳詳細と同じバーを、枠を持たせず背景の上に置く */}
       {results.length > 0 && (
-        <div className="px-4 pb-1 pt-3 desktop:px-0.5">
+        <div className="px-4 pb-1 pt-3 desktop:px-0.5 tablet:px-0.5">
           <StackedBar
             total={results.length}
             m={statusSummary.mastered}
@@ -269,9 +269,9 @@ export default function WordsPage() {
         </div>
       )}
 
-      <div className="px-4 pt-2.5 desktop:grid desktop:grid-cols-[260px_1fr] desktop:items-start desktop:gap-6 desktop:px-0 desktop:pt-3.5">
-        {/* デスクトップ: 左に絞り込みを常設 */}
-        <aside className="sticky top-[104px] hidden max-h-[calc(100dvh-124px)] overflow-y-auto rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 desktop:block">
+      <div className="px-4 pt-2.5 desktop:grid desktop:grid-cols-[260px_1fr] desktop:items-start desktop:gap-6 desktop:px-0 desktop:pt-3.5 tablet:px-0 tablet-regular:grid tablet-regular:grid-cols-[240px_1fr] tablet-regular:items-start tablet-regular:gap-6 tablet-regular:pt-3.5">
+        {/* デスクトップ / タブレット横向き: 左に絞り込みを常設。縦向きはシートで開く */}
+        <aside className="sticky top-[104px] hidden max-h-[calc(100dvh-124px)] overflow-y-auto rounded-2xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-4 desktop:block tablet-regular:block">
           <WordFilterPanel {...panelProps} />
         </aside>
 

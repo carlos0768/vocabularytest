@@ -190,9 +190,11 @@ export default function GoalPage() {
   // tablet / desktop はシェルがスクロールを持つので従来どおり。
   useLockPageScroll(layoutMode === 'phone');
   return (
-    <div className="relative flex h-[calc(100dvh-env(safe-area-inset-top,0px))] flex-col overflow-hidden bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1 desktop:block desktop:h-auto desktop:min-h-dvh desktop:overflow-visible">
-      <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col desktop:block">
-        <div className="shrink-0 px-[18px] pb-3 pt-2 short:pb-2 short:pt-1">
+    <div className="relative flex h-[calc(100dvh-env(safe-area-inset-top,0px))] flex-col overflow-hidden bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1 desktop:block desktop:h-auto desktop:min-h-dvh desktop:overflow-visible tablet:block tablet:h-auto tablet:min-h-full tablet:overflow-visible tablet:pb-12 tablet:pt-4">
+      {/* タブレット横向き: 左にカレンダー、右に 残り日数 / 今日の10問 / 復習 を並べる。
+          2 行目は error 用に空けてある (gap-y を持たせないので無いときは高さ 0) */}
+      <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col desktop:block tablet:block tablet:max-w-[640px] tablet-regular:grid tablet-regular:max-w-[1040px] tablet-regular:grid-cols-2 tablet-regular:items-start tablet-regular:gap-x-8">
+        <div className="shrink-0 px-[18px] pb-3 pt-2 short:pb-2 short:pt-1 tablet-regular:col-span-2">
           <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)] short:hidden">
             GOAL
           </div>
@@ -200,7 +202,7 @@ export default function GoalPage() {
         </div>
 
         {error && (
-          <div className="shrink-0 px-[18px] pb-3">
+          <div className="shrink-0 px-[18px] pb-3 tablet-regular:col-span-2">
             <div className="rounded-[12px] border-2 border-[var(--color-error)] bg-[var(--color-surface)] p-3 text-xs font-bold text-[var(--color-error)]">
               {error}
             </div>
@@ -208,7 +210,7 @@ export default function GoalPage() {
         )}
 
         {/* 目標バナー: 「〇〇まであと N日」 */}
-        <div className="shrink-0 px-[18px] pb-4 short:pb-2.5">
+        <div className="shrink-0 px-[18px] pb-4 short:pb-2.5 tablet-regular:col-start-2 tablet-regular:row-start-3">
           {!goalLoaded || (loading && !hasGoal) ? (
             <div className="h-[56px] animate-pulse short:h-[48px] rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]" />
           ) : hasGoal && remainingDays !== null ? (
@@ -256,7 +258,7 @@ export default function GoalPage() {
         </div>
 
         {/* 月間カレンダー */}
-        <div className="flex min-h-0 shrink flex-col px-[18px] pb-5 short:pb-2.5">
+        <div className="flex min-h-0 shrink flex-col px-[18px] pb-5 short:pb-2.5 tablet-regular:col-start-1 tablet-regular:row-start-3 tablet-regular:row-span-3">
           <GoalCalendar
             today={today}
             goalDate={hasGoal ? goal?.targetDate ?? null : null}
@@ -266,7 +268,7 @@ export default function GoalPage() {
         </div>
 
         {/* 今日の10問 (目標の単語帳から) */}
-        <div className="shrink-0 px-[18px] pb-3 short:pb-2">
+        <div className="shrink-0 px-[18px] pb-3 short:pb-2 tablet-regular:col-start-2 tablet-regular:row-start-4">
           <BigPillLink
             href={dailyQuizReady ? GOAL_DAILY_QUIZ_HREF : null}
             onNavigate={() => writeReviewProjectFilter(goalProjectIds)}
@@ -287,7 +289,7 @@ export default function GoalPage() {
         </div>
 
         {/* 今日復習しておきたい単語 (SM-2 の復習期限) */}
-        <div className="shrink-0 px-[18px] pb-3 short:pb-2">
+        <div className="shrink-0 px-[18px] pb-3 short:pb-2 tablet-regular:col-start-2 tablet-regular:row-start-5">
           <BigPillLink
             href={dueCount > 0 ? GOAL_REVIEW_QUIZ_HREF : null}
             onNavigate={() => writeReviewProjectFilter(null)}

@@ -905,7 +905,7 @@ export default function FlashcardPage() {
     <div className="fixed inset-x-0 top-0 z-30 flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-background)] font-[var(--font-body)] desktop:hidden">
       {/* Header: HeaderBtn close | progress | HeaderBtn filter / autoplay */}
       <div
-        className="flex shrink-0 items-center justify-between px-4 pb-2.5"
+        className="flex shrink-0 items-center justify-between px-4 pb-2.5 tablet:mx-auto tablet:w-full tablet:max-w-[760px]"
         style={{ paddingTop: 'max(8px, calc(env(safe-area-inset-top) + 8px))' }}
       >
         <HeaderBtn onClick={backToProject} aria-label="閉じる">
@@ -982,7 +982,7 @@ export default function FlashcardPage() {
       </div>
 
       {/* Card area */}
-      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-5">
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-5 tablet:mx-auto tablet:w-full tablet:max-w-[760px]">
         {/* Flashcard */}
         <div
           className="relative w-full"
@@ -1105,7 +1105,7 @@ export default function FlashcardPage() {
 
       {/* 下段: 裏返したら SM-2 の4段階評価、その下に前へ / 回転 / 次へ */}
       <div
-        className="flex shrink-0 flex-col items-center gap-3 px-5 pt-2"
+        className="flex shrink-0 flex-col items-center gap-3 px-5 pt-2 tablet:mx-auto tablet:w-full tablet:max-w-[760px]"
         style={{ paddingBottom: 'max(20px, calc(env(safe-area-inset-bottom) + 14px))' }}
       >
         <GradeBar visible={isFlipped} disabled={isAnimating} onGrade={commitGrade} />

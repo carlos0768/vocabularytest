@@ -341,7 +341,7 @@ export function WordFilterSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] desktop:hidden" style={{ fontFamily: 'var(--font-body)' }}>
+    <div className="fixed inset-0 z-[90] desktop:hidden tablet-regular:hidden" style={{ fontFamily: 'var(--font-body)' }}>
       <button
         type="button"
         aria-label="閉じる"
