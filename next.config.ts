@@ -9,7 +9,6 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizeCss: true,
-    viewTransition: true,
     // Client Router Cache の保持時間。Next 15+ の既定は dynamic=0 で、ホーム(/)や
     // 共有(/shared)のような動的ルートはタブを叩くたびにサーバーへ RSC を取りに行き、
     // 応答が届くまで前の画面が固まって見えていた。30秒はキャッシュを再利用し、
