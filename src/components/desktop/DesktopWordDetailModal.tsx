@@ -6,6 +6,7 @@ import { desktopPosLabel } from '@/components/desktop/desktop-data';
 import { MorphologyFormulaChips } from '@/components/word/MorphologyFormulaChips';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { useHideRelatedWords } from '@/hooks/use-hide-related-words';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { useParaphraseSynonyms } from '@/hooks/use-paraphrase-synonyms';
 import { speakEnglish } from '@/lib/speech';
@@ -27,6 +28,7 @@ export function DesktopWordDetailModal({
   onNav: (dir: -1 | 1) => void;
 }) {
   // word.morphology が無い単語は lexicon 共有キャッシュから表示時に補完する
+  const { hideRelatedWords } = useHideRelatedWords();
   const morphology = useMorphologyBackfill(word);
   // 言い換え (英語の同義語) も同じく表示時に辞書を引く
   const synonyms = useParaphraseSynonyms(word);
@@ -150,7 +152,7 @@ export function DesktopWordDetailModal({
             </div>
           )}
 
-          {word.relatedWords && word.relatedWords.length > 0 && (
+          {!hideRelatedWords && word.relatedWords && word.relatedWords.length > 0 && (
             <div>
               <div className="muted" style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>関連語</div>
               <div className="ds-rel">
