@@ -10,6 +10,7 @@ import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache
 import type { Word, CustomSection, CustomColumn, SubscriptionStatus } from '@/types';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { useHideRelatedWords } from '@/hooks/use-hide-related-words';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { useParaphraseSynonyms } from '@/hooks/use-paraphrase-synonyms';
 import { speakEnglish } from '@/lib/speech';
@@ -349,7 +350,8 @@ export function WordDetailView({
   const posDisplay = word?.partOfSpeechTags?.length
     ? word.partOfSpeechTags.map(p => POS_LABELS[p] ?? p).join('・')
     : null;
-  const relatedWords = (word?.relatedWords ?? []).filter((item) => item.term.trim());
+  const { hideRelatedWords } = useHideRelatedWords();
+  const relatedWords = hideRelatedWords ? [] : (word?.relatedWords ?? []).filter((item) => item.term.trim());
   const usagePatterns = (word?.usagePatterns ?? []).filter((item) => item.pattern.trim() && item.meaningJa.trim());
 
   const highlightWord = (sentence: string, target: string) => {
