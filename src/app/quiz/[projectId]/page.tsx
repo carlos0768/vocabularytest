@@ -1330,27 +1330,13 @@ export default function QuizPage() {
   // その日最初のクイズでだけここを通す。前回 (前日以前) の選択は初期選択として印を付けるだけ。
   if (answerFormat === null) {
     return (
-      <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
-        <div className="p-4">
-          <button
-            type="button"
-            onClick={backToProject}
-            aria-label="閉じる"
-            className="inline-flex h-8 w-8 items-center justify-center text-[var(--solid-ink)]"
-          >
-            <Icon name="close" size={22} />
-          </button>
-        </div>
-        <div className="flex flex-1 items-center justify-center px-6 pb-16">
-          <QuizModeChooser
-            current={storedMode ?? undefined}
-            currentLabel="前回"
-            onSelect={chooseMode}
-            hiddenModes={hiddenModes}
-            wordCounts={chooserWordCounts}
-          />
-        </div>
-      </div>
+      <QuizModeChooser
+        current={storedMode ?? undefined}
+        currentLabel="前回"
+        onSelect={chooseMode}
+        hiddenModes={hiddenModes}
+        wordCounts={chooserWordCounts}
+      />
     );
   }
 
