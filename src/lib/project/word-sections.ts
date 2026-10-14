@@ -114,6 +114,18 @@ export function removeSectionName(names: readonly string[], rawName: string): st
   return name ? current.filter((existing) => existing !== name) : current;
 }
 
+/** セクションを1つ前 (-1) / 後ろ (+1) へ動かす。端を越える・無い名前なら変えずに返す。 */
+export function moveSectionName(names: readonly string[], rawName: string, delta: -1 | 1): string[] {
+  const current = normalizeSectionNames(names);
+  const name = normalizeSectionName(rawName);
+  const from = name ? current.indexOf(name) : -1;
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= current.length) return current;
+  const next = [...current];
+  [next[from], next[to]] = [next[to]!, next[from]!];
+  return next;
+}
+
 /** 新しいセクションの名前の初期値 (「セクション3」など、まだ使われていない番号)。 */
 export function suggestNewSectionName(names: readonly string[]): string {
   const used = new Set(names);

@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { MANUAL_TRANSLATION_INPUT_LIMIT } from '@/lib/words/manual-translations';
-import { SectionChipPicker } from '@/components/project/page/SectionControls';
+import { SectionSelectRow } from '@/components/project/page/SectionControls';
 
 export function ManualWordModal({
   open,
@@ -16,8 +16,6 @@ export function ManualWordModal({
   partOfSpeech,
   exampleSentence,
   morphologyEnabled,
-  exampleEnabled,
-  setExampleEnabled,
   onEnglishChange,
   onTranslationsChange,
   onPartOfSpeechChange,
@@ -40,9 +38,6 @@ export function ManualWordModal({
   partOfSpeech: string;
   exampleSentence: string;
   morphologyEnabled: boolean;
-  /** 例文生成トグル。手動追加は無料なのでコインバッジは付けない。 */
-  exampleEnabled: boolean;
-  setExampleEnabled: (enabled: boolean) => void;
   onEnglishChange: (value: string) => void;
   onTranslationsChange: (values: string[]) => void;
   onPartOfSpeechChange: (value: string) => void;
@@ -99,15 +94,9 @@ export function ManualWordModal({
 
 
         >
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
-            ADD WORD
-          </div>
-          <h2 className="mt-1 font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+          <h2 className="font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
             単語を追加
           </h2>
-          <p className="mt-1 text-[11px] leading-[1.5] text-[var(--color-muted)]">
-            続けて何語でも入力できます。日本語訳・品詞・例文・発音記号は未入力でも AI が自動で補完します。
-          </p>
           {addedCount > 0 && (
             <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-[var(--solid-ink)] bg-[var(--color-accent-light)] px-2.5 py-1 font-mono text-[10px] font-bold text-[var(--color-accent-ink)]">
               <Icon name="check" size={11} />
@@ -117,10 +106,7 @@ export function ManualWordModal({
 
           <div className="mt-4 space-y-3">
             <div>
-              <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
-                セクション
-              </div>
-              <SectionChipPicker
+              <SectionSelectRow
                 sectionNames={sectionNames}
                 value={sectionName}
                 disabled={loading}
@@ -230,37 +216,6 @@ export function ManualWordModal({
                 </span>
               </span>
             </button>
-
-            {/* 例文生成トグル（手動追加はコイン消費なし） */}
-            <button
-              type="button"
-              onClick={() => setExampleEnabled(!exampleEnabled)}
-              disabled={loading}
-              className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all disabled:opacity-60"
-              style={{
-                borderColor: exampleEnabled ? 'var(--solid-ink)' : 'var(--color-border)',
-                boxShadow: exampleEnabled ? '2px 2px 0 var(--solid-ink)' : 'none',
-              }}
-            >
-              <span
-                className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
-                style={{
-                  border: `1.25px solid ${exampleEnabled ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                  background: exampleEnabled ? 'var(--color-accent)' : 'var(--color-surface)',
-                }}
-              >
-                {exampleEnabled && <Icon name="check" size={11} className="text-white" />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[12px] font-bold text-[var(--solid-ink)]">
-                  例文生成
-                </span>
-                <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
-                  この単語を使った例文と訳を自動生成（コイン消費なし）
-                </span>
-              </span>
-            </button>
-
 
             <button
               type="button"

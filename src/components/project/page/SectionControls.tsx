@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import type { Word } from '@/types';
+import { SelectRow, SelectRowIcon } from '@/components/project/WordbookSelectRow';
 import {
   normalizeSectionName,
   suggestNewSectionName,
@@ -501,5 +502,243 @@ export function SectionRenameButton({ onClick, className }: { onClick: () => voi
     >
       <Icon name="edit" size={15} />
     </button>
+  );
+}
+
+/**
+ * セクションの一覧と編集 (ヘッダの共有ボタンの左のボタンから)。
+ * 行をタップでそのセクションへ移り、行の右で名前の変更 (削除もここから)・並べ替えをする。
+ */
+export function SectionManagerModal({
+  open,
+  groups,
+  currentIndex,
+  busy,
+  onClose,
+  onJump,
+  onEdit,
+  onMove,
+  onCreate,
+}: {
+  open: boolean;
+  /** 単語帳のまとまり (未分類は name: null)。語数は絞り込み前 */
+  groups: { name: string | null; count: number }[];
+  currentIndex: number;
+  busy: boolean;
+  onClose: () => void;
+  onJump: (index: number) => void;
+  onEdit: (name: string | null) => void;
+  onMove: (name: string, delta: -1 | 1) => void;
+  onCreate: () => void;
+}) {
+  if (!open) return null;
+  const named = groups.filter((group) => group.name !== null);
+  return (
+    <ModalFrame onCancel={onClose} busy={false}>
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-[18px] font-extrabold text-[var(--solid-ink)]">セクション</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="閉じる"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
+        >
+          <Icon name="close" size={14} />
+        </button>
+      </div>
+      <div className="mt-3 max-h-[min(420px,60vh)] divide-y divide-[var(--color-border)] overflow-y-auto rounded-[12px] border-2 border-[var(--solid-ink)]">
+        {groups.map((group, index) => {
+          const namedIndex = group.name === null ? -1 : named.findIndex((g) => g.name === group.name);
+          const active = index === currentIndex;
+          return (
+            <div
+              key={group.name ?? '__unsectioned'}
+              className={`flex items-center gap-1 pl-3 pr-1 ${active ? 'bg-[var(--color-surface-secondary)]' : 'bg-[var(--color-surface)]'}`}
+            >
+              <button
+                type="button"
+                onClick={() => onJump(index)}
+                className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 py-2 text-left"
+              >
+                <span className="min-w-0 flex-1 truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
+                  {group.name ?? UNSECTIONED_LABEL}
+                </span>
+                <span className="shrink-0 font-mono text-[11px] font-bold tabular-nums text-[var(--color-muted)]">
+                  {group.count}語
+                </span>
+              </button>
+              {group.name !== null && (
+                <>
+                  <SectionManagerIconButton
+                    icon="arrow_upward"
+                    label={`「${group.name}」を上へ`}
+                    disabled={busy || namedIndex <= 0}
+                    onClick={() => onMove(group.name!, -1)}
+                  />
+                  <SectionManagerIconButton
+                    icon="arrow_downward"
+                    label={`「${group.name}」を下へ`}
+                    disabled={busy || namedIndex >= named.length - 1}
+                    onClick={() => onMove(group.name!, 1)}
+                  />
+                </>
+              )}
+              <SectionManagerIconButton
+                icon="edit"
+                label={`「${group.name ?? UNSECTIONED_LABEL}」を編集`}
+                disabled={busy}
+                onClick={() => onEdit(group.name)}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <button
+        type="button"
+        onClick={onCreate}
+        disabled={busy}
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+      >
+        <Icon name="add" size={16} />
+        新しいセクション
+      </button>
+    </ModalFrame>
+  );
+}
+
+function SectionManagerIconButton({
+  icon,
+  label,
+  disabled,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] text-[var(--color-muted)] transition-colors hover:text-[var(--solid-ink)] disabled:opacity-30"
+    >
+      <Icon name={icon} size={17} />
+    </button>
+  );
+}
+
+const NEW_SECTION_OPTION = '__new_section__';
+
+/**
+ * セクションを1つ選ぶ行 (対戦ロビーの単語帳選択と同じ SelectRow)。
+ * 末尾の「＋ 新しいセクション」を選ぶとその場で名前を入れて作れる。value が null なら未分類。
+ */
+export function SectionSelectRow({
+  sectionNames,
+  value,
+  disabled,
+  onChange,
+  onCreate,
+}: {
+  sectionNames: string[];
+  value: string | null;
+  disabled?: boolean;
+  onChange: (name: string | null) => void;
+  /** 新しいセクションを作る。成功したら作った名前が選ばれる。 */
+  onCreate: (name: string) => Promise<boolean> | boolean;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    const name = normalizeSectionName(draft);
+    if (!name || saving) return;
+    if (sectionNames.includes(name)) {
+      onChange(name);
+      setCreating(false);
+      return;
+    }
+    setSaving(true);
+    const ok = await onCreate(name);
+    setSaving(false);
+    if (ok) {
+      onChange(name);
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="overflow-hidden rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]">
+        <SelectRow
+          options={[
+            { value: '', label: UNSECTIONED_LABEL },
+            ...sectionNames.map((name) => ({ value: name, label: name })),
+            { value: NEW_SECTION_OPTION, label: '＋ 新しいセクション' },
+          ]}
+          value={value ?? ''}
+          onChange={(next) => {
+            if (next === NEW_SECTION_OPTION) {
+              setDraft(suggestNewSectionName(sectionNames));
+              setCreating(true);
+              return;
+            }
+            onChange(next || null);
+          }}
+          label="セクション"
+          valueText={value ?? UNSECTIONED_LABEL}
+          disabled={disabled || saving}
+          className="px-3 py-2.5"
+          icon={(
+            <SelectRowIcon>
+              <Icon name="segment" size={17} className="text-[var(--color-muted)]" />
+            </SelectRowIcon>
+          )}
+        />
+      </div>
+      {creating && (
+        <div className="mt-1.5 flex items-center gap-2">
+          <input
+            type="text"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void submit();
+              }
+              if (event.key === 'Escape') setCreating(false);
+            }}
+            maxLength={SECTION_NAME_MAX_LENGTH}
+            disabled={saving}
+            autoFocus
+            aria-label="新しいセクション名"
+            className="min-w-0 flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[13px] font-bold text-[var(--solid-ink)] outline-none disabled:opacity-60"
+          />
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={saving || !normalizeSectionName(draft)}
+            className="inline-flex h-[38px] shrink-0 items-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] px-3 text-[12px] font-bold text-[var(--color-on-accent)] disabled:opacity-50"
+          >
+            {saving ? <Icon name="progress_activity" size={14} className="animate-spin" /> : '作成'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreating(false)}
+            disabled={saving}
+            aria-label="作成をやめる"
+            className="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]"
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

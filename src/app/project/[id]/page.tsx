@@ -32,10 +32,6 @@ import { consumeManualAddIntent, consumeVoiceAddIntent } from '@/lib/home/home-s
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
 import {
-  readManualExamplePref,
-  writeManualExamplePref,
-} from '@/lib/preferences/manual-example-pref';
-import {
   readManualMorphologyPref,
   writeManualMorphologyPref,
 } from '@/lib/preferences/manual-morphology-pref';
@@ -86,6 +82,7 @@ import {
   CreateSectionModal,
   MoveToSectionModal,
   RenameSectionModal,
+  SectionManagerModal,
   SectionRenameButton,
   type ProjectSectionNav,
 } from '@/components/project/page/SectionControls';
@@ -93,6 +90,7 @@ import {
   buildWordSectionGroups,
   getSectionGroupLabel,
   insertSectionName,
+  moveSectionName,
   normalizeSectionName,
   removeSectionName,
   renameSectionName,
@@ -304,15 +302,6 @@ export default function ProjectPage() {
   const handleManualWordMorphologyChange = useCallback((enabled: boolean) => {
     setManualWordMorphologyEnabled(enabled);
     writeManualMorphologyPref(enabled);
-  }, []);
-  // 手動追加時の例文生成トグル。既定オン・コイン消費なし。
-  const [manualWordExampleEnabled, setManualWordExampleEnabled] = useState(true);
-  useEffect(() => {
-    setManualWordExampleEnabled(readManualExamplePref());
-  }, []);
-  const handleManualWordExampleChange = useCallback((enabled: boolean) => {
-    setManualWordExampleEnabled(enabled);
-    writeManualExamplePref(enabled);
   }, []);
   useEffect(() => {
   }, []);
@@ -552,6 +541,14 @@ export default function ProjectPage() {
   // name が null なら未分類のまとまりに名前を付ける (新しいセクションになる)
   const [renameSectionTarget, setRenameSectionTarget] = useState<{ name: string | null } | null>(null);
   const [renameSectionLoading, setRenameSectionLoading] = useState(false);
+  // セクションの一覧と編集 (ヘッダの共有ボタンの左から)
+  const [sectionManagerOpen, setSectionManagerOpen] = useState(false);
+  const [sectionReorderBusy, setSectionReorderBusy] = useState(false);
+  const sectionManagerGroups = useMemo(
+    () => buildWordSectionGroups(sectionNames, words, words)
+      .map((group) => ({ name: group.name, count: group.words.length })),
+    [sectionNames, words],
+  );
   const [moveSectionModalOpen, setMoveSectionModalOpen] = useState(false);
   const [moveSectionLoading, setMoveSectionLoading] = useState(false);
   // 手入力で追加する語の入り先。開いたときに見ていたセクションから始める。
@@ -943,6 +940,8 @@ export default function ProjectPage() {
         await mutationRepository.updateWord(w.id, { sectionName: null });
       }
       setRenameSectionTarget(null);
+      // 最後のセクションを消したら一覧も閉じる (あとで作ったときに勝手に開かないように)
+      if (nextNames.length === 0) setSectionManagerOpen(false);
       showToast({ message: `「${name}」を削除しました`, type: 'success' });
     } catch (deleteError) {
       console.error('Failed to delete section:', deleteError);
@@ -955,6 +954,27 @@ export default function ProjectPage() {
       showToast({ message: 'セクションを削除できませんでした', type: 'error' });
     } finally {
       setRenameSectionLoading(false);
+    }
+  };
+
+  /** セクションの並べ替え (一覧と編集から)。見ているセクションはそのまま見続ける。 */
+  const handleReorderSection = async (name: string, delta: -1 | 1) => {
+    if (!project || sectionReorderBusy) return;
+    const nextNames = moveSectionName(sectionNames, name, delta);
+    if (nextNames.every((n, i) => n === sectionNames[i])) return;
+    const previousNames = project.sectionNames;
+    setSectionReorderBusy(true);
+    if (currentSectionName) pendingSectionFocusRef.current = currentSectionName;
+    setProject((prev) => (prev ? { ...prev, sectionNames: nextNames } : prev));
+    try {
+      await mutationRepository.updateProject(projectId, { sectionNames: nextNames });
+    } catch (reorderError) {
+      console.error('Failed to reorder sections:', reorderError);
+      if (currentSectionName) pendingSectionFocusRef.current = currentSectionName;
+      setProject((prev) => (prev ? { ...prev, sectionNames: previousNames } : prev));
+      showToast({ message: 'セクションを並べ替えられませんでした', type: 'error' });
+    } finally {
+      setSectionReorderBusy(false);
     }
   };
 
@@ -1418,7 +1438,8 @@ export default function ProjectPage() {
         body: JSON.stringify({
           english,
           includeMorphology: manualWordMorphologyEnabled,
-          includeExample: manualWordExampleEnabled,
+          // 手動追加の例文は常に作る (切り替えは無い・コイン消費なし)
+          includeExample: true,
           ...(japaneseInput ? { japanese: japaneseInput } : {}),
           ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
           ...(userExample ? { exampleSentence: userExample } : {}),
@@ -1670,6 +1691,7 @@ export default function ProjectPage() {
         words={words}
         filteredWords={filteredWords}
         sectionNav={sectionNav}
+        onOpenSections={sectionNames.length > 0 ? () => setSectionManagerOpen(true) : undefined}
         wordsLoaded={wordsLoaded}
         counts={counts}
         query={query}
@@ -1705,6 +1727,7 @@ export default function ProjectPage() {
           words={words}
           filteredWords={filteredWords}
           sectionNav={sectionNav}
+          onOpenSections={sectionNames.length > 0 ? () => setSectionManagerOpen(true) : undefined}
           wordsLoaded={wordsLoaded}
           counts={counts}
           query={query}
@@ -1761,6 +1784,11 @@ export default function ProjectPage() {
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
+          {sectionNames.length > 0 && (
+            <HeaderBtn aria-label="セクション" onClick={() => setSectionManagerOpen(true)}>
+              <Icon name="format_list_bulleted" size={16} />
+            </HeaderBtn>
+          )}
           <HeaderBtn aria-label="共有" onClick={handleOpenShareSheet}>
             <Icon name="ios_share" size={16} />
           </HeaderBtn>
@@ -2166,8 +2194,6 @@ export default function ProjectPage() {
         partOfSpeech={manualWordPartOfSpeech}
         exampleSentence={manualWordExampleSentence}
         morphologyEnabled={manualWordMorphologyEnabled}
-        exampleEnabled={manualWordExampleEnabled}
-        setExampleEnabled={handleManualWordExampleChange}
         onEnglishChange={setManualWordEnglish}
         onTranslationsChange={setManualWordTranslations}
         onPartOfSpeechChange={setManualWordPartOfSpeech}
@@ -2291,6 +2317,23 @@ export default function ProjectPage() {
         onCancel={() => { if (!moveSectionLoading) setMoveSectionModalOpen(false); }}
         onCreateSection={(name) => handleCreateSection(name)}
         onConfirm={(name) => void handleConfirmMoveToSection(name)}
+      />
+
+      <SectionManagerModal
+        open={sectionManagerOpen && sectionNames.length > 0}
+        groups={sectionManagerGroups}
+        currentIndex={searching ? -1 : sectionIndex}
+        busy={sectionReorderBusy}
+        onClose={() => setSectionManagerOpen(false)}
+        onJump={(index) => {
+          // 検索中は区切らずに出しているので、移るときは検索を外す
+          setQuery('');
+          setSectionIndex(index);
+          setSectionManagerOpen(false);
+        }}
+        onEdit={(name) => setRenameSectionTarget({ name })}
+        onMove={(name, delta) => void handleReorderSection(name, delta)}
+        onCreate={() => setCreateSectionPosition('end')}
       />
 
       <RenameSectionModal

@@ -5,6 +5,7 @@ import {
   buildWordSectionGroups,
   getSectionGroupLabel,
   insertSectionName,
+  moveSectionName,
   removeSectionName,
   renameSectionName,
   resolveProjectSectionNames,
@@ -87,4 +88,12 @@ test('セクションの削除は並びを保ち、無い名前では変えな�
   assert.deepEqual(removeSectionName(['A', 'B', 'C'], ' B '), ['A', 'C']);
   assert.deepEqual(removeSectionName(['A', 'B'], 'X'), ['A', 'B']);
   assert.deepEqual(removeSectionName(['A'], ''), ['A']);
+});
+
+test('セクションの並べ替えは隣と入れ替え、端を越えない', () => {
+  assert.deepEqual(moveSectionName(['A', 'B', 'C'], 'B', -1), ['B', 'A', 'C']);
+  assert.deepEqual(moveSectionName(['A', 'B', 'C'], 'B', 1), ['A', 'C', 'B']);
+  assert.deepEqual(moveSectionName(['A', 'B'], 'A', -1), ['A', 'B']);
+  assert.deepEqual(moveSectionName(['A', 'B'], 'B', 1), ['A', 'B']);
+  assert.deepEqual(moveSectionName(['A'], 'X', 1), ['A']);
 });

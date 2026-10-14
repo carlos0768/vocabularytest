@@ -111,6 +111,8 @@ export type DesktopProjectDetailViewProps = {
   onVoiceAdd?: () => void;
   /** セクション送り。一覧には表示中のセクションの語だけを出す */
   sectionNav: ProjectSectionNav;
+  /** セクションの一覧と編集を開く。セクションのある単語帳のときだけ渡す */
+  onOpenSections?: () => void;
 };
 
 export function DesktopProjectDetailView({
@@ -142,6 +144,7 @@ export function DesktopProjectDetailView({
   onManualAdd,
   onVoiceAdd,
   sectionNav,
+  onOpenSections,
 }: DesktopProjectDetailViewProps) {
   const router = useRouter();
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -266,6 +269,11 @@ export function DesktopProjectDetailView({
             {project.title}
           </div>
         </div>
+        {onOpenSections && (
+          <button type="button" className="ds-iconbtn-round sm sq" onClick={onOpenSections} aria-label="セクション" title="セクション">
+            <Icon name="format_list_bulleted" />
+          </button>
+        )}
         {onShare && (
           <button type="button" className="ds-iconbtn-round sm sq" onClick={onShare} aria-label="共有" title="共有">
             <Icon name="ios_share" />
