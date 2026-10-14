@@ -252,7 +252,7 @@ export default function GoalPage() {
               className="flex w-full items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-[var(--solid-ink)] bg-[var(--color-surface)] px-4 py-4 text-[14px] font-black short:py-3 text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px"
             >
               <Icon name="flag" size={18} className="text-[var(--color-accent)]" />
-              {goal && !hasGoal && !loading ? '目標の単語帳が見つかりません。設定し直す' : '単語帳を選んで目標を設定する'}
+              {goal && !hasGoal && !loading ? '目標の単語帳が見つかりません' : '単語帳を選んで目標を設定する'}
             </button>
           )}
         </div>
@@ -300,7 +300,7 @@ export default function GoalPage() {
               loading
                 ? '読み込み中...'
                 : dueCount > 0
-                  ? `復習期限の語 ${dueCount}語 (全単語帳)`
+                  ? undefined
                   : '今日の復習はありません'
             }
             tone="ink"
@@ -472,7 +472,8 @@ function BigPillLink({
   icon: string;
   badge: string;
   title: string;
-  sub: string;
+  /** 見出しの下の1行。無ければ出さない */
+  sub?: string;
   tone: 'accent' | 'ink';
 }) {
   const enabled = href !== null;
@@ -498,7 +499,7 @@ function BigPillLink({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block font-display text-[16px] font-black leading-tight">{title}</span>
-        <span className="mt-0.5 block truncate text-[11px] font-bold opacity-85">{sub}</span>
+        {sub && <span className="mt-0.5 block truncate text-[11px] font-bold opacity-85">{sub}</span>}
       </span>
       <Icon name={enabled ? 'arrow_forward' : icon} size={20} className="shrink-0" />
     </>
