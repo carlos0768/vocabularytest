@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildQuizAnswerOutcomePlan,
+  getAnsweredQuestionWordUpdates,
   getTypeInCorrectAnswer,
   isTypeInAnswerCorrect,
 } from './quiz-answer';
@@ -98,4 +99,20 @@ test('buildQuizAnswerOutcomePlan leaves the mastery level alone for translation-
   assert.equal(plan.wordUpdates.status, 'mastered');
   assert.equal(plan.wordUpdates.masteryLevel, undefined);
   assert.equal(plan.wordUpdates.vocabularyType, undefined);
+});
+
+test('getAnsweredQuestionWordUpdates keeps the shown question format by dropping vocabularyType', () => {
+  const updates = getAnsweredQuestionWordUpdates({
+    status: 'mastered',
+    masteryLevel: 1,
+    vocabularyType: 'passive',
+    lastReviewedAt: '2026-10-14T00:00:00.000Z',
+    nextReviewAt: '2026-10-15T00:00:00.000Z',
+    easeFactor: 2.5,
+    intervalDays: 1,
+    repetition: 2,
+  });
+  assert.equal('vocabularyType' in updates, false);
+  assert.equal(updates.masteryLevel, 1);
+  assert.equal(updates.status, 'mastered');
 });
