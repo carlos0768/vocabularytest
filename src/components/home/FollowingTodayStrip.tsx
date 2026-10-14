@@ -86,9 +86,9 @@ export function FollowingTodayStrip({
 
   return (
     <section className="pb-2 pt-2" aria-label="今日クイズを解いたフォロー中の人と、フォローのおすすめ">
-      <div className="flex snap-x gap-1.5 overflow-x-auto px-[18px] pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-1.5 px-[18px]">
         {showSelf && (
-          <Link href="/profile" className={CARD_CLASS}>
+          <Link href="/profile" className={`${CARD_CLASS} snap-none`}>
             <ProfileAvatar
               avatarUrl={avatarUrl}
               initial={(username || accountId || '?').charAt(0).toUpperCase()}
@@ -108,23 +108,25 @@ export function FollowingTodayStrip({
             </div>
           </Link>
         )}
-        {activity.map((item) => (
-          <Link key={item.userId} href={`/profile/${encodeURIComponent(item.profile.accountId)}`} className={CARD_CLASS}>
-            <Avatar profile={item.profile} />
-            <div className="mt-1.5 w-full truncate text-center font-display text-[11px] font-extrabold text-[var(--solid-ink)]">
-              {displayName(item.profile)}
-            </div>
-            <div className="mt-1 flex items-baseline gap-0.5 text-[var(--color-accent)]">
-              <span className="font-display text-[14px] font-extrabold leading-none tabular-nums">
-                {item.answerCount.toLocaleString()}
-              </span>
-              <span className="text-[9px] font-bold">問</span>
-            </div>
-          </Link>
-        ))}
-        {visibleSuggestions.map((item) => (
-          <SuggestionCard key={item.userId} suggestion={item} onDismiss={() => dismiss(item.userId)} />
-        ))}
+        <div className="-mr-[18px] flex min-w-0 flex-1 snap-x gap-1.5 overflow-x-auto pb-1 pr-[18px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {activity.map((item) => (
+            <Link key={item.userId} href={`/profile/${encodeURIComponent(item.profile.accountId)}`} className={CARD_CLASS}>
+              <Avatar profile={item.profile} />
+              <div className="mt-1.5 w-full truncate text-center font-display text-[11px] font-extrabold text-[var(--solid-ink)]">
+                {displayName(item.profile)}
+              </div>
+              <div className="mt-1 flex items-baseline gap-0.5 text-[var(--color-accent)]">
+                <span className="font-display text-[14px] font-extrabold leading-none tabular-nums">
+                  {item.answerCount.toLocaleString()}
+                </span>
+                <span className="text-[9px] font-bold">問</span>
+              </div>
+            </Link>
+          ))}
+          {visibleSuggestions.map((item) => (
+            <SuggestionCard key={item.userId} suggestion={item} onDismiss={() => dismiss(item.userId)} />
+          ))}
+        </div>
       </div>
     </section>
   );
