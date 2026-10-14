@@ -20,7 +20,7 @@ import {
   type HomeScanFailureNotice,
 } from '@/lib/home/home-scan-completion';
 import { HomeShortcutGrid } from '@/components/home/HomeShortcutGrid';
-import { BinderSquareTile, ProjectSquareTile } from '@/components/home/HomeTiles';
+import { BinderSquareTile } from '@/components/home/HomeTiles';
 import { TabletHomeView } from '@/components/tablet/TabletHome';
 import { TabletOnly } from '@/components/tablet/TabletOnly';
 import { HomeWordSearchSheet } from '@/components/home/HomeWordSearchSheet';
@@ -76,8 +76,6 @@ import { useFollowingTodayActivity } from '@/hooks/use-following-today-activity'
 import { FollowingTodayStrip } from '@/components/home/FollowingTodayStrip';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import type { Project, SubscriptionStatus, Word } from '@/types';
-
-const HOME_MY_BOOKS_VISIBLE_LIMIT = 5;
 
 // Final tip of the guided flow: the play button as a quiz shortcut. Shown only
 // once the flashcard→quiz flow is complete (tutorial stage 'done').
@@ -575,12 +573,6 @@ export function HomeClient() {
   // The reel-saved backing wordbook is an internal bucket for 保存済み — keep it
   // out of the browsable マイ単語帳 list (its words still count in `stats`).
   const listProjects = useMemo(() => excludeReelSavedProjects(projects), [projects]);
-  // バインダー(フォルダ)に入っている単語帳は単体では表示しない。バインダーは1つの
-  // タイルとして表示し、中の単語帳はタップして /binder/[name] に入ってから見せる。
-  const unfiledProjects = useMemo(
-    () => listProjects.filter((project) => !project.binder?.trim()),
-    [listProjects],
-  );
   // ショートカットグリッドの単語帳。直近使った単語帳はバインダー内のものも先頭に出し、
   // 残りはバインダー外の単語帳を従来の並びで続ける（selectHomeShortcutProjects）。
   // 「直近使った」は単語帳を直接開いた記録で判定する（復習などの横断出題は含めない）。
@@ -593,15 +585,6 @@ export function HomeClient() {
     () => selectHomeShortcutProjects(listProjects, projectRecentUse).slice(0, homeShortcutContentSlots(0)),
     [listProjects, projectRecentUse],
   );
-  // ショートカットグリッドに載り切らなかった単語帳だけを下のマイ単語帳リストに
-  // 出す（重複表示を避ける）。全部グリッドに収まる場合は従来どおり全件を出す
-  // （新規ユーザーのチュートリアルが最初の ProjectRow をアンカーにしているため）。
-  const overflowProjects = useMemo(() => {
-    const gridIds = new Set(gridProjects.map((project) => project.id));
-    return unfiledProjects.filter((project) => !gridIds.has(project.id));
-  }, [gridProjects, unfiledProjects]);
-  const myBooksProjects = overflowProjects.length > 0 ? overflowProjects : unfiledProjects;
-  const visibleProjects = myBooksProjects.slice(0, HOME_MY_BOOKS_VISIBLE_LIMIT);
 
   // ホームに出すバインダー (フォルダ) 一覧。listProjects を binder 名で集計する
   const homeBinders = useMemo(() => {
@@ -632,7 +615,8 @@ export function HomeClient() {
   // The guided flow starts for any user who hasn't studied yet. Word status only
   // advances past 'new' via quiz/study, so any progress means they've quizzed.
   const hasStudiedBefore = completedToday > 0 || mastered > 0 || review > 0 || stats.activeW > 0;
-  const firstProject = visibleProjects[0];
+  // チュートリアルの「単語帳を開こう」はショートカットグリッドの先頭の単語帳を指す
+  const firstProject = gridProjects[0];
   const firstProjectHasWords = (firstProject?.totalWords ?? 0) > 0;
   const homeTourEligible = isMobileViewport && !!user && !loading && firstProjectHasWords;
 
@@ -800,7 +784,18 @@ export function HomeClient() {
         projects={gridProjects}
         groups={myGroups}
         recommendations={visibleRecommendedBooks}
+        className={`grid grid-cols-2 gap-2 px-[18px] ${listProjects.length > 0 ? '' : 'pb-3.5'}`}
+        tourFirstProject
+        onFirstProjectOpen={runOpenProjectTour ? () => setTutorialStage('open-flashcard') : undefined}
       />
+      {listProjects.length > 0 && (
+        <div className="flex justify-end px-5 pb-3.5 pt-2">
+          <Link href="/projects" className="flex items-center gap-[3px] text-[13px] font-semibold text-[var(--color-accent)]">
+            すべて見る
+            <Icon name="chevron_right" size={11} />
+          </Link>
+        </div>
+      )}
 
       {showUpgradeBanner && (
         <div className="px-[18px] pb-3.5">
@@ -814,35 +809,21 @@ export function HomeClient() {
         selfSolvedCount={completedToday}
       />
 
-      <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
-        <div>
-          <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-[var(--color-muted)]">
-            MY BOOKS
-          </div>
-          <h2 className="font-display text-[19px] font-extrabold tracking-[-0.01em] text-[var(--solid-ink)]">
-            マイ単語帳
-          </h2>
-        </div>
-        <Link href="/projects" className="flex items-center gap-[3px] text-[13px] font-semibold text-[var(--color-accent)]">
-          すべて見る
-          <Icon name="chevron_right" size={11} />
-        </Link>
-      </div>
-
-      <div className="flex flex-col gap-2.5 px-[18px] pb-4">
-        {displayedPendingScans.map((job) => (
-          <GeneratingProjectCard
-            key={job.id}
-            title={job.project_title}
-            iconDataUrl={job.iconDataUrl}
-          />
-        ))}
-        {loading && visibleProjects.length === 0 ? (
-          <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
-            <Icon name="progress_activity" size={20} className="animate-spin" />
-            <span className="ml-2 text-sm">読み込み中...</span>
-          </div>
-        ) : visibleProjects.length === 0 ? (
+      {(displayedPendingScans.length > 0 || listProjects.length === 0) && (
+        <div className="flex flex-col gap-2.5 px-[18px] pb-4">
+          {displayedPendingScans.map((job) => (
+            <GeneratingProjectCard
+              key={job.id}
+              title={job.project_title}
+              iconDataUrl={job.iconDataUrl}
+            />
+          ))}
+          {listProjects.length === 0 && (loading ? (
+            <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
+              <Icon name="progress_activity" size={20} className="animate-spin" />
+              <span className="ml-2 text-sm">読み込み中...</span>
+            </div>
+          ) : displayedPendingScans.length === 0 && (
             <SolidEmpty
               icon="menu_book"
               title="単語帳はまだありません"
@@ -854,27 +835,9 @@ export function HomeClient() {
                 </button>
               }
             />
-        ) : (
-          /* 正方形タイルの横スクロール棚 (デスクトップの本棚と同じ趣) */
-          <div className="no-scrollbar -mx-[18px] flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-[18px] pb-1 scroll-pl-[18px]">
-            {visibleProjects.map((project, i) =>
-              i === 0 ? (
-                <div key={project.id} data-tour="wordbook-row" className="w-[42%] shrink-0 snap-start">
-                  <ProjectSquareTile
-                    project={project}
-                    tourAnchor
-                    onCardOpen={runOpenProjectTour ? () => setTutorialStage('open-flashcard') : undefined}
-                  />
-                </div>
-              ) : (
-                <div key={project.id} className="w-[42%] shrink-0 snap-start">
-                  <ProjectSquareTile project={project} />
-                </div>
-              ),
-            )}
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* バインダー (フォルダ): 単語帳タイルと同じ配色でホームに表示 */}
       {homeBinders.length > 0 && (

@@ -35,6 +35,8 @@ export function HomeShortcutGrid({
   recommendations,
   className = 'grid grid-cols-2 gap-2 px-[18px] pb-3.5',
   slots = homeShortcutContentSlots(0),
+  tourFirstProject = false,
+  onFirstProjectOpen,
 }: {
   projects: HomeShortcutProject[];
   groups: StudyGroupSummary[];
@@ -43,6 +45,10 @@ export function HomeShortcutGrid({
   className?: string;
   /** 埋める枠の数 */
   slots?: number;
+  /** 先頭の単語帳タイルをチュートリアルの「単語帳を開こう」のアンカーにする */
+  tourFirstProject?: boolean;
+  /** 先頭の単語帳タイルを開いたとき (チュートリアルを進める) */
+  onFirstProjectOpen?: () => void;
 }) {
   const tiles = buildHomeShortcutTiles({
     projects,
@@ -51,16 +57,20 @@ export function HomeShortcutGrid({
     slots,
   });
   if (tiles.length === 0) return null;
+  const firstProjectId = tiles.find((tile) => tile.kind === 'project')?.project.id;
 
   return (
     <div className={className}>
       {tiles.map((tile) => {
         if (tile.kind === 'project') {
           const project = tile.project;
+          const isFirst = project.id === firstProjectId;
           return (
             <TileShell
               key={`p:${project.id}`}
               href={`/project/${project.id}`}
+              tourAnchor={tourFirstProject && isFirst}
+              onPress={isFirst ? onFirstProjectOpen : undefined}
               iconArea={
                 <IconSquare
                   background={project.iconImage ? `center / cover url(${project.iconImage})` : thumbColor(project.id)}
@@ -158,7 +168,9 @@ function TileShell({
   iconArea,
   title,
   sub,
+  tourAnchor = false,
 }: {
+  tourAnchor?: boolean;
   href?: string;
   onClick?: () => void;
   /** pointerdown で発火（先読みなど。onClick より早い） */
@@ -187,7 +199,13 @@ function TileShell({
 
   if (href) {
     return (
-      <Link href={href} className={className} onPointerDown={handlePress} onClick={onPress}>
+      <Link
+        href={href}
+        className={className}
+        onPointerDown={handlePress}
+        onClick={onPress}
+        data-tour={tourAnchor ? 'wordbook-row' : undefined}
+      >
         {inner}
       </Link>
     );
