@@ -43,20 +43,6 @@ export function buildCompletedWordOrderSentence(question: WordOrderQuizQuestion)
     .replace(/\s+\)/g, ')');
 }
 
-export function getWordOrderExample(question: WordOrderQuizQuestion): { sentence: string; translation: string | null } | null {
-  const sentence =
-    normalizeDisplayText(question.word.exampleSentence) ??
-    normalizeDisplayText(buildCompletedWordOrderSentence(question));
-  if (!sentence) return null;
-
-  return {
-    sentence,
-    translation:
-      normalizeDisplayText(question.word.exampleSentenceJa) ??
-      normalizeDisplayText(question.word.japanese),
-  };
-}
-
 export function getUsedWordOrderOptionIndexes(options: string[], selectedTokens: string[]): Set<number> {
   const usedIndexes = new Set<number>();
   for (const selectedToken of selectedTokens) {
