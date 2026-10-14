@@ -91,6 +91,22 @@ export function insertSectionName(
   return position === 'start' ? [name, ...current] : [...current, name];
 }
 
+/**
+ * セクションの名前を変える (並び順はそのまま)。
+ * 新しい名前が空・既にある名前・元の名前が無いときは変えずに返す。
+ */
+export function renameSectionName(
+  names: readonly string[],
+  oldName: string,
+  rawNewName: string,
+): string[] {
+  const current = normalizeSectionNames(names);
+  const from = normalizeSectionName(oldName);
+  const to = normalizeSectionName(rawNewName);
+  if (!from || !to || from === to || !current.includes(from) || current.includes(to)) return current;
+  return current.map((name) => (name === from ? to : name));
+}
+
 /** 新しいセクションの名前の初期値 (「セクション3」など、まだ使われていない番号)。 */
 export function suggestNewSectionName(names: readonly string[]): string {
   const used = new Set(names);

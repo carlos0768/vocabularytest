@@ -204,37 +204,64 @@ function ModalActions({
   );
 }
 
-/** 新しいセクションを作るモーダル (下部バーの端の「＋」から)。 */
-export function CreateSectionModal(props: {
-  open: boolean;
+type SectionNameModalProps = {
   sectionNames: string[];
   loading: boolean;
   onCancel: () => void;
   onConfirm: (name: string) => void;
-}) {
+};
+
+/** 新しいセクションを作るモーダル (下部バーの右端の「＋」から)。 */
+export function CreateSectionModal(props: SectionNameModalProps & { open: boolean }) {
   // 開くたびに初期値から始めたいので、中身は開いている間だけマウントする
-  return props.open ? <CreateSectionModalBody {...props} /> : null;
+  return props.open ? (
+    <SectionNameModalBody
+      {...props}
+      title="新しいセクション"
+      confirmLabel="作成"
+      initialName={suggestNewSectionName(props.sectionNames)}
+    />
+  ) : null;
 }
 
-function CreateSectionModalBody({
+/** セクションの名前を変えるモーダル (セクション名の横の編集ボタンから)。 */
+export function RenameSectionModal(props: SectionNameModalProps & { currentName: string | null }) {
+  return props.currentName ? (
+    <SectionNameModalBody
+      {...props}
+      title="セクション名を変更"
+      confirmLabel="変更"
+      initialName={props.currentName}
+      currentName={props.currentName}
+    />
+  ) : null;
+}
+
+function SectionNameModalBody({
   sectionNames,
   loading,
   onCancel,
   onConfirm,
-}: {
-  sectionNames: string[];
-  loading: boolean;
-  onCancel: () => void;
-  onConfirm: (name: string) => void;
+  title,
+  confirmLabel,
+  initialName,
+  currentName,
+}: SectionNameModalProps & {
+  title: string;
+  confirmLabel: string;
+  initialName: string;
+  /** 名前変更のときの元の名前 (重複判定から外す) */
+  currentName?: string;
 }) {
-  const [name, setName] = useState(() => suggestNewSectionName(sectionNames));
+  const [name, setName] = useState(initialName);
   const normalized = normalizeSectionName(name);
-  const duplicate = normalized !== null && sectionNames.includes(normalized);
-  const submit = () => { if (normalized && !duplicate && !loading) onConfirm(normalized); };
+  const unchanged = normalized !== null && normalized === currentName;
+  const duplicate = normalized !== null && !unchanged && sectionNames.includes(normalized);
+  const submit = () => { if (normalized && !duplicate && !unchanged && !loading) onConfirm(normalized); };
 
   return (
     <ModalFrame onCancel={onCancel} busy={loading}>
-      <h2 className="font-display text-[18px] font-extrabold text-[var(--solid-ink)]">新しいセクション</h2>
+      <h2 className="font-display text-[18px] font-extrabold text-[var(--solid-ink)]">{title}</h2>
       <input
         type="text"
         value={name}
@@ -251,8 +278,8 @@ function CreateSectionModalBody({
       )}
       <ModalActions
         busy={loading}
-        confirmLabel="作成"
-        confirmDisabled={!normalized || duplicate}
+        confirmLabel={confirmLabel}
+        confirmDisabled={!normalized || duplicate || unchanged}
         onCancel={onCancel}
         onConfirm={submit}
       />
@@ -325,6 +352,8 @@ export type ProjectSectionNav = {
   onPrev: () => void;
   onNext: () => void;
   onCreateEnd: () => void;
+  /** 表示中のセクションの名前を変える。名前の付いたセクションのときだけ渡す */
+  onRename?: () => void;
 };
 
 function SectionPagerButton({
@@ -369,9 +398,12 @@ export function SectionPager({ nav }: { nav: ProjectSectionNav }) {
       />
       <div className="flex min-w-0 flex-1 flex-col items-center text-center">
         {nav.label && (
-          <span className="max-w-full truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
-            {nav.label}
-          </span>
+          <div className="flex max-w-full items-center gap-1">
+            <span className="min-w-0 truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
+              {nav.label}
+            </span>
+            {nav.onRename && <SectionRenameButton onClick={nav.onRename} className="h-11 w-11" />}
+          </div>
         )}
         <span className="font-mono text-[11px] font-bold tabular-nums text-[var(--color-muted)]">
           {nav.words.length}語
@@ -385,5 +417,20 @@ export function SectionPager({ nav }: { nav: ProjectSectionNav }) {
         onCreate={nav.onCreateEnd}
       />
     </div>
+  );
+}
+
+/** セクション名の横の編集ボタン。 */
+export function SectionRenameButton({ onClick, className }: { onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="セクション名を変更"
+      title="セクション名を変更"
+      className={`inline-flex shrink-0 items-center justify-center rounded-[8px] text-[var(--color-muted)] transition-colors hover:text-[var(--solid-ink)] active:translate-x-px active:translate-y-px ${className ?? 'h-8 w-8'}`}
+    >
+      <Icon name="edit" size={15} />
+    </button>
   );
 }
