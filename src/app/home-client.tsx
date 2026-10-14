@@ -9,7 +9,6 @@ import { DesktopHomeView } from '@/components/desktop/DesktopHome';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { ScanCaptureModal } from '@/components/home/ScanCaptureModal';
 import { CreateWordbookSheet } from '@/components/home/CreateWordbookSheet';
-import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { ScanCompletedBanner, ScanFailedBanner, ScanInProgressBanner } from '@/components/home/ScanInProgressBanner';
 import {
   addDismissedScanCompletionId,
@@ -809,16 +808,10 @@ export function HomeClient() {
         selfSolvedCount={completedToday}
       />
 
-      {(displayedPendingScans.length > 0 || listProjects.length === 0) && (
+      {/* 生成中の単語帳は一番上の「スキャン中」バナーだけで知らせる (ここに同じカードを重ねて出さない) */}
+      {listProjects.length === 0 && (
         <div className="flex flex-col gap-2.5 px-[18px] pb-4">
-          {displayedPendingScans.map((job) => (
-            <GeneratingProjectCard
-              key={job.id}
-              title={job.project_title}
-              iconDataUrl={job.iconDataUrl}
-            />
-          ))}
-          {listProjects.length === 0 && (loading ? (
+          {loading ? (
             <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
               <Icon name="progress_activity" size={20} className="animate-spin" />
               <span className="ml-2 text-sm">読み込み中...</span>
@@ -835,7 +828,7 @@ export function HomeClient() {
                 </button>
               }
             />
-          ))}
+          )}
         </div>
       )}
 
