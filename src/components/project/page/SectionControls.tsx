@@ -224,17 +224,24 @@ export function CreateSectionModal(props: SectionNameModalProps & { open: boolea
   ) : null;
 }
 
-/** セクションの名前を変えるモーダル (セクション名の横の編集ボタンから)。 */
-export function RenameSectionModal(props: SectionNameModalProps & { currentName: string | null }) {
-  return props.currentName ? (
+/**
+ * セクションの名前を変えるモーダル (セクション名の横の編集ボタンから)。
+ * target.name が null なら未分類の語に名前を付ける (新しいセクションになる)。
+ */
+export function RenameSectionModal(
+  props: SectionNameModalProps & { target: { name: string | null } | null },
+) {
+  const { target } = props;
+  if (!target) return null;
+  return (
     <SectionNameModalBody
       {...props}
       title="セクション名を変更"
       confirmLabel="変更"
-      initialName={props.currentName}
-      currentName={props.currentName}
+      initialName={target.name ?? suggestNewSectionName(props.sectionNames)}
+      currentName={target.name ?? undefined}
     />
-  ) : null;
+  );
 }
 
 function SectionNameModalBody({
@@ -352,7 +359,7 @@ export type ProjectSectionNav = {
   onPrev: () => void;
   onNext: () => void;
   onCreateEnd: () => void;
-  /** 表示中のセクションの名前を変える。名前の付いたセクションのときだけ渡す */
+  /** 表示中のまとまりの名前を変える (未分類なら名前を付けてセクションにする)。検索中は渡さない */
   onRename?: () => void;
 };
 
@@ -405,9 +412,13 @@ export function SectionPager({ nav }: { nav: ProjectSectionNav }) {
             {nav.onRename && <SectionRenameButton onClick={nav.onRename} className="h-11 w-11" />}
           </div>
         )}
-        <span className="font-mono text-[11px] font-bold tabular-nums text-[var(--color-muted)]">
-          {nav.words.length}語
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="font-mono text-[11px] font-bold tabular-nums text-[var(--color-muted)]">
+            {nav.words.length}語
+          </span>
+          {/* セクションの無い単語帳は名前が無いので、語数の横に出す */}
+          {!nav.label && nav.onRename && <SectionRenameButton onClick={nav.onRename} className="h-11 w-11" />}
+        </div>
       </div>
       <SectionPagerButton
         direction="next"
