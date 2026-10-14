@@ -10,6 +10,12 @@ import { StickyPageHeader } from '@/components/ui/StickyPageHeader';
 export default function CustomizePage() {
   const router = useRouter();
 
+  // push('/settings') だと履歴に設定が積まれ、ブラウザの戻るでここへ引き戻される。
+  const goBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    else router.replace('/settings');
+  };
+
   return (
     <>
       <div className="hidden h-full min-h-0 flex-col desktop:flex">
@@ -17,7 +23,7 @@ export default function CustomizePage() {
           <button
             type="button"
             className="ds-iconbtn"
-            onClick={() => router.push('/settings')}
+            onClick={goBack}
             style={{ width: 38, height: 38 }}
             aria-label="設定へ戻る"
           >
@@ -42,7 +48,7 @@ export default function CustomizePage() {
           eyebrow="CUSTOMIZE"
           title="カスタマイズ"
           backLabel="設定へ戻る"
-          onBack={() => router.push('/settings')}
+          onBack={goBack}
           className="mb-3"
         />
 
