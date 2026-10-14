@@ -19,6 +19,7 @@ import {
   type HomeScanFailureNotice,
 } from '@/lib/home/home-scan-completion';
 import { HomeShortcutGrid } from '@/components/home/HomeShortcutGrid';
+import { HomeTodayStudy } from '@/components/home/HomeTodayStudy';
 import { BinderSquareTile } from '@/components/home/HomeTiles';
 import { TabletHomeView } from '@/components/tablet/TabletHome';
 import { TabletOnly } from '@/components/tablet/TabletOnly';
@@ -756,6 +757,14 @@ export function HomeClient() {
           </button>
         </div>
       </div>
+
+      {/* 本文の一番上: 目標があれば目標の「今日の10問」、無ければ「今日復習しておきたい単語」 */}
+      <HomeTodayStudy
+        projects={listProjects}
+        dueCount={stats.dueCount}
+        loading={loading}
+        className="px-[18px] pb-3"
+      />
 
       {/* スキャンで単語帳を作成・追加している間はホームの一番上に出す */}
       <ScanInProgressBanner scans={displayedPendingScans} className="mx-[18px] mb-3" />

@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 
 import {
   GOAL_DAILY_QUIZ_HREF,
+  GOAL_REVIEW_QUIZ_HREF,
   buildCalendarMonth,
+  buildGoalDailyQuizHref,
+  buildGoalReviewQuizHref,
+  resolveTodayStudy,
   daysUntil,
   describeGoalCountdown,
   describeGoalProjectTitles,
@@ -63,4 +67,43 @@ test('describeGoalProjectTitles は1冊ならそのまま、複数なら先頭+�
   assert.equal(describeGoalProjectTitles(['英検準1級']), '英検準1級');
   assert.equal(describeGoalProjectTitles(['英検準1級', 'TOEIC']), '英検準1級ほか1冊');
   assert.equal(describeGoalProjectTitles(['英検準1級', 'TOEIC', 'IELTS']), '英検準1級ほか2冊');
+});
+
+test('クイズへのリンクは戻り先を from に持たせる (目標ページ / ホーム)', () => {
+  assert.equal(GOAL_REVIEW_QUIZ_HREF, '/quiz/all?review=1&from=%2Fgoal');
+  assert.equal(buildGoalDailyQuizHref('/'), '/quiz/all?learn=1&count=10&from=%2F');
+  assert.equal(buildGoalReviewQuizHref('/'), '/quiz/all?review=1&from=%2F');
+});
+
+test('resolveTodayStudy は目標が無ければ今日の復習を返す', () => {
+  const projects = [{ id: 'a', title: '英検準1級', totalWords: 30 }];
+  assert.deepEqual(
+    resolveTodayStudy({ goal: null, projects, dueCount: 7, today: new Date(2026, 9, 14) }),
+    { kind: 'review', dueCount: 7 },
+  );
+});
+
+test('resolveTodayStudy は目標の単語帳が全部消えていたら今日の復習に倒す', () => {
+  const projects = [{ id: 'a', title: '英検準1級', totalWords: 30 }];
+  assert.deepEqual(
+    resolveTodayStudy({ goal: { projectIds: ['gone'], targetDate: '2026-10-21' }, projects, dueCount: 3, today: null }),
+    { kind: 'review', dueCount: 3 },
+  );
+});
+
+test('resolveTodayStudy は目標があれば目標の今日の10問に切り替える', () => {
+  const projects = [
+    { id: 'a', title: '英検準1級', totalWords: 4 },
+    { id: 'b', title: 'ターゲット1900', totalWords: 3 },
+    { id: 'c', title: '関係ない本', totalWords: 100 },
+  ];
+  assert.deepEqual(
+    resolveTodayStudy({
+      goal: { projectIds: ['a', 'b', 'gone'], targetDate: '2026-10-21' },
+      projects,
+      dueCount: 50,
+      today: new Date(2026, 9, 14, 22, 0),
+    }),
+    { kind: 'goal', projectIds: ['a', 'b'], title: '英検準1級ほか1冊', remainingDays: 7, questionCount: 7 },
+  );
 });

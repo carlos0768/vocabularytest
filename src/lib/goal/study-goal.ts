@@ -159,8 +159,65 @@ export const CALENDAR_WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土'
 /**
  * 「今日の10問」へのリンク。目標の単語帳が複数あり得るので `/quiz/[projectId]` ではなく
  * `/quiz/all` を使い、絞り込みは `writeReviewProjectFilter` で別途渡す。
+ * `from` はクイズを閉じたときの戻り先 (目標ページ / ホーム)。
  */
-export const GOAL_DAILY_QUIZ_HREF = `/quiz/all?learn=1&count=${GOAL_DAILY_QUESTION_COUNT}&from=${encodeURIComponent('/goal')}`;
+export function buildGoalDailyQuizHref(from: string): string {
+  return `/quiz/all?learn=1&count=${GOAL_DAILY_QUESTION_COUNT}&from=${encodeURIComponent(from)}`;
+}
 
 /** 「今日復習しておきたい単語」(SM-2 の復習期限が来た語、全単語帳横断) へのリンク */
-export const GOAL_REVIEW_QUIZ_HREF = `/quiz/all?review=1&from=${encodeURIComponent('/goal')}`;
+export function buildGoalReviewQuizHref(from: string): string {
+  return `/quiz/all?review=1&from=${encodeURIComponent(from)}`;
+}
+
+export const GOAL_DAILY_QUIZ_HREF = buildGoalDailyQuizHref('/goal');
+export const GOAL_REVIEW_QUIZ_HREF = buildGoalReviewQuizHref('/goal');
+
+/** 目標の判定に要る単語帳の情報だけ。 */
+export interface GoalCandidateProject {
+  id: string;
+  title: string;
+  totalWords: number;
+}
+
+/**
+ * ホームの一番上に出す「今日やること」。
+ *
+ * 目標 (単語帳 + 期日) が決まっていればその目標の「今日の10問」、
+ * 決まっていない (または目標の単語帳が全部消えた) ときは
+ * 全単語帳の「今日復習しておきたい単語」に倒す。
+ */
+export type TodayStudy =
+  | {
+    kind: 'goal';
+    projectIds: string[];
+    title: string;
+    remainingDays: number | null;
+    /** 実際に出せる問題数 (目標の単語帳の語数が10未満ならその数。0 = 出せない) */
+    questionCount: number;
+  }
+  | { kind: 'review'; dueCount: number };
+
+export function resolveTodayStudy({
+  goal,
+  projects,
+  dueCount,
+  today,
+}: {
+  goal: StudyGoal | null;
+  projects: GoalCandidateProject[];
+  dueCount: number;
+  today: Date | null;
+}): TodayStudy {
+  const goalIds = new Set(goal?.projectIds ?? []);
+  const goalProjects = projects.filter((project) => goalIds.has(project.id));
+  if (!goal || goalProjects.length === 0) return { kind: 'review', dueCount };
+  const totalWords = goalProjects.reduce((sum, project) => sum + project.totalWords, 0);
+  return {
+    kind: 'goal',
+    projectIds: goalProjects.map((project) => project.id),
+    title: describeGoalProjectTitles(goalProjects.map((project) => project.title)),
+    remainingDays: today ? daysUntil(goal.targetDate, today) : null,
+    questionCount: Math.min(GOAL_DAILY_QUESTION_COUNT, totalWords),
+  };
+}
