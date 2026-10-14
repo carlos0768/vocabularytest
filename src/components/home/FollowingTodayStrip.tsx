@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { useProfile } from '@/hooks/use-profile';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { profileAvatarColor } from '@/components/profile/ProfileView';
 import type { FriendProfile } from '@/lib/friends/types';
@@ -57,17 +58,22 @@ function Avatar({ profile }: { profile: FriendProfile }) {
 export function FollowingTodayStrip({
   activity,
   suggestions,
+  selfSolvedCount,
 }: {
   activity: FollowingTodayActivity[];
   suggestions: FollowSuggestion[];
+  /** 自分が今日解いた問題数。渡すと先頭に自分のカードを出す。 */
+  selfSolvedCount?: number;
 }) {
+  const { username, accountId, avatarUrl } = useProfile();
   // 初回描画で localStorage を読む（SSR では window が無いので空集合）。
   const [dismissed, setDismissed] = useState<Set<string>>(() =>
     typeof window === 'undefined' ? new Set() : readDismissed(),
   );
   const visibleSuggestions = suggestions.filter((item) => !dismissed.has(item.userId));
+  const showSelf = selfSolvedCount !== undefined;
 
-  if (activity.length === 0 && visibleSuggestions.length === 0) return null;
+  if (!showSelf && activity.length === 0 && visibleSuggestions.length === 0) return null;
 
   const dismiss = (userId: string) => {
     setDismissed((current) => {
@@ -81,6 +87,27 @@ export function FollowingTodayStrip({
   return (
     <section className="pb-2 pt-2" aria-label="今日クイズを解いたフォロー中の人と、フォローのおすすめ">
       <div className="flex snap-x gap-1.5 overflow-x-auto px-[18px] pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {showSelf && (
+          <Link href="/profile" className={CARD_CLASS}>
+            <ProfileAvatar
+              avatarUrl={avatarUrl}
+              initial={(username || accountId || '?').charAt(0).toUpperCase()}
+              color={profileAvatarColor(accountId ?? '')}
+              size={48}
+              radius={24}
+              borderWidth={1.5}
+            />
+            <div className="mt-1.5 w-full truncate text-center font-display text-[11px] font-extrabold text-[var(--solid-ink)]">
+              あなた
+            </div>
+            <div className="mt-1 flex items-baseline gap-0.5 text-[var(--color-accent)]">
+              <span className="font-display text-[14px] font-extrabold leading-none tabular-nums">
+                {selfSolvedCount.toLocaleString()}
+              </span>
+              <span className="text-[9px] font-bold">問</span>
+            </div>
+          </Link>
+        )}
         {activity.map((item) => (
           <Link key={item.userId} href={`/profile/${encodeURIComponent(item.profile.accountId)}`} className={CARD_CLASS}>
             <Avatar profile={item.profile} />

@@ -808,7 +808,11 @@ export function HomeClient() {
         </div>
       )}
 
-      <FollowingTodayStrip activity={followingToday.activity} suggestions={followingToday.suggestions} />
+      <FollowingTodayStrip
+        activity={followingToday.activity}
+        suggestions={followingToday.suggestions}
+        selfSolvedCount={completedToday}
+      />
 
       <div className="flex items-baseline justify-between px-5 pb-2.5 pt-3">
         <div>
