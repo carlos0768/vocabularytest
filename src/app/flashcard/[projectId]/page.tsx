@@ -54,6 +54,13 @@ import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { triggerHaptic } from '@/lib/haptics';
 import type { Word, SubscriptionStatus } from '@/types';
 import { GRADE_TINT, GradeBar, HeaderBtn, NavBtn } from '@/components/flashcard/FlashcardControls';
+import { FlashcardReel } from '@/components/flashcard/FlashcardReel';
+import {
+  FLASHCARD_VIEWS,
+  readFlashcardView,
+  saveFlashcardView,
+  type FlashcardView,
+} from '@/lib/quiz/flashcard-view';
 
 /* ---------- HeaderBtn (立体スケッチ風) ---------- */
 /* ---------- NavBtn (前へ / 回転 / 次へ の丸ボタン) ---------- */
@@ -96,6 +103,13 @@ export default function FlashcardPage() {
     return isFlashcardFilter(requested) ? requested : 'all';
   });
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  /** カードで1枚ずつ見るか、リールで縦に流すか。端末ごとに前回の選択を覚える。 */
+  const [view, setView] = useState<FlashcardView>('card');
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  useEffect(() => { setView(readFlashcardView()); }, []);
+  const isReel = view === 'reel';
+  const isReelRef = useRef(isReel);
+  useEffect(() => { isReelRef.current = isReel; }, [isReel]);
   // 誤答回数は /words の絞り込みと同じ localStorage の記録。開いた時点で固定する。
   const wrongCounts = useMemo(
     () => new Map(getWrongAnswers().map((wrong) => [wrong.wordId, wrong.wrongCount])),
@@ -344,6 +358,14 @@ export default function FlashcardPage() {
     recordActivity();
 
     const isLast = currentIndex >= words.length - 1;
+    if (isReel) {
+      // リールはスクロールそのものが送りの演出になるので、横に流す演出は挟まない。
+      resetFaceInstantly();
+      if (isLast) { setFinished(true); return; }
+      setCurrentIndex((index) => index + 1);
+      if (tutorialActive) setTutorialAdvances((count) => count + 1);
+      return;
+    }
     setSwipeX(0);
     setIsAnimating(true);
     setSlideDirection('left');
@@ -366,7 +388,24 @@ export default function FlashcardPage() {
         setTimeout(() => { setSlideDirection(null); setIsAnimating(false); }, 200);
       });
     }, GRADE_FLY_MS);
-  }, [isAnimating, words, currentIndex, repository, tutorialActive, resetFaceInstantly]);
+  }, [isAnimating, words, currentIndex, repository, tutorialActive, resetFaceInstantly, isReel]);
+
+  /** リールでスクロールが止まったカードを現在地にする。意味は畳んでから見せる。 */
+  const handleReelSettle = useCallback((index: number) => {
+    if (index === currentIndex) return;
+    setCurrentIndex(index);
+    resetFaceInstantly();
+    if (tutorialActive) setTutorialAdvances((count) => count + 1);
+  }, [currentIndex, tutorialActive, resetFaceInstantly]);
+
+  const handleChangeView = useCallback((next: FlashcardView) => {
+    triggerHaptic();
+    setViewMenuOpen(false);
+    setView(next);
+    saveFlashcardView(next);
+    setSwipeX(0);
+    resetFaceInstantly();
+  }, [resetFaceInstantly]);
 
   /** 山札を引き直して最初から。ids=null で読み込んだ全部に戻す。 */
   const restartDeck = useCallback((ids: string[] | null) => {
@@ -528,7 +567,8 @@ export default function FlashcardPage() {
       if (cancelled) return;
       // 画面消灯中はスライド演出を挟まない。演出は描画が前提なので、
       // 隠れている間に走らせても意味がないうえ、進行を遅らせるだけ。
-      handleNextRef.current(!isPageHidden());
+      // リールはスクロールが演出を兼ねるので横の演出も挟まない。
+      handleNextRef.current(!isPageHidden() && !isReelRef.current);
     })();
 
     return () => {
@@ -611,11 +651,14 @@ export default function FlashcardPage() {
     };
   }, []);
 
+  const toggleFavoriteOf = async (word: Word) => {
+    const newFavorite = !word.isFavorite;
+    await repository.updateWord(word.id, { isFavorite: newFavorite });
+    setAllWords(prev => prev.map(w => (w.id === word.id ? { ...w, isFavorite: newFavorite } : w)));
+  };
   const handleToggleFavorite = async () => {
     if (!currentWord) return;
-    const newFavorite = !currentWord.isFavorite;
-    await repository.updateWord(currentWord.id, { isFavorite: newFavorite });
-    setAllWords(prev => prev.map(w => (w.id === currentWord.id ? { ...w, isFavorite: newFavorite } : w)));
+    await toggleFavoriteOf(currentWord);
   };
 
   /** 絞り込みを変えたら山札の先頭から。裏返し・自動再生の状態も畳む。 */
@@ -924,10 +967,56 @@ export default function FlashcardPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* 見せ方の選択（カード / リール） */}
+          <div className="relative">
+            <HeaderBtn
+              onClick={() => { triggerHaptic(); setFilterMenuOpen(false); setViewMenuOpen((open) => !open); }}
+              active={viewMenuOpen}
+              aria-label="表示の切り替え"
+              aria-haspopup="menu"
+              aria-expanded={viewMenuOpen}
+            >
+              <Icon name={FLASHCARD_VIEWS.find((option) => option.key === view)?.icon ?? 'style'} size={16} />
+            </HeaderBtn>
+            {viewMenuOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="閉じる"
+                  onClick={() => setViewMenuOpen(false)}
+                  className="fixed inset-0 z-40 cursor-default bg-transparent"
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 top-[44px] z-50 w-[170px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)]"
+                >
+                  {FLASHCARD_VIEWS.map((option) => {
+                    const active = option.key === view;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={active}
+                        onClick={() => handleChangeView(option.key)}
+                        className={`flex w-full items-center gap-2.5 border-b-2 border-[var(--color-border)] px-3.5 py-3 text-left text-[13px] font-bold last:border-b-0 ${
+                          active ? 'bg-[var(--solid-ink)] text-[var(--color-surface)]' : 'text-[var(--solid-ink)]'
+                        }`}
+                      >
+                        <Icon name={option.icon} size={16} filled={active} />
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* 流す単語の絞り込み（保存済み・間違えた など） */}
           <div className="relative">
             <HeaderBtn
-              onClick={() => { triggerHaptic(); setFilterMenuOpen((open) => !open); }}
+              onClick={() => { triggerHaptic(); setViewMenuOpen(false); setFilterMenuOpen((open) => !open); }}
               active={deckFilter !== 'all' || filterMenuOpen}
               aria-label="流す単語を絞り込む"
               aria-haspopup="menu"
@@ -983,6 +1072,20 @@ export default function FlashcardPage() {
         </div>
       </div>
 
+      {isReel ? (
+        <div className="flex min-h-0 flex-1 flex-col tablet:mx-auto tablet:w-full tablet:max-w-[760px]">
+          <FlashcardReel
+            words={words}
+            currentIndex={currentIndex}
+            revealed={isFlipped}
+            onSettle={handleReelSettle}
+            onToggleReveal={handleFlip}
+            onSpeak={(word) => speakEnglish(word.english)}
+            onToggleFavorite={(word) => { void toggleFavoriteOf(word); }}
+          />
+        </div>
+      ) : (
+      <>
       {/* Card area */}
       {/* 下段 (評価バー + 送りボタン) のほうがヘッダーより約96px高い。その差を上に足して、カードが画面の上下中央に来るようにする */}
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-5 pt-[96px] short:pt-0 tablet:mx-auto tablet:w-full tablet:max-w-[760px]">
@@ -1105,13 +1208,16 @@ export default function FlashcardPage() {
           />
         </div>
       </div>
+      </>
+      )}
 
-      {/* 下段: 裏返したら SM-2 の4段階評価、その下に前へ / 回転 / 次へ */}
+      {/* 下段: 裏返したら SM-2 の4段階評価、その下に前へ / 回転 / 次へ (リールは評価だけ) */}
       <div
         className="flex shrink-0 flex-col items-center gap-3 px-5 pt-2 tablet:mx-auto tablet:w-full tablet:max-w-[760px]"
         style={{ paddingBottom: 'max(20px, calc(env(safe-area-inset-bottom) + 14px))' }}
       >
         <GradeBar visible={isFlipped} disabled={isAnimating} onGrade={commitGrade} />
+        {!isReel && (
         <div className="flex items-center justify-center gap-6">
           <NavBtn onClick={() => handlePrev(true)} aria-label="前のカード">
             <Icon name="chevron_left" size={20} />
@@ -1123,6 +1229,7 @@ export default function FlashcardPage() {
             <Icon name="chevron_right" size={20} />
           </NavBtn>
         </div>
+        )}
       </div>
 
     </div>
