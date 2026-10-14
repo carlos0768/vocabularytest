@@ -20,6 +20,7 @@ export function BulkActionBar({
   onBulkFavorite,
   onBulkVocabularyType,
   onBulkImport,
+  onBulkSection,
   onBulkDelete,
 }: {
   open: boolean;
@@ -35,6 +36,7 @@ export function BulkActionBar({
   onBulkFavorite: () => void;
   onBulkVocabularyType: (vocabularyType: VocabularyType) => void;
   onBulkImport: () => void;
+  onBulkSection: () => void;
   onBulkDelete: () => void;
 }) {
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
@@ -109,6 +111,12 @@ export function BulkActionBar({
                 onClick={() => onBulkVocabularyType('passive')}
               />
               <BulkInlineActionButton
+                icon="segment"
+                label="セクション"
+                disabled={!hasSelection || actionLoading}
+                onClick={onBulkSection}
+              />
+              <BulkInlineActionButton
                 icon="drive_file_move"
                 label="コピー"
                 loading={importLoading}
@@ -159,6 +167,15 @@ export function BulkActionBar({
                       onClick={() => {
                         setActionMenuOpen(false);
                         onBulkVocabularyType('passive');
+                      }}
+                    />
+                    <BulkActionMenuButton
+                      icon="segment"
+                      label="セクション"
+                      disabled={!hasSelection || actionLoading}
+                      onClick={() => {
+                        setActionMenuOpen(false);
+                        onBulkSection();
                       }}
                     />
                     <BulkActionMenuButton

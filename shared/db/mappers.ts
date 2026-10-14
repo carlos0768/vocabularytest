@@ -19,6 +19,7 @@ import type {
 import { normalizeProjectKind } from '../types';
 import { normalizeSourceLabels } from '../source-labels';
 import { normalizeSharedTags } from '../shared-tags';
+import { normalizeSectionName, normalizeSectionNames } from '../word-sections';
 import {
   normalizeLexiconTranslation,
 } from '../lexicon';
@@ -56,6 +57,7 @@ export interface ProjectRow {
   is_favorite?: boolean | null;
   binder?: string | null;
   kind?: string | null;
+  section_names?: unknown[] | null;
 }
 
 export function mapProjectFromRow(row: ProjectRow): Project {
@@ -79,6 +81,7 @@ export function mapProjectFromRow(row: ProjectRow): Project {
     isFavorite: row.is_favorite ?? false,
     binder: row.binder?.trim() ? row.binder.trim() : null,
     kind: normalizeProjectKind(row.kind),
+    sectionNames: normalizeSectionNames(row.section_names),
   };
 }
 
@@ -126,6 +129,7 @@ export function mapProjectToInsertWithId(project: Project): {
   imported_from_official_slug?: string;
   is_favorite?: boolean;
   kind?: ProjectKind;
+  section_names?: string[];
 } {
   return {
     id: project.id,
@@ -147,6 +151,10 @@ export function mapProjectToInsertWithId(project: Project): {
     ...(project.isFavorite !== undefined && { is_favorite: project.isFavorite }),
     ...(project.binder !== undefined && { binder: project.binder?.trim() ? project.binder.trim() : null }),
     ...(normalizeProjectKind(project.kind) === 'classical' && { kind: 'classical' as const }),
+    // 列の既定値が空配列なので、セクションが無いときは送らない (行の形を変えない)
+    ...(normalizeSectionNames(project.sectionNames).length > 0 && {
+      section_names: normalizeSectionNames(project.sectionNames),
+    }),
   };
 }
 
@@ -168,6 +176,7 @@ export function mapProjectUpdates(updates: Partial<Project>): Record<string, unk
   if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
   if (updates.binder !== undefined) updateData.binder = updates.binder?.trim() ? updates.binder.trim() : null;
   if (updates.kind !== undefined) updateData.kind = normalizeProjectKind(updates.kind);
+  if (updates.sectionNames !== undefined) updateData.section_names = normalizeSectionNames(updates.sectionNames);
   return updateData;
 }
 
@@ -196,6 +205,7 @@ export interface WordRow {
   classical_entry_id?: string | null;
   status?: string | null;
   mastery_level?: number | null;
+  section_name?: string | null;
   created_at: string;
   last_reviewed_at?: string | null;
   next_review_at?: string | null;
@@ -593,6 +603,7 @@ export function mapWordFromRow(row: WordRow): Word {
     ...(row.classical_entry_id ? { isClassical: true } : {}),
     status: (row.status as Word['status']) ?? 'new',
     masteryLevel: normalizeMasteryLevel(row.mastery_level),
+    sectionName: normalizeSectionName(row.section_name),
     createdAt: row.created_at,
     lastReviewedAt: row.last_reviewed_at ?? undefined,
     nextReviewAt: row.next_review_at ?? undefined,
@@ -634,6 +645,7 @@ export function mapWordToInsertWithId(word: Word): {
   classical_entry_id?: string;
   status: string;
   mastery_level?: number;
+  section_name?: string;
   created_at: string;
   last_reviewed_at?: string;
   next_review_at?: string;
@@ -667,6 +679,8 @@ export function mapWordToInsertWithId(word: Word): {
     status: word.status,
     // 列の既定値が 0 なので、0 のときは送らない (行の形を変えない)
     ...(word.masteryLevel ? { mastery_level: word.masteryLevel } : {}),
+    // 未分類 (NULL) が列の既定値なので、セクションに入っているときだけ送る
+    ...(normalizeSectionName(word.sectionName) ? { section_name: normalizeSectionName(word.sectionName)! } : {}),
     created_at: word.createdAt,
     last_reviewed_at: word.lastReviewedAt,
     next_review_at: word.nextReviewAt,
@@ -690,6 +704,7 @@ export function mapWordUpdates(updates: Partial<Word>): Record<string, unknown> 
   if (updates.distractors !== undefined) updateData.distractors = updates.distractors;
   if (updates.status !== undefined) updateData.status = updates.status;
   if (updates.masteryLevel !== undefined) updateData.mastery_level = updates.masteryLevel;
+  if (updates.sectionName !== undefined) updateData.section_name = normalizeSectionName(updates.sectionName);
   if (updates.exampleSentence !== undefined) updateData.example_sentence = updates.exampleSentence;
   if (updates.exampleSentenceJa !== undefined) updateData.example_sentence_ja = updates.exampleSentenceJa;
   if (updates.pronunciation !== undefined) updateData.pronunciation = updates.pronunciation;

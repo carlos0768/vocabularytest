@@ -109,6 +109,8 @@ const wordInputSchema = z.object({
   // 古典語の共通辞書へのリンク。スキーマは .strict() なので、
   // クライアントが送り始める前にサーバ側で受け付けられるようにしておく。
   classicalEntryId: z.string().uuid().optional(),
+  // 単語帳のセクション名。未指定・null は未分類。
+  sectionName: z.string().trim().min(1).max(40).nullable().optional(),
   status: z.enum(['new', 'review', 'active', 'mastered']).optional(),
   createdAt: z.string().datetime().optional(),
   lastReviewedAt: z.string().datetime().optional(),
@@ -279,6 +281,8 @@ export async function handleWordsCreatePost(request: NextRequest, deps?: WordsCr
         word_order_quiz: word.wordOrderQuiz ?? null,
         morphology: word.morphology ?? null,
         ...(word.classicalEntryId ? { classical_entry_id: word.classicalEntryId } : {}),
+        // 未分類 (NULL) が列の既定値なので、セクションに入るときだけ送る
+        ...(word.sectionName ? { section_name: word.sectionName } : {}),
         status: word.status ?? 'new',
         created_at: word.createdAt ?? new Date().toISOString(),
         last_reviewed_at: word.lastReviewedAt ?? null,

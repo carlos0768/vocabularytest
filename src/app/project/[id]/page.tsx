@@ -82,6 +82,18 @@ import {
   MenuButton,
   RedSheetToggle,
 } from '@/components/project/page/ProjectHeaderControls';
+import {
+  CreateSectionModal,
+  MoveToSectionModal,
+  type ProjectSectionNav,
+} from '@/components/project/page/SectionControls';
+import {
+  buildWordSectionGroups,
+  getSectionGroupLabel,
+  insertSectionName,
+  normalizeSectionName,
+  resolveProjectSectionNames,
+} from '@/lib/project/word-sections';
 
 /** 音声でまとめて追加するとき、同時に補完を走らせる語数。 */
 const VOICE_ADD_CONCURRENCY = 3;
@@ -157,6 +169,39 @@ async function loadRemoteWordsForEmptyLocalCache(projectId: string): Promise<Wor
     console.warn('Failed to load words from remote for an empty local wordbook:', error);
     return [];
   }
+}
+
+/**
+ * 下部バーのセクション送りボタン。端のセクションでは「＋」になり、
+ * その側に新しいセクションを作る。
+ */
+function SectionStepButton({
+  direction,
+  atEdge,
+  disabled,
+  onStep,
+  onCreate,
+}: {
+  direction: 'prev' | 'next';
+  atEdge: boolean;
+  disabled?: boolean;
+  onStep: () => void;
+  onCreate: () => void;
+}) {
+  const create = atEdge && !disabled;
+  return (
+    <button
+      type="button"
+      onClick={create ? onCreate : onStep}
+      disabled={disabled || (atEdge && !create)}
+      aria-label={create ? '新しいセクション' : direction === 'prev' ? '前のセクション' : '次のセクション'}
+      className={`flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40 ${
+        create ? 'border-dashed bg-[var(--color-accent-light)]' : 'bg-[var(--color-surface)]'
+      }`}
+    >
+      <Icon name={create ? 'add' : direction === 'prev' ? 'chevron_left' : 'chevron_right'} size={20} />
+    </button>
+  );
 }
 
 function isOwnedBy(project: Project | undefined | null, expectedUserId: string): project is Project {
@@ -383,6 +428,7 @@ export default function ProjectPage() {
   useEffect(() => {
     try {
       if (consumeManualAddIntent(sessionStorage) === projectId) {
+        setManualWordSectionName(null);
         setManualWordAddedCount(0);
         setShowManualWordModal(true);
       }
@@ -466,18 +512,42 @@ export default function ProjectPage() {
     });
   }, [query, words, wordSortOrder, wordOrderSnapshot, wordFilterBookmark, wordFilterActiveness, wordFilterPos]);
 
-  // モバイル専用: 20語を超える単語帳は10語ずつページ送りする (フロントのみで完結)
-  const MOBILE_WORDS_PER_PAGE = 10;
-  const paginateWords = filteredWords.length > 20;
-  const wordPageCount = paginateWords ? Math.ceil(filteredWords.length / MOBILE_WORDS_PER_PAGE) : 1;
-  const [wordPage, setWordPage] = useState(0);
+  // セクション: 一覧はセクション単位で見せ、下部バーの左右の矢印でセクションを送る。
+  // セクションの無い単語帳は全語で1つ。検索中は単語帳全体から探したいので区切らない。
+  const sectionNames = useMemo(
+    () => resolveProjectSectionNames(project?.sectionNames, words),
+    [project?.sectionNames, words],
+  );
+  const searching = query.trim().length > 0;
+  const sectionGroups = useMemo(
+    () => (searching
+      ? [{ name: null, words: filteredWords }]
+      : buildWordSectionGroups(sectionNames, words, filteredWords)),
+    [searching, sectionNames, words, filteredWords],
+  );
+  const [storedSectionIndex, setSectionIndex] = useState(0);
+  const sectionIndex = Math.min(storedSectionIndex, sectionGroups.length - 1);
+  const currentSectionGroup = sectionGroups[sectionIndex];
+  const currentSectionName = searching ? null : currentSectionGroup.name;
+  const currentSectionLabel = searching ? null : getSectionGroupLabel(currentSectionGroup, sectionGroups.length);
+  const sectionWords = currentSectionGroup.words;
+  // 作ったばかりのセクションへ移るための印。単語帳の更新が一覧に反映されてから移る。
+  const pendingSectionFocusRef = useRef<string | null>(null);
   useEffect(() => {
-    // フィルタ/検索でページ数が減ったら範囲内に戻す
-    setWordPage((prev) => (prev > wordPageCount - 1 ? 0 : prev));
-  }, [wordPageCount]);
-  const pagedMobileWords = paginateWords
-    ? filteredWords.slice(wordPage * MOBILE_WORDS_PER_PAGE, (wordPage + 1) * MOBILE_WORDS_PER_PAGE)
-    : filteredWords;
+    const target = pendingSectionFocusRef.current;
+    if (!target) return;
+    const index = sectionGroups.findIndex((group) => group.name === target);
+    if (index >= 0) {
+      pendingSectionFocusRef.current = null;
+      setSectionIndex(index);
+    }
+  }, [sectionGroups]);
+  const [createSectionPosition, setCreateSectionPosition] = useState<'start' | 'end' | null>(null);
+  const [createSectionLoading, setCreateSectionLoading] = useState(false);
+  const [moveSectionModalOpen, setMoveSectionModalOpen] = useState(false);
+  const [moveSectionLoading, setMoveSectionLoading] = useState(false);
+  // 手入力で追加する語の入り先。開いたときに見ていたセクションから始める。
+  const [manualWordSectionName, setManualWordSectionName] = useState<string | null>(null);
 
   // 赤シート: 一覧の訳を赤いベタで隠す。紙の単語帳の赤シートと同じ使い方をする。
   // 下部バーの左のシートは英語 (見出し語) 側、右のシートは訳側を隠す。両方同時に掛けてもよい。
@@ -486,17 +556,18 @@ export default function ProjectPage() {
   const [englishRedSheet, setEnglishRedSheet] = useState(false);
   // 下部固定バー (ページ送り + 赤シート)。1語でもあれば出す。ただし選択モード中は
   // 同じ位置に BulkActionBar が来るので譲る。
-  const showWordToolbar = wordsLoaded && filteredWords.length > 0 && !selectMode;
+  const showWordToolbar = wordsLoaded && (filteredWords.length > 0 || sectionNames.length > 0) && !selectMode;
 
+  // 選択は表示中のセクションの語が対象 (全選択もそのセクションだけ)
   const selectedDisplayedWordCount = useMemo(
-    () => filteredWords.filter((word) => selectedWordIds.has(word.id)).length,
-    [filteredWords, selectedWordIds],
+    () => sectionWords.filter((word) => selectedWordIds.has(word.id)).length,
+    [sectionWords, selectedWordIds],
   );
-  const allFilteredWordsSelected = filteredWords.length > 0
-    && filteredWords.every((word) => selectedWordIds.has(word.id));
+  const allFilteredWordsSelected = sectionWords.length > 0
+    && sectionWords.every((word) => selectedWordIds.has(word.id));
   const selectedFilteredWords = useMemo(
-    () => filteredWords.filter((word) => selectedWordIds.has(word.id)),
-    [filteredWords, selectedWordIds],
+    () => sectionWords.filter((word) => selectedWordIds.has(word.id)),
+    [sectionWords, selectedWordIds],
   );
 
   // The guided flow's own tours on this page (flashcard / quiz nudges) take
@@ -761,6 +832,75 @@ export default function ProjectPage() {
       showToast({ message: 'インポートに失敗しました', type: 'error' });
     } finally {
       setBulkImportLoading(false);
+    }
+  };
+
+  /**
+   * セクションを1つ足して単語帳に保存する。失敗したら元に戻して false。
+   * 既にある名前なら何もせず true (選び直すだけで済む)。
+   */
+  const handleCreateSection = async (rawName: string, position: 'start' | 'end' = 'end'): Promise<boolean> => {
+    if (!project) return false;
+    const name = normalizeSectionName(rawName);
+    if (!name) return false;
+    if (sectionNames.includes(name)) return true;
+    const previous = project.sectionNames;
+    const next = insertSectionName(sectionNames, name, position);
+    setProject((prev) => (prev ? { ...prev, sectionNames: next } : prev));
+    try {
+      await mutationRepository.updateProject(projectId, { sectionNames: next });
+      return true;
+    } catch (sectionError) {
+      console.error('Failed to create section:', sectionError);
+      setProject((prev) => (prev ? { ...prev, sectionNames: previous } : prev));
+      showToast({ message: 'セクションを作成できませんでした', type: 'error' });
+      return false;
+    }
+  };
+
+  /** 下部バーの端の「＋」から作ったセクションへそのまま移る。 */
+  const handleConfirmCreateSection = async (name: string) => {
+    if (!createSectionPosition || createSectionLoading) return;
+    setCreateSectionLoading(true);
+    const ok = await handleCreateSection(name, createSectionPosition);
+    setCreateSectionLoading(false);
+    if (!ok) return;
+    pendingSectionFocusRef.current = name;
+    setCreateSectionPosition(null);
+  };
+
+  const handleConfirmMoveToSection = async (sectionName: string | null) => {
+    if (selectedWordIds.size === 0 || moveSectionLoading) return;
+    const targets = words.filter((w) => selectedWordIds.has(w.id));
+    if (targets.length === 0) return;
+
+    setMoveSectionLoading(true);
+    // 移した先のセクションへ一覧も移る (一覧の組み直しを待って移るので、更新より先に印を付ける)
+    pendingSectionFocusRef.current = sectionName ?? null;
+    setWords((prev) => prev.map((w) => (selectedWordIds.has(w.id) ? { ...w, sectionName } : w)));
+    try {
+      for (const w of targets) {
+        if ((normalizeSectionName(w.sectionName) ?? null) !== sectionName) {
+          await mutationRepository.updateWord(w.id, { sectionName });
+        }
+      }
+      showToast({
+        message: `${targets.length}語を「${sectionName ?? '未分類'}」に移動しました`,
+        type: 'success',
+      });
+      setMoveSectionModalOpen(false);
+      setSelectedWordIds(new Set());
+      setSelectMode(false);
+    } catch (moveError) {
+      console.error('Failed to move words to section:', moveError);
+      pendingSectionFocusRef.current = null;
+      setWords((prev) => prev.map((w) => {
+        const original = targets.find((t) => t.id === w.id);
+        return original ? { ...w, sectionName: original.sectionName } : w;
+      }));
+      showToast({ message: 'セクションの移動に失敗しました', type: 'error' });
+    } finally {
+      setMoveSectionLoading(false);
     }
   };
 
@@ -1127,6 +1267,7 @@ export default function ProjectPage() {
   };
 
   const openManualWordModal = () => {
+    setManualWordSectionName(currentSectionName);
     setManualWordAddedCount(0);
     setShowManualWordModal(true);
   };
@@ -1161,8 +1302,11 @@ export default function ProjectPage() {
     translations?: string[];
     partOfSpeech?: string;
     exampleSentence?: string;
+    /** 入れるセクション。null/未指定は未分類。 */
+    sectionName?: string | null;
   }): Promise<'added' | 'no_japanese'> => {
     const english = input.english.trim();
+    const sectionName = normalizeSectionName(input.sectionName);
     // 入力訳が複数あれば訳ごとの word_translations にする。補完 AI には第一訳だけを
     // 渡し、例文・マスターの語義合わせは第一訳に合わせる。
     const userTranslations = buildManualTranslations(input.translations ?? []);
@@ -1258,6 +1402,7 @@ export default function ProjectPage() {
       exampleSentence: enrichedExampleSentence || undefined,
       exampleSentenceJa: enrichedExampleSentenceJa || undefined,
       morphology: enrichedMorphology,
+      ...(sectionName ? { sectionName } : {}),
       status: 'new',
       createdAt: new Date().toISOString(),
       easeFactor: 2.5,
@@ -1283,6 +1428,7 @@ export default function ProjectPage() {
           ...(enrichedExampleSentence ? { exampleSentence: enrichedExampleSentence } : {}),
           ...(enrichedExampleSentenceJa ? { exampleSentenceJa: enrichedExampleSentenceJa } : {}),
           ...(enrichedMorphology ? { morphology: enrichedMorphology } : {}),
+          ...(sectionName ? { sectionName } : {}),
         },
       ])
       .then((created) => {
@@ -1319,6 +1465,7 @@ export default function ProjectPage() {
       translations: manualWordTranslations,
       partOfSpeech: manualWordPartOfSpeech,
       exampleSentence: manualWordExampleSentence,
+      sectionName: manualWordSectionName,
     });
 
     // 日本語訳が入力されず自動補完もできなかった場合だけ入力をお願いする
@@ -1356,6 +1503,8 @@ export default function ProjectPage() {
     }
 
     setVoiceWordAdding(true);
+    // 音声で追加した語は、開いたときに見ていたセクションに入れる
+    const voiceSectionName = currentSectionName;
     let done = 0;
     let added = 0;
     const failed: string[] = [];
@@ -1364,7 +1513,7 @@ export default function ProjectPage() {
     const queue = [...targets];
     const worker = async () => {
       for (let english = queue.shift(); english !== undefined; english = queue.shift()) {
-        const outcome = await addEnrichedManualWord({ english });
+        const outcome = await addEnrichedManualWord({ english, sectionName: voiceSectionName });
         if (outcome === 'added') added += 1;
         else failed.push(english);
         done += 1;
@@ -1411,6 +1560,18 @@ export default function ProjectPage() {
   }
 
   const bg = thumbColor(project.id);
+  const sectionNav: ProjectSectionNav = {
+    visible: wordsLoaded && (filteredWords.length > 0 || sectionNames.length > 0),
+    label: currentSectionLabel,
+    words: sectionWords,
+    atStart: sectionIndex === 0,
+    atEnd: sectionIndex >= sectionGroups.length - 1,
+    disabled: searching,
+    onPrev: () => setSectionIndex(Math.max(0, sectionIndex - 1)),
+    onNext: () => setSectionIndex(Math.min(sectionGroups.length - 1, sectionIndex + 1)),
+    onCreateStart: () => setCreateSectionPosition('start'),
+    onCreateEnd: () => setCreateSectionPosition('end'),
+  };
 
   return (
     <>
@@ -1419,6 +1580,7 @@ export default function ProjectPage() {
         projectId={projectId}
         words={words}
         filteredWords={filteredWords}
+        sectionNav={sectionNav}
         wordsLoaded={wordsLoaded}
         counts={counts}
         query={query}
@@ -1453,6 +1615,7 @@ export default function ProjectPage() {
           projectId={projectId}
           words={words}
           filteredWords={filteredWords}
+          sectionNav={sectionNav}
           wordsLoaded={wordsLoaded}
           counts={counts}
           query={query}
@@ -1731,8 +1894,8 @@ export default function ProjectPage() {
             <Icon name="progress_activity" size={20} className="animate-spin" />
             <span className="ml-2 text-sm">単語を読み込み中...</span>
           </div>
-        ) : filteredWords.length === 0 ? (
-          counts.total === 0 ? (
+        ) : sectionWords.length === 0 ? (
+          counts.total === 0 && sectionNames.length === 0 ? (
             <EmptyWordbookState
               isPro={isPro}
               onScan={() => setShowScanCaptureModal(true)}
@@ -1741,12 +1904,26 @@ export default function ProjectPage() {
             />
           ) : (
             <div className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center text-sm text-[var(--color-muted)]">
-              {query ? '一致する単語がありません' : '条件に一致する単語がありません'}
+              {query
+                ? '一致する単語がありません'
+                : filteredWords.length > 0 || wordFilterActive
+                  ? '条件に一致する単語がありません'
+                  : 'このセクションには単語がありません'}
+              {!query && !wordFilterActive && (
+                <button
+                  type="button"
+                  onClick={openManualWordModal}
+                  className="mx-auto mt-3 flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)]"
+                >
+                  <Icon name="add" size={14} />
+                  単語を追加
+                </button>
+              )}
             </div>
           )
         ) : (
           <div className="divide-y divide-[var(--color-border)]">
-            {pagedMobileWords.map((word, index) => {
+            {sectionWords.map((word, index) => {
               const selected = selectedWordIds.has(word.id);
               return (
               <WordRow
@@ -1757,7 +1934,7 @@ export default function ProjectPage() {
                 hideMeaning={redSheet}
                 hideEnglish={englishRedSheet}
                 splitMeaning
-                tourAnchor={index === 0 && wordPage === 0}
+                tourAnchor={index === 0 && sectionIndex === 0}
                 onToggleSelect={() => handleToggleSelectWord(word)}
                 onCycleStatus={(newStatus) => handleCycleStatus(word.id, newStatus)}
                 onCycleVocabularyType={() => void handleCycleVocabularyType(word)}
@@ -1780,27 +1957,25 @@ export default function ProjectPage() {
         )}
       </div>
 
-      {/* モバイル: 語数 / 赤シート (左=英語・右=訳) / ページ送りの下部固定バー。
-          20語を超える単語帳は10語ずつのページ送りになり、左右の矢印で移動する
-          (20語以下でも赤シートは使えるようにバー自体は出し、矢印だけ無効にする) */}
+      {/* モバイル: セクション名 / 赤シート (左=英語・右=訳) / セクション送りの下部固定バー。
+          左右の矢印でセクションを送り、端まで来たら矢印が「＋」になってセクションを足せる
+          (検索中は単語帳全体を1つに出すので送らない) */}
       {showWordToolbar && (
         <div
           className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--solid-ink)] bg-[var(--color-background)]/95 backdrop-blur-md desktop:hidden"
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
         >
-          {/* 語数はバーの中央に固定する。左右を flex-1 で等分し、その間に置くので、
+          {/* 名前はバーの中央に固定する。左右を flex-1 で等分し、その間に置くので、
               左右に赤シートが並んでも表示位置は動かない */}
           <div className="mx-auto flex w-full max-w-[560px] items-center gap-2.5 px-[18px] pt-3">
             <div className="flex flex-1 items-center justify-start gap-2.5">
-              <button
-                type="button"
-                onClick={() => setWordPage((p) => Math.max(0, p - 1))}
-                disabled={!paginateWords || wordPage === 0}
-                aria-label="前の10語"
-                className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
-              >
-                <Icon name="chevron_left" size={20} />
-              </button>
+              <SectionStepButton
+                direction="prev"
+                atEdge={sectionIndex === 0}
+                disabled={searching}
+                onStep={() => setSectionIndex(sectionIndex - 1)}
+                onCreate={() => setCreateSectionPosition('start')}
+              />
               {/* 英語側の赤シート。一覧の左カラム (英語) を隠すので、バーでも左に置く */}
               <RedSheetToggle
                 on={englishRedSheet}
@@ -1808,11 +1983,20 @@ export default function ProjectPage() {
                 label={englishRedSheet ? '英語の赤シートを外す' : '赤シートで英語を隠す'}
               />
             </div>
-            <span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-bold tabular-nums text-[var(--solid-ink)]">
-              {paginateWords
-                ? `${wordPage * MOBILE_WORDS_PER_PAGE + 1}–${Math.min(filteredWords.length, (wordPage + 1) * MOBILE_WORDS_PER_PAGE)} / ${filteredWords.length}語`
-                : `${filteredWords.length}語`}
-            </span>
+            <div className="flex min-w-0 max-w-[40%] shrink flex-col items-center text-center">
+              {currentSectionLabel && (
+                <span className="max-w-full truncate font-display text-[13px] font-extrabold leading-tight text-[var(--solid-ink)]">
+                  {currentSectionLabel}
+                </span>
+              )}
+              <span
+                className={`whitespace-nowrap font-mono font-bold tabular-nums ${
+                  currentSectionLabel ? 'text-[10px] text-[var(--color-muted)]' : 'text-[12px] text-[var(--solid-ink)]'
+                }`}
+              >
+                {sectionWords.length}語
+              </span>
+            </div>
             <div className="flex flex-1 items-center justify-end gap-2.5">
               {/* 訳側の赤シート。オンの間は一覧の訳が赤いベタで隠れる */}
               <RedSheetToggle
@@ -1820,15 +2004,13 @@ export default function ProjectPage() {
                 onToggle={() => setRedSheet((on) => !on)}
                 label={redSheet ? '訳の赤シートを外す' : '赤シートで訳を隠す'}
               />
-              <button
-                type="button"
-                onClick={() => setWordPage((p) => Math.min(wordPageCount - 1, p + 1))}
-                disabled={!paginateWords || wordPage >= wordPageCount - 1}
-                aria-label="次の10語"
-                className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
-              >
-                <Icon name="chevron_right" size={20} />
-              </button>
+              <SectionStepButton
+                direction="next"
+                atEdge={sectionIndex >= sectionGroups.length - 1}
+                disabled={searching}
+                onStep={() => setSectionIndex(sectionIndex + 1)}
+                onCreate={() => setCreateSectionPosition('end')}
+              />
             </div>
           </div>
         </div>
@@ -1892,6 +2074,10 @@ export default function ProjectPage() {
         onPartOfSpeechChange={setManualWordPartOfSpeech}
         onExampleSentenceChange={setManualWordExampleSentence}
         onMorphologyEnabledChange={handleManualWordMorphologyChange}
+        sectionNames={sectionNames}
+        sectionName={manualWordSectionName}
+        onSectionNameChange={setManualWordSectionName}
+        onCreateSection={(name) => handleCreateSection(name)}
         onCancel={closeManualWordModal}
         onConfirm={handleSaveManualWord}
       />
@@ -1988,12 +2174,32 @@ export default function ProjectPage() {
         onCancel={handleExitSelectMode}
         onToggleSelectAll={() => {
           if (filteredWords.length === 0) return;
-          setSelectedWordIds(allFilteredWordsSelected ? new Set() : new Set(filteredWords.map((w) => w.id)));
+          setSelectedWordIds(allFilteredWordsSelected ? new Set() : new Set(sectionWords.map((w) => w.id)));
         }}
         onBulkFavorite={() => void handleBulkToggleFavorite()}
         onBulkVocabularyType={(vocabularyType) => void handleBulkSetVocabularyType(vocabularyType)}
         onBulkImport={() => void handleOpenBulkImport()}
+        onBulkSection={() => setMoveSectionModalOpen(true)}
         onBulkDelete={() => setBulkDeleteModalOpen(true)}
+      />
+
+      <MoveToSectionModal
+        open={moveSectionModalOpen}
+        count={selectedWordIds.size}
+        sectionNames={sectionNames}
+        initialSectionName={currentSectionName}
+        loading={moveSectionLoading}
+        onCancel={() => { if (!moveSectionLoading) setMoveSectionModalOpen(false); }}
+        onCreateSection={(name) => handleCreateSection(name)}
+        onConfirm={(name) => void handleConfirmMoveToSection(name)}
+      />
+
+      <CreateSectionModal
+        open={createSectionPosition !== null}
+        sectionNames={sectionNames}
+        loading={createSectionLoading}
+        onCancel={() => { if (!createSectionLoading) setCreateSectionPosition(null); }}
+        onConfirm={(name) => void handleConfirmCreateSection(name)}
       />
 
       <ImportToProjectModal

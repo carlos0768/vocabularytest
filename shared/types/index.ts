@@ -234,6 +234,8 @@ export interface Word {
    * 未設定は 0 あつかい。
    */
   masteryLevel?: number;
+  /** 所属するセクション名 (`Project.sectionNames` のいずれか)。null/undefined = 未分類。 */
+  sectionName?: string | null;
   createdAt: string; // ISO string
   // Spaced repetition fields (SM-2 algorithm)
   lastReviewedAt?: string; // ISO string - when last reviewed
@@ -285,6 +287,8 @@ export interface Project {
   isFavorite?: boolean; // User bookmarked this project (defaults to false)
   /** バインダー (フォルダ) 名。null/undefined = 未分類。一覧でグループ表示に使う */
   binder?: string | null;
+  /** セクション名 (表示順)。単語の無いセクションも残すため単語帳側に持つ。 */
+  sectionNames?: string[];
   /** User-defined extra columns shown in the project word list table. */
   customColumns?: CustomColumn[];
   /** Notion-like block layout. When undefined, treat as a single implicit wordList block. */
