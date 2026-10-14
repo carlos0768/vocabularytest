@@ -4,16 +4,12 @@
  * 目標ページ (/goal)。下部バーの「目標」から開く。
  *
  * 目標は「どの単語帳を(複数可)・いつまでに」で、単語帳の選択で指定する (端末に保存)。
- * ここに載せるのは
- *   1. 目標日までの残り日数
- *   2. 月間カレンダー (今日・目標日・学習した日)
- *   3. 今日の10問 — 目標の単語帳(複数)から優先度順に10問
- *   4. 今日復習しておきたい単語 — SM-2 で復習期限が来た語 (単語帳をまたぐ)
- * の4つ。3 と 4 は別物: 3 は目標の単語帳だけ、4 は全単語帳の復習期限。
+ * ここに載せるのは 目標日までの残り日数 と 月間カレンダー (今日・目標日・学習した日)。
+ * 「今日の10問」「今日復習しておきたい単語」はホームの一番上 (`HomeTodayStudy`) に置き、
+ * 目標があれば前者、無ければ後者に切り替える。
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { GoalSetupSheet, type GoalSheetProject } from '@/components/goal/GoalSetupSheet';
 import { useAuth } from '@/hooks/use-auth';
@@ -21,9 +17,6 @@ import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { getRepository } from '@/lib/db';
 import {
   CALENDAR_WEEKDAY_LABELS,
-  GOAL_DAILY_QUESTION_COUNT,
-  GOAL_DAILY_QUIZ_HREF,
-  GOAL_REVIEW_QUIZ_HREF,
   buildCalendarMonth,
   clearStudyGoal,
   daysUntil,
@@ -34,11 +27,8 @@ import {
   toLocalDateKey,
   type StudyGoal,
 } from '@/lib/goal/study-goal';
-import { getDailyReviewLimit } from '@/lib/preferences/review-limit';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
-import { writeReviewProjectFilter } from '@/lib/quiz/review-project-filter';
-import { getWordsDueForReview } from '@/lib/spaced-repetition';
-import { getActivityHistory, getDailyStats, getGuestUserId } from '@/lib/utils';
+import { getActivityHistory, getGuestUserId } from '@/lib/utils';
 import { summarizeWordMemory } from '@/lib/words/memory';
 import type { Project, SubscriptionStatus, Word } from '@/types';
 
@@ -81,10 +71,9 @@ export default function GoalPage() {
     setGoalLoaded(true);
   }, []);
 
-  // 今日 / 学習履歴 / 今日の解答数 もブラウザ側の値なのでマウント後に確定させる
+  // 今日 / 学習履歴 もブラウザ側の値なのでマウント後に確定させる
   const [today, setToday] = useState<Date | null>(null);
   const [studiedDays, setStudiedDays] = useState<Set<string>>(() => new Set());
-  const [todayAnswered, setTodayAnswered] = useState(0);
   useEffect(() => {
     const now = new Date();
     setToday(now);
@@ -95,7 +84,6 @@ export default function GoalPage() {
           .map((entry) => entry.date),
       ),
     );
-    setTodayAnswered(getDailyStats().todayCount);
   }, []);
 
   const load = useCallback(async () => {
@@ -133,12 +121,8 @@ export default function GoalPage() {
   }, [load]);
 
   const sheetProjects = useMemo<GoalSheetProject[]>(
-    () => projects.map((project) => ({
-      id: project.id,
-      title: project.title,
-      totalWords: (wordsByProject[project.id] ?? []).length,
-    })),
-    [projects, wordsByProject],
+    () => projects.map((project) => ({ id: project.id, title: project.title })),
+    [projects],
   );
 
   // 目標の単語帳のうち、消されていないものだけ (表示だけ、保存は触らない)
@@ -147,10 +131,9 @@ export default function GoalPage() {
     const idSet = new Set(goal.projectIds);
     return projects.filter((project) => idSet.has(project.id));
   }, [goal, projects]);
-  const goalProjectIds = useMemo(() => goalProjects.map((project) => project.id), [goalProjects]);
   const goalWords = useMemo(
-    () => goalProjectIds.flatMap((id) => wordsByProject[id] ?? []),
-    [goalProjectIds, wordsByProject],
+    () => goalProjects.flatMap((project) => wordsByProject[project.id] ?? []),
+    [goalProjects, wordsByProject],
   );
   const goalMemory = useMemo(() => summarizeWordMemory(goalWords), [goalWords]);
   // 1語でも未習得なら 100% と出さない (四捨五入で「達成」に見えるのを避ける)
@@ -158,13 +141,6 @@ export default function GoalPage() {
     ? Math.min(goalMemory.mastered === goalMemory.total ? 100 : 99, Math.round((goalMemory.mastered / goalMemory.total) * 100))
     : 0;
   const remainingDays = goal && today ? daysUntil(goal.targetDate, today) : null;
-
-  // SM-2 で復習期限が来た語 (全単語帳)。設定の1日上限を超えては見せない
-  const dueCount = useMemo(() => {
-    const due = getWordsDueForReview(Object.values(wordsByProject).flat()).length;
-    const limit = getDailyReviewLimit();
-    return limit > 0 ? Math.min(due, limit) : due;
-  }, [wordsByProject]);
 
   const handleSaveGoal = (next: StudyGoal) => {
     setStudyGoal(next);
@@ -178,20 +154,18 @@ export default function GoalPage() {
   };
 
   const hasGoal = goalProjects.length > 0;
-  const dailyQuizReady = hasGoal && goalWords.length > 0;
-  const dailyQuizCount = Math.min(GOAL_DAILY_QUESTION_COUNT, goalWords.length);
   const goalTitle = describeGoalProjectTitles(goalProjects.map((project) => project.title));
 
   // モバイルではスクロールさせず1画面に収める (useLockPageScroll)。高さは body が
   // 確保しているノッチ分 (env(safe-area-inset-top)) を引いた残りで、下の余白は
   // 浮いている下部バー (セーフエリア込み) の高さぶん。以前 h-dvh で閉じていた頃は
-  // iPhone SE で下の2つのボタンが下部バーの裏に隠れたので、入りきらないときは
-  // ボタンではなくカレンダーの行の高さを縮めて吸収する (GoalCalendar)。
+  // iPhone SE で下のほうが下部バーの裏に隠れたので、入りきらないときは
+  // カレンダーの行の高さを縮めて吸収する (GoalCalendar)。
   // tablet / desktop はシェルがスクロールを持つので従来どおり。
   useLockPageScroll(layoutMode === 'phone');
   return (
     <div className="relative flex h-[calc(100dvh-env(safe-area-inset-top,0px))] flex-col overflow-hidden bg-[var(--color-background)] pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-3 font-[var(--font-body)] short:pt-1 desktop:block desktop:h-auto desktop:min-h-dvh desktop:overflow-visible tablet:block tablet:h-auto tablet:min-h-full tablet:overflow-visible tablet:pb-12 tablet:pt-4">
-      {/* タブレット横向き: 左にカレンダー、右に 残り日数 / 今日の10問 / 復習 を並べる。
+      {/* タブレット横向き: 左にカレンダー、右に 残り日数 を並べる。
           2 行目は error 用に空けてある (gap-y を持たせないので無いときは高さ 0) */}
       <div className="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col desktop:block tablet:block tablet:max-w-[640px] tablet-regular:grid tablet-regular:max-w-[1040px] tablet-regular:grid-cols-2 tablet-regular:items-start tablet-regular:gap-x-8">
         <div className="shrink-0 px-[18px] pb-3 pt-2 short:pb-2 short:pt-1 tablet-regular:col-span-2">
@@ -258,52 +232,12 @@ export default function GoalPage() {
         </div>
 
         {/* 月間カレンダー */}
-        <div className="flex min-h-0 shrink flex-col px-[18px] pb-5 short:pb-2.5 tablet-regular:col-start-1 tablet-regular:row-start-3 tablet-regular:row-span-3">
+        <div className="flex min-h-0 shrink flex-col px-[18px] pb-5 short:pb-2.5 tablet-regular:col-start-1 tablet-regular:row-start-3">
           <GoalCalendar
             today={today}
             goalDate={hasGoal ? goal?.targetDate ?? null : null}
             studiedDays={studiedDays}
             onSelectDate={(dateKey) => openSheet(dateKey)}
-          />
-        </div>
-
-        {/* 今日の10問 (目標の単語帳から) */}
-        <div className="shrink-0 px-[18px] pb-3 short:pb-2 tablet-regular:col-start-2 tablet-regular:row-start-4">
-          <BigPillLink
-            href={dailyQuizReady ? GOAL_DAILY_QUIZ_HREF : null}
-            onNavigate={() => writeReviewProjectFilter(goalProjectIds)}
-            icon="quiz"
-            badge={String(dailyQuizCount || GOAL_DAILY_QUESTION_COUNT)}
-            title={`今日の${dailyQuizCount || GOAL_DAILY_QUESTION_COUNT}問`}
-            sub={
-              !hasGoal
-                ? '目標を設定すると解けます'
-                : goalWords.length === 0
-                  ? '目標の単語帳に単語がありません'
-                  : todayAnswered > 0
-                    ? `今日 ${todayAnswered}問 解答済み`
-                    : goalTitle
-            }
-            tone="accent"
-          />
-        </div>
-
-        {/* 今日復習しておきたい単語 (SM-2 の復習期限) */}
-        <div className="shrink-0 px-[18px] pb-3 short:pb-2 tablet-regular:col-start-2 tablet-regular:row-start-5">
-          <BigPillLink
-            href={dueCount > 0 ? GOAL_REVIEW_QUIZ_HREF : null}
-            onNavigate={() => writeReviewProjectFilter(null)}
-            icon="replay"
-            badge={dueCount > 0 ? String(dueCount) : '0'}
-            title="今日復習しておきたい単語"
-            sub={
-              loading
-                ? '読み込み中...'
-                : dueCount > 0
-                  ? undefined
-                  : '今日の復習はありません'
-            }
-            tone="ink"
           />
         </div>
       </div>
@@ -454,62 +388,5 @@ function GoalCalendar({
         <span className="inline-flex items-center gap-1"><Icon name="flag" size={12} filled className="text-[var(--color-error)]" />目標日</span>
       </div>
     </section>
-  );
-}
-
-function BigPillLink({
-  href,
-  onNavigate,
-  icon,
-  badge,
-  title,
-  sub,
-  tone,
-}: {
-  href: string | null;
-  /** リンク遷移の直前に実行する副作用 (例: 出題対象の単語帳を sessionStorage に渡す) */
-  onNavigate?: () => void;
-  icon: string;
-  badge: string;
-  title: string;
-  /** 見出しの下の1行。無ければ出さない */
-  sub?: string;
-  tone: 'accent' | 'ink';
-}) {
-  const enabled = href !== null;
-  const className = `flex w-full items-center gap-3 rounded-full border-2 px-3 py-2.5 text-left transition-all short:py-1.5 duration-100 ${
-    !enabled
-      ? 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--color-muted)]'
-      : tone === 'accent'
-        ? 'border-[var(--color-accent-ink)] bg-[var(--color-accent)] text-[var(--color-on-accent)] active:translate-x-px active:translate-y-px'
-        : 'border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] active:translate-x-px active:translate-y-px'
-  }`;
-  const inner = (
-    <>
-      <span
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-display text-[15px] font-black ${
-          !enabled
-            ? 'bg-[var(--color-surface)] text-[var(--color-muted)]'
-            : tone === 'accent'
-              ? 'bg-[var(--color-on-accent)] text-[var(--color-accent)]'
-              : 'bg-[var(--solid-ink)] text-[var(--color-on-ink)]'
-        }`}
-      >
-        {badge}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-display text-[16px] font-black leading-tight">{title}</span>
-        {sub && <span className="mt-0.5 block truncate text-[11px] font-bold opacity-85">{sub}</span>}
-      </span>
-      <Icon name={enabled ? 'arrow_forward' : icon} size={20} className="shrink-0" />
-    </>
-  );
-  if (!enabled) {
-    return <div className={className} aria-disabled>{inner}</div>;
-  }
-  return (
-    <Link href={href} className={className} onClick={onNavigate}>
-      {inner}
-    </Link>
   );
 }

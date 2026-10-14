@@ -463,8 +463,9 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
           </div>
         )}
 
+        {/* 検索中は色付きのカテゴリタイルを隠し、結果だけを出す (PC 版と同じ) */}
         {category === 'all' ? (
-          <BrowseSection onSelectCategory={handleSelectCategory} isPro={isPro} />
+          !hasQuery && <BrowseSection onSelectCategory={handleSelectCategory} isPro={isPro} />
         ) : (
           <div className="flex items-center gap-2 px-[14px] py-3">
             <button
@@ -514,7 +515,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
             onSearch={() => void handleUserSearch()}
           />
         ) : shouldShowResults && (
-          <div className="flex flex-col gap-4 px-[14px]">
+          <div className={`flex flex-col gap-4 px-[14px] ${category === 'all' ? 'pt-3' : ''}`}>
             {error && <ErrorBox message={error} />}
             {loading ? (
               <LoadingBox />
