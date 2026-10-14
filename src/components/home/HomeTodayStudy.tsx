@@ -97,7 +97,7 @@ export function HomeTodayStudy({
               ? undefined
               : '今日の復習はありません'
         }
-        tone="ink"
+        tone="accent"
       />
     </div>
   );

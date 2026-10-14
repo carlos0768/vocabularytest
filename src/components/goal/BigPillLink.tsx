@@ -1,6 +1,7 @@
 'use client';
 
-// 目標ページとホームの「今日の10問」「今日復習しておきたい単語」に使う横長のピル型リンク。
+// ホームの一番上の「今日の10問」「今日復習しておきたい単語」に使う横長のリンク。
+// 角はホームの単語帳タイル (HomeShortcutGrid, 12px) に揃える。
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 
@@ -24,7 +25,7 @@ export function BigPillLink({
   tone: 'accent' | 'ink';
 }) {
   const enabled = href !== null;
-  const className = `flex w-full items-center gap-3 rounded-full border-2 px-3 py-2.5 text-left transition-all short:py-1.5 duration-100 ${
+  const className = `flex w-full items-center gap-3 rounded-[12px] border-2 px-3 py-2.5 text-left transition-all short:py-1.5 duration-100 ${
     !enabled
       ? 'border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--color-muted)]'
       : tone === 'accent'
@@ -34,7 +35,7 @@ export function BigPillLink({
   const inner = (
     <>
       <span
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-display text-[15px] font-black ${
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] font-display text-[15px] font-black ${
           !enabled
             ? 'bg-[var(--color-surface)] text-[var(--color-muted)]'
             : tone === 'accent'
