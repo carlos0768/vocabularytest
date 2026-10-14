@@ -19,6 +19,7 @@ import { WordRow } from '@/components/project/WordRow';
 import { StackedBar } from '@/components/project/WordStatusBar';
 import { WordListFrame } from '@/components/words/WordListFrame';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
+import { SectionPager, type ProjectSectionNav } from '@/components/project/page/SectionControls';
 import { getWrongAnswers, type WrongAnswer } from '@/lib/utils';
 import type { Project, Word, WordStatus } from '@/types';
 
@@ -38,8 +39,6 @@ type UpcomingReviewRailItem = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-const DESKTOP_WORDS_PER_PAGE = 10;
 
 /** 34px の正方形ツールボタン (絞り込み / 並べ替え / 選択) */
 function ToolButton({
@@ -110,6 +109,8 @@ export type DesktopProjectDetailViewProps = {
   onManualAdd: () => void;
   /** 音声でまとめて追加。古典の単語帳では渡さない (英語の認識しかしないため)。 */
   onVoiceAdd?: () => void;
+  /** セクション送り。一覧には表示中のセクションの語だけを出す */
+  sectionNav: ProjectSectionNav;
 };
 
 export function DesktopProjectDetailView({
@@ -140,6 +141,7 @@ export function DesktopProjectDetailView({
   onScan,
   onManualAdd,
   onVoiceAdd,
+  sectionNav,
 }: DesktopProjectDetailViewProps) {
   const router = useRouter();
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -229,22 +231,8 @@ export function DesktopProjectDetailView({
       .slice(0, 5);
   }, [nowMs, words]);
 
-  // モバイルと同じ規則: 20語を超える単語帳は10語ずつページ送りする (フロントのみで完結)
-  const paginateRows = rows.length > DESKTOP_WORDS_PER_PAGE * 2;
-  const pageCount = paginateRows ? Math.ceil(rows.length / DESKTOP_WORDS_PER_PAGE) : 1;
-  const [storedWordPage, setWordPage] = useState(0);
-  // 検索語を変えたら先頭ページから見せる (レンダー中に前回値と比べて直す React 公式パターン)
-  const pageResetKey = `${query}|${sortActive}|${filterActive}`;
-  const [prevPageResetKey, setPrevPageResetKey] = useState(pageResetKey);
-  if (prevPageResetKey !== pageResetKey) {
-    setPrevPageResetKey(pageResetKey);
-    setWordPage(0);
-  }
-  // フィルタでページ数が減ったときは末尾ページに丸める
-  const wordPage = Math.min(storedWordPage, pageCount - 1);
-  const pagedRows = paginateRows
-    ? rows.slice(wordPage * DESKTOP_WORDS_PER_PAGE, (wordPage + 1) * DESKTOP_WORDS_PER_PAGE)
-    : rows;
+  // 一覧はセクション単位 (スマホと同じ)。セクションの送りはページ側が持つ
+  const pagedRows = sectionNav.words;
 
   const selectedWord = selectedWordId ? words.find((word) => word.id === selectedWordId) ?? null : null;
   // 詳細モーダルの前後移動は絞り込み後の全単語を辿る (ページ境界で止めない)
@@ -493,6 +481,10 @@ export function DesktopProjectDetailView({
               ) : (
                 <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>該当する単語がありません</div>
               )
+            ) : pagedRows.length === 0 ? (
+              <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>
+                {filterActive ? '該当する単語がありません' : 'このセクションには単語がありません'}
+              </div>
             ) : (
               <WordListFrame>
                 {pagedRows.map((word) => (
@@ -515,35 +507,9 @@ export function DesktopProjectDetailView({
             )}
           </div>
 
-          {/* 20語を超えるときは10語ずつページ送り。件数表示の右に前後ボタンを置く */}
-          {wordsLoaded && rows.length > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginTop: 12,
-                padding: '0 4px',
-                flexWrap: 'wrap',
-              }}
-            >
-              <div className="muted tnum" style={{ fontSize: 11 }}>
-                {paginateRows
-                  ? `${wordPage * DESKTOP_WORDS_PER_PAGE + 1}–${Math.min(rows.length, (wordPage + 1) * DESKTOP_WORDS_PER_PAGE)} / ${rows.length} 語を表示・行をクリックで詳細を表示`
-                  : `${rows.length} / ${counts.total} 語を表示・行をクリックで詳細を表示`}
-              </div>
-              {paginateRows && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <ToolButton icon="chevron_left" label="前の10語" onClick={() => setWordPage(Math.max(0, wordPage - 1))} />
-                  <span className="tnum" style={{ fontSize: 11, fontWeight: 700 }}>
-                    {wordPage + 1} / {pageCount}
-                  </span>
-                  <ToolButton icon="chevron_right" label="次の10語" onClick={() => setWordPage(Math.min(pageCount - 1, wordPage + 1))} />
-                </div>
-              )}
-            </div>
-          )}
+          <div style={{ padding: '0 4px' }}>
+            <SectionPager nav={sectionNav} />
+          </div>
         </div>
 
         <ReviewRail
@@ -577,11 +543,6 @@ export function DesktopProjectDetailView({
             if (currentIndex < 0 || ids.length === 0) return;
             const nextId = ids[(currentIndex + dir + ids.length) % ids.length] ?? selectedWord.id;
             setSelectedWordId(nextId);
-            // 背後の一覧も、移動先の単語が載っているページに合わせる
-            if (paginateRows) {
-              const rowIndex = rows.findIndex((row) => row.id === nextId);
-              if (rowIndex >= 0) setWordPage(Math.floor(rowIndex / DESKTOP_WORDS_PER_PAGE));
-            }
           }}
         />
       )}

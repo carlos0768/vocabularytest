@@ -8,6 +8,7 @@ import {
   updateProjectSourceLabelsCompat,
 } from '@/lib/supabase/project-source-labels-compat';
 import { normalizeLexiconTranslation } from '../../../shared/lexicon';
+import { normalizeSectionName } from '../../../shared/word-sections';
 import {
   mapProjectFromRow,
   mapProjectToInsert,
@@ -118,6 +119,7 @@ type WordsCreateRequestWord = {
   customSections?: Word['customSections'];
   morphology?: Word['morphology'];
   classicalEntryId?: string;
+  sectionName?: string | null;
   status: Word['status'];
   createdAt: string;
   lastReviewedAt?: string;
@@ -358,6 +360,7 @@ export function buildWordsCreateRequestWord(word: Word): WordsCreateRequestWord 
     customSections: normalizeWordsCreateCustomSections(word.customSections),
     morphology: normalizeWordsCreateMorphology(word.morphology),
     ...(word.classicalEntryId ? { classicalEntryId: word.classicalEntryId } : {}),
+    ...(normalizeSectionName(word.sectionName) ? { sectionName: normalizeSectionName(word.sectionName) } : {}),
     status: word.status,
     createdAt: word.createdAt,
     lastReviewedAt: word.lastReviewedAt,

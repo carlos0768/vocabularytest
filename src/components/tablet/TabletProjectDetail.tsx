@@ -23,13 +23,13 @@ import { WordRow } from '@/components/project/WordRow';
 import { StackedBar } from '@/components/project/WordStatusBar';
 import { WordDetailOverlay } from '@/components/word/WordDetailOverlay';
 import { WordListFrame } from '@/components/words/WordListFrame';
+import { SectionPager } from '@/components/project/page/SectionControls';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/use-auth';
 import { thumbColor } from '@/lib/ui/thumb-color';
 import { cn } from '@/lib/utils';
 import type { Word } from '@/types';
 
-const WORDS_PER_PAGE = 10;
 
 export type TabletProjectDetailViewProps = DesktopProjectDetailViewProps & {
   /** 詳細パネルでの編集 (お気に入り・語彙モード・保存) を一覧へ反映する */
@@ -145,6 +145,7 @@ export function TabletProjectDetailView({
   onManualAdd,
   onVoiceAdd,
   onWordUpdated,
+  sectionNav,
 }: TabletProjectDetailViewProps) {
   const router = useRouter();
   const { isPro } = useAuth();
@@ -159,19 +160,8 @@ export function TabletProjectDetailView({
   const bg = thumbColor(project.id);
   const rows = filteredWords;
 
-  // 20 語を超える単語帳は 10 語ずつページ送り (スマホ・デスクトップと同じ規則)
-  const paginate = rows.length > WORDS_PER_PAGE * 2;
-  const pageCount = paginate ? Math.ceil(rows.length / WORDS_PER_PAGE) : 1;
-  const [storedPage, setStoredPage] = useState(0);
-  // 検索語や絞り込みを変えたら先頭ページへ (レンダー中に前回値と比べて直す)
-  const pageResetKey = `${query}|${sortActive}|${filterActive}`;
-  const [prevPageResetKey, setPrevPageResetKey] = useState(pageResetKey);
-  if (prevPageResetKey !== pageResetKey) {
-    setPrevPageResetKey(pageResetKey);
-    setStoredPage(0);
-  }
-  const page = Math.min(storedPage, pageCount - 1);
-  const pagedRows = paginate ? rows.slice(page * WORDS_PER_PAGE, (page + 1) * WORDS_PER_PAGE) : rows;
+  // 一覧はセクション単位 (スマホと同じ)。セクションの送りはページ側が持つ
+  const pagedRows = sectionNav.words;
 
   const selectedWord = selectedWordId ? words.find((word) => word.id === selectedWordId) ?? null : null;
 
@@ -341,6 +331,10 @@ export function TabletProjectDetailView({
                   {query ? '一致する単語がありません' : '条件に一致する単語がありません'}
                 </div>
               )
+            ) : pagedRows.length === 0 ? (
+              <div className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center text-sm text-[var(--color-muted)]">
+                {filterActive ? '条件に一致する単語がありません' : 'このセクションには単語がありません'}
+              </div>
             ) : (
               <WordListFrame className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3">
                 {pagedRows.map((word) => (
@@ -363,25 +357,8 @@ export function TabletProjectDetailView({
               </WordListFrame>
             )}
 
-            {/* 語数とページ送り (スマホの下部固定バーの代わり) */}
-            {wordsLoaded && rows.length > 0 && (
-              <div className="flex items-center justify-between gap-3 pt-3">
-                <span className="font-mono text-[12px] font-bold tabular-nums text-[var(--color-ink-muted)]">
-                  {paginate
-                    ? `${page * WORDS_PER_PAGE + 1}–${Math.min(rows.length, (page + 1) * WORDS_PER_PAGE)} / ${rows.length}語`
-                    : `${rows.length}語`}
-                </span>
-                {paginate && (
-                  <div className="flex items-center gap-2">
-                    <ToolButton icon="chevron_left" label="前の10語" disabled={page === 0} onClick={() => setStoredPage(Math.max(0, page - 1))} />
-                    <span className="font-mono text-[12px] font-bold tabular-nums text-[var(--solid-ink)]">
-                      {page + 1} / {pageCount}
-                    </span>
-                    <ToolButton icon="chevron_right" label="次の10語" disabled={page >= pageCount - 1} onClick={() => setStoredPage(Math.min(pageCount - 1, page + 1))} />
-                  </div>
-                )}
-              </div>
-            )}
+            {/* セクション送り (スマホの下部固定バーの代わり) */}
+            <SectionPager nav={sectionNav} />
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { MANUAL_TRANSLATION_INPUT_LIMIT } from '@/lib/words/manual-translations';
+import { SectionChipPicker } from '@/components/project/page/SectionControls';
 
 export function ManualWordModal({
   open,
@@ -22,6 +23,10 @@ export function ManualWordModal({
   onPartOfSpeechChange,
   onExampleSentenceChange,
   onMorphologyEnabledChange,
+  sectionNames,
+  sectionName,
+  onSectionNameChange,
+  onCreateSection,
   onCancel,
   onConfirm,
 }: {
@@ -43,6 +48,12 @@ export function ManualWordModal({
   onPartOfSpeechChange: (value: string) => void;
   onExampleSentenceChange: (value: string) => void;
   onMorphologyEnabledChange: (enabled: boolean) => void;
+  /** 単語帳のセクション (表示順)。追加する語の入り先を選ぶ。 */
+  sectionNames: string[];
+  /** 追加する語の入り先。null は未分類。 */
+  sectionName: string | null;
+  onSectionNameChange: (name: string | null) => void;
+  onCreateSection: (name: string) => Promise<boolean>;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -105,6 +116,18 @@ export function ManualWordModal({
           )}
 
           <div className="mt-4 space-y-3">
+            <div>
+              <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
+                セクション
+              </div>
+              <SectionChipPicker
+                sectionNames={sectionNames}
+                value={sectionName}
+                disabled={loading}
+                onChange={onSectionNameChange}
+                onCreate={onCreateSection}
+              />
+            </div>
             <div>
               <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
                 英単語
