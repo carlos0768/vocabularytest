@@ -136,6 +136,7 @@ export function TabletProjectDetailView({
   onRename,
   onSetBinder,
   onDeleteProject,
+  onMergeProject,
   onShare,
   onToggleFavorite,
   onCycleStatus,
@@ -204,6 +205,7 @@ export function TabletProjectDetailView({
               <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-[200px] overflow-hidden rounded-[14px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)]">
                 <MenuButton icon="edit" label="名称変更" onClick={() => { setMoreMenuOpen(false); onRename(); }} />
                 <MenuButton icon="folder" label="バインダー設定" onClick={() => { setMoreMenuOpen(false); onSetBinder(); }} />
+                <MenuButton icon="merge" label="他の単語帳に統合" onClick={() => { setMoreMenuOpen(false); onMergeProject(); }} />
                 <MenuButton icon="delete" label="単語帳を削除" destructive onClick={() => { setMoreMenuOpen(false); onDeleteProject(); }} />
               </div>
             </>

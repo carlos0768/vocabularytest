@@ -7,6 +7,7 @@ import type { Project, Word } from '@/types';
 import { thumbColor } from '@/lib/ui/thumb-color';
 import { SectionSelectRow } from '@/components/project/page/SectionControls';
 import { normalizeSectionNames } from '@/lib/project/word-sections';
+import { resolveMergeSectionName } from '@/lib/project/merge-projects';
 
 export function DeleteProjectModal({
   open,
@@ -252,6 +253,115 @@ export function ImportToProjectModal({
             >
               {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
               コピーする
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 単語帳ごと別の単語帳に統合する。統合先を選ぶと、入るセクション名 (この単語帳の名前) と
+ * この単語帳が消えることをその場で見せ、「統合する」で確定する。
+ */
+export function MergeProjectModal({
+  open,
+  loading,
+  sourceTitle,
+  wordCount,
+  projects,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  loading: boolean;
+  sourceTitle: string;
+  wordCount: number;
+  /** 統合先の候補 (自分自身・種別違いは除いたもの)。 */
+  projects: Project[];
+  onCancel: () => void;
+  onConfirm: (projectId: string) => void;
+}) {
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null;
+
+  if (!open) return null;
+  const sectionName = selectedProject
+    ? resolveMergeSectionName(selectedProject.sectionNames ?? [], sourceTitle)
+    : null;
+  return (
+    <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="閉じる"
+        onClick={() => { if (!loading) onCancel(); }}
+        style={{ background: 'rgba(26,26,26,0.45)', backdropFilter: 'blur(3px)' }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center px-5">
+        <div className="w-full max-w-[360px] rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-5">
+          <h2 className="font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+            他の単語帳に統合
+          </h2>
+          <div className="mt-3 max-h-[240px] overflow-y-auto">
+            {projects.length === 0 ? (
+              <p className="py-4 text-center text-[12px] text-[var(--color-muted)]">
+                統合できる単語帳がありません
+              </p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {projects.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setSelectedProjectId(p.id)}
+                    disabled={loading}
+                    className={`flex items-center gap-2.5 rounded-[10px] border-2 px-3 py-2.5 text-left transition-all duration-100 ${
+                      selectedProjectId === p.id
+                        ? 'border-[var(--solid-ink)] bg-[var(--color-accent-subtle)]'
+                        : 'border-[var(--color-border)] bg-[var(--color-surface)]'
+                    }`}
+                  >
+                    <span
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] text-[11px] font-black text-white"
+                      style={{ background: thumbColor(p.id) }}
+                    >
+                      {p.title.slice(0, 1)}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--solid-ink)]">
+                      {p.title}
+                    </span>
+                    {selectedProjectId === p.id && (
+                      <Icon name="check" size={16} className="shrink-0 text-[var(--color-accent)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {selectedProject && sectionName && (
+            <p className="mt-3 text-[11px] leading-[1.6] text-[var(--color-muted)]">
+              {wordCount}語を「{selectedProject.title}」のセクション「{sectionName}」へ移し、「{sourceTitle}」は削除します。
+            </p>
+          )}
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={() => selectedProjectId && onConfirm(selectedProjectId)}
+              disabled={loading || !selectedProjectId}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] px-3 py-2.5 text-[13px] font-bold text-[var(--color-on-accent)] disabled:opacity-60"
+            >
+              {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
+              統合する
             </button>
           </div>
         </div>

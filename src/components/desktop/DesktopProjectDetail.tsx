@@ -100,6 +100,7 @@ export type DesktopProjectDetailViewProps = {
   onRename: () => void;
   onSetBinder: () => void;
   onDeleteProject: () => void;
+  onMergeProject: () => void;
   onShare?: () => void;
   onToggleFavorite: (word: Word) => void;
   onCycleStatus: (word: Word, newStatus: WordStatus) => void;
@@ -135,6 +136,7 @@ export function DesktopProjectDetailView({
   onRename,
   onSetBinder,
   onDeleteProject,
+  onMergeProject,
   onShare,
   onToggleFavorite,
   onCycleStatus,
@@ -303,6 +305,10 @@ export function DesktopProjectDetailView({
                 <button type="button" className={MENU_ITEM} onClick={() => { setMoreMenuOpen(false); onSetBinder(); }}>
                   <Icon name="folder" style={{ fontSize: 18 }} />
                   バインダー設定
+                </button>
+                <button type="button" className={MENU_ITEM} onClick={() => { setMoreMenuOpen(false); onMergeProject(); }}>
+                  <Icon name="merge" style={{ fontSize: 18 }} />
+                  他の単語帳に統合
                 </button>
                 <button
                   type="button"

@@ -30,6 +30,13 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { consumeAddIntentSectionName, consumeManualAddIntent, consumeVoiceAddIntent } from '@/lib/home/home-session-storage';
 import { invalidateHomeCache } from '@/lib/home-cache';
+import { createBrowserClient } from '@/lib/supabase';
+import {
+  applyProjectMergeToLocalCache,
+  listMergeTargetProjects,
+  mergeProjectIntoRemote,
+  resolveMergeSectionName,
+} from '@/lib/project/merge-projects';
 import { markProjectVisited } from '@/lib/project-visit';
 import {
   readManualMorphologyPref,
@@ -63,6 +70,7 @@ import { thumbColor } from '@/lib/ui/thumb-color';
 import {
   BulkDeleteModal,
   DeleteProjectModal,
+  MergeProjectModal,
   ImportToProjectModal,
   SingleWordDeleteModal,
 } from '@/components/project/page/ProjectPageModals';
@@ -267,6 +275,9 @@ export default function ProjectPage() {
   const [shareTagsUpdating, setShareTagsUpdating] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [mergeTargetProjects, setMergeTargetProjects] = useState<Project[]>([]);
+  const [mergeLoading, setMergeLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -1378,6 +1389,60 @@ export default function ProjectPage() {
     }
   };
 
+  const handleOpenMerge = async () => {
+    if (!project) return;
+    setMenuOpen(false);
+    const userId = user ? user.id : getGuestUserId();
+    try {
+      const projects = await repository.getProjects(userId);
+      setMergeTargetProjects(listMergeTargetProjects(projects, project));
+    } catch {
+      showToast({ message: '単語帳の一覧を読み込めませんでした', type: 'error' });
+      return;
+    }
+    setMergeModalOpen(true);
+  };
+
+  // 単語帳ごと統合する。サーバーの RPC が語を移して統合元を消し、終わったら端末の
+  // キャッシュにも同じ変更を当てて統合先へ移る。
+  const handleConfirmMerge = async (targetProjectId: string) => {
+    if (!project || mergeLoading) return;
+    const target = mergeTargetProjects.find((p) => p.id === targetProjectId);
+    if (!target) return;
+    if (!user || !navigator.onLine) {
+      showToast({ message: 'オンラインのときに統合してください', type: 'error' });
+      return;
+    }
+    setMergeLoading(true);
+    // この単語帳で未送信の追加・編集を先にサーバーへ送る (送る前に統合元が消えると行き場を失う)
+    try {
+      await hybridRepository.processSyncQueue();
+    } catch (syncError) {
+      console.warn('Failed to flush sync queue before merging:', syncError);
+    }
+    const sectionName = resolveMergeSectionName(target.sectionNames ?? [], project.title);
+    const params = { sourceProjectId: project.id, targetProjectId, sectionName };
+    try {
+      const moved = await mergeProjectIntoRemote(createBrowserClient(), params);
+      try {
+        await applyProjectMergeToLocalCache(getDb(), params);
+      } catch (cacheError) {
+        // サーバーは統合済み。キャッシュは次の同期で追いつく
+        console.warn('Failed to apply merge to local cache:', cacheError);
+      }
+      invalidateHomeCache();
+      showToast({ message: `${moved}語を「${target.title}」に統合しました`, type: 'success' });
+      // 同じページ部品のまま統合先へ移るので、モーダルの状態はここで戻す
+      setMergeModalOpen(false);
+      setMergeLoading(false);
+      router.replace(`/project/${targetProjectId}`);
+    } catch (mergeError) {
+      console.error('Failed to merge project:', mergeError);
+      showToast({ message: '統合に失敗しました', type: 'error' });
+      setMergeLoading(false);
+    }
+  };
+
   const handleCycleVocabularyType = async (word: Word) => {
     const vocabularyType = getNextVocabularyType(word.vocabularyType);
     setWords((prev) => prev.map((item) => (item.id === word.id ? { ...item, vocabularyType } : item)));
@@ -1738,6 +1803,7 @@ export default function ProjectPage() {
         onRename={handleOpenRename}
         onSetBinder={() => void handleOpenBinderPicker()}
         onDeleteProject={() => setDeleteModalOpen(true)}
+        onMergeProject={() => void handleOpenMerge()}
         onShare={handleOpenShareSheet}
         onToggleFavorite={(word) => void handleToggleFavorite(word)}
         onCycleStatus={(word, newStatus) => handleCycleStatus(word.id, newStatus)}
@@ -1774,6 +1840,7 @@ export default function ProjectPage() {
           onRename={handleOpenRename}
           onSetBinder={() => void handleOpenBinderPicker()}
           onDeleteProject={() => setDeleteModalOpen(true)}
+          onMergeProject={() => void handleOpenMerge()}
           onShare={handleOpenShareSheet}
           onToggleFavorite={(word) => void handleToggleFavorite(word)}
           onCycleStatus={(word, newStatus) => handleCycleStatus(word.id, newStatus)}
@@ -1844,6 +1911,7 @@ export default function ProjectPage() {
             <MenuButton icon="edit" label="名称変更" onClick={handleOpenRename} />
             <MenuButton icon="folder" label="バインダー設定" onClick={() => void handleOpenBinderPicker()} />
             <MenuButton icon="image" label="画像設定" onClick={handleOpenImagePicker} />
+            <MenuButton icon="merge" label="他の単語帳に統合" onClick={() => void handleOpenMerge()} />
             <MenuButton
               icon="delete"
               label="削除"
@@ -2202,6 +2270,16 @@ export default function ProjectPage() {
         onCopyShareLink={(shareUrl) => void handleCopyShareLink(shareUrl)}
         onShareLink={(shareUrl) => void handleShareLink(shareUrl)}
         shareLinkCopied={shareLinkCopied}
+      />
+
+      <MergeProjectModal
+        open={mergeModalOpen}
+        loading={mergeLoading}
+        sourceTitle={project.title}
+        wordCount={words.length}
+        projects={mergeTargetProjects}
+        onCancel={() => { if (!mergeLoading) setMergeModalOpen(false); }}
+        onConfirm={(targetProjectId) => void handleConfirmMerge(targetProjectId)}
       />
 
       <DeleteProjectModal
