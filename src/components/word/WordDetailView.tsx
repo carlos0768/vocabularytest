@@ -10,7 +10,7 @@ import { getCachedProjectWords, updateProjectWordsCache } from '@/lib/home-cache
 import type { Word, CustomSection, CustomColumn, SubscriptionStatus } from '@/types';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
-import { useHideRelatedWords } from '@/hooks/use-hide-related-words';
+import { useHideWordSection } from '@/hooks/use-hide-word-section';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { useParaphraseSynonyms } from '@/hooks/use-paraphrase-synonyms';
 import { speakEnglish } from '@/lib/speech';
@@ -154,7 +154,9 @@ export function WordDetailView({
     syncHomeCacheForWord(updated);
     onWordUpdated?.(updated);
   }, [syncHomeCacheForWord, onWordUpdated]);
-  const morphology = useMorphologyBackfill(word, { onBackfilled: handleMorphologyBackfilled });
+  const { hidden: hideEtymology } = useHideWordSection('etymology');
+  // 語源を隠している間は補完のための通信もしない
+  const morphology = useMorphologyBackfill(hideEtymology ? null : word, { onBackfilled: handleMorphologyBackfilled });
   // 言い換え (英語の同義語): 言い換えクイズと同じ辞書を表示時に引く。単語行には保存しない。
   const synonyms = useParaphraseSynonyms(word);
 
@@ -350,7 +352,7 @@ export function WordDetailView({
   const posDisplay = word?.partOfSpeechTags?.length
     ? word.partOfSpeechTags.map(p => POS_LABELS[p] ?? p).join('・')
     : null;
-  const { hideRelatedWords } = useHideRelatedWords();
+  const { hidden: hideRelatedWords } = useHideWordSection('relatedWords');
   const relatedWords = hideRelatedWords ? [] : (word?.relatedWords ?? []).filter((item) => item.term.trim());
   const usagePatterns = (word?.usagePatterns ?? []).filter((item) => item.pattern.trim() && item.meaningJa.trim());
 
