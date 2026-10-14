@@ -5,7 +5,7 @@ import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { TranslationDisplay } from '@/components/word/TranslationDisplay';
 import { WORD_ORDER_BLANK_TOKEN } from '@/lib/quiz/word-order';
-import { getUsedWordOrderOptionIndexes, getWordOrderExample } from '@/lib/quiz/word-order-answer';
+import { getUsedWordOrderOptionIndexes } from '@/lib/quiz/word-order-answer';
 import type { WordOrderQuizQuestion } from '@/types';
 
 export function DSDesktopWordOrderPanel({
@@ -26,7 +26,6 @@ export function DSDesktopWordOrderPanel({
   const usedOptionIndexes = getUsedWordOrderOptionIndexes(question.options, selectedTokens);
   const answerStateClass = isRevealed ? (result === 'correct' ? ' correct' : ' wrong') : '';
   const answerIsFull = selectedTokens.length >= question.answerTokens.length;
-  const example = getWordOrderExample(question);
   // モバイル版と同様に、文中の固定単語（デフォルト表示）と空欄を並べて表示する
   const sentenceItems = question.sentenceTokens.map((token, index) => ({
     token,
@@ -98,18 +97,6 @@ export function DSDesktopWordOrderPanel({
           );
         })}
       </div>
-
-      {isRevealed && example && (
-        <div className="w-full max-w-[860px] rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px] text-left">
-          <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-          <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
-            {example.sentence}
-          </div>
-          {example.translation && (
-            <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{example.translation}</div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -133,7 +120,6 @@ export function DSWordOrderPanel({
 }) {
   const usedOptionIndexes = getUsedWordOrderOptionIndexes(question.options, selectedTokens);
   const isReady = selectedTokens.length === question.answerTokens.length;
-  const example = getWordOrderExample(question);
   const sentenceItems = question.sentenceTokens.map((token, index) => ({
     token,
     index,
@@ -220,18 +206,6 @@ export function DSWordOrderPanel({
             {result === 'correct' ? '正解' : '不正解'}
           </p>
           <p className="mt-1 text-lg font-black text-white">{question.word.english}</p>
-        </div>
-      )}
-
-      {isRevealed && example && (
-        <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px]">
-          <div className="mb-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
-          <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
-            {example.sentence}
-          </div>
-          {example.translation && (
-            <div className="mt-1 text-xs leading-[1.55] text-[var(--color-muted)]">{example.translation}</div>
-          )}
         </div>
       )}
     </div>

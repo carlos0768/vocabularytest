@@ -6,7 +6,6 @@ import { WORD_ORDER_BLANK_TOKEN } from './word-order';
 import {
   buildCompletedWordOrderSentence,
   getUsedWordOrderOptionIndexes,
-  getWordOrderExample,
   isMultipleChoiceQuestion,
   isWordOrderQuestion,
   normalizeDisplayText,
@@ -73,23 +72,6 @@ test('normalizeDisplayText collapses whitespace and maps blank to null', () => {
 
 test('buildCompletedWordOrderSentence fills blanks in order and tidies punctuation', () => {
   assert.equal(buildCompletedWordOrderSentence(createWordOrderQuestion()), 'I look forward to it.');
-});
-
-test('getWordOrderExample prefers the stored example sentence and translation', () => {
-  const question = createWordOrderQuestion({
-    word: createWord({ exampleSentence: 'We  look forward to it.', exampleSentenceJa: '楽しみにしています。' }),
-  });
-  assert.deepEqual(getWordOrderExample(question), {
-    sentence: 'We look forward to it.',
-    translation: '楽しみにしています。',
-  });
-});
-
-test('getWordOrderExample falls back to the completed sentence and the word meaning', () => {
-  assert.deepEqual(getWordOrderExample(createWordOrderQuestion()), {
-    sentence: 'I look forward to it.',
-    translation: '楽しみにする',
-  });
 });
 
 test('getUsedWordOrderOptionIndexes marks one option per selected token, duplicates included', () => {
