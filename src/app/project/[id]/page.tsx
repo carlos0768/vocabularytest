@@ -30,13 +30,8 @@ import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
 import { consumeAddIntentSectionName, consumeManualAddIntent, consumeVoiceAddIntent } from '@/lib/home/home-session-storage';
 import { invalidateHomeCache } from '@/lib/home-cache';
-import { createBrowserClient } from '@/lib/supabase';
-import {
-  applyProjectMergeToLocalCache,
-  listMergeTargetProjects,
-  mergeProjectIntoRemote,
-  resolveMergeSectionName,
-} from '@/lib/project/merge-projects';
+import { listMergeTargetProjects } from '@/lib/project/merge-projects';
+import { mergeProjectWithLocalCache } from '@/lib/project/merge-projects-client';
 import { markProjectVisited } from '@/lib/project-visit';
 import {
   readManualMorphologyPref,
@@ -1414,23 +1409,8 @@ export default function ProjectPage() {
       return;
     }
     setMergeLoading(true);
-    // この単語帳で未送信の追加・編集を先にサーバーへ送る (送る前に統合元が消えると行き場を失う)
     try {
-      await hybridRepository.processSyncQueue();
-    } catch (syncError) {
-      console.warn('Failed to flush sync queue before merging:', syncError);
-    }
-    const sectionName = resolveMergeSectionName(target.sectionNames ?? [], project.title);
-    const params = { sourceProjectId: project.id, targetProjectId, sectionName };
-    try {
-      const moved = await mergeProjectIntoRemote(createBrowserClient(), params);
-      try {
-        await applyProjectMergeToLocalCache(getDb(), params);
-      } catch (cacheError) {
-        // サーバーは統合済み。キャッシュは次の同期で追いつく
-        console.warn('Failed to apply merge to local cache:', cacheError);
-      }
-      invalidateHomeCache();
+      const moved = await mergeProjectWithLocalCache(project, target);
       showToast({ message: `${moved}語を「${target.title}」に統合しました`, type: 'success' });
       // 同じページ部品のまま統合先へ移るので、モーダルの状態はここで戻す
       setMergeModalOpen(false);

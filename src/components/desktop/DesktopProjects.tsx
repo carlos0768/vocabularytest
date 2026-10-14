@@ -38,6 +38,7 @@ export function DesktopProjectsView({
   onQueryChange,
   onSortChange,
   onDeleteProject,
+  onMergeProject,
   onSetBinder,
   onCreateNew,
 }: {
@@ -52,6 +53,8 @@ export function DesktopProjectsView({
   onQueryChange: (value: string) => void;
   onSortChange: (value: 'newest' | 'words' | 'lastUsed') => void;
   onDeleteProject?: (project: DesktopProjectRow) => void;
+  /** 「…」メニューの「他の単語帳に統合」 */
+  onMergeProject?: (project: DesktopProjectRow) => void;
   onSetBinder?: (project: DesktopProjectRow) => void;
   onCreateNew?: () => void;
 }) {
@@ -127,7 +130,7 @@ export function DesktopProjectsView({
               </thead>
               <tbody>
                 {rows.map((project) => (
-                  <DesktopProjectTableRow key={project.id} project={project} onDelete={onDeleteProject} onSetBinder={onSetBinder} />
+                  <DesktopProjectTableRow key={project.id} project={project} onDelete={onDeleteProject} onMerge={onMergeProject} onSetBinder={onSetBinder} />
                 ))}
               </tbody>
             </table>
@@ -168,17 +171,19 @@ export function DesktopProjectsView({
 function DesktopProjectTableRow({
   project,
   onDelete,
+  onMerge,
   onSetBinder,
 }: {
   project: DesktopProjectRow;
   onDelete?: (project: DesktopProjectRow) => void;
+  onMerge?: (project: DesktopProjectRow) => void;
   onSetBinder?: (project: DesktopProjectRow) => void;
 }) {
   const pct = project.totalWords > 0 ? Math.round((project.masteredWords / project.totalWords) * 100) : 0;
   // メニューはテーブルの overflow:hidden で切れないよう fixed で描画し、
   // ボタン位置に合わせて配置する。
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
-  const hasMenu = Boolean(onDelete || onSetBinder);
+  const hasMenu = Boolean(onDelete || onMerge || onSetBinder);
 
   return (
     <tr>
@@ -256,6 +261,16 @@ function DesktopProjectTableRow({
                 >
                   <Icon name="folder" size={16} />
                   バインダーに追加
+                </button>
+              )}
+              {onMerge && (
+                <button
+                  type="button"
+                  onClick={() => { setMenuPos(null); onMerge(project); }}
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-bold text-[var(--solid-ink)] hover:bg-[var(--color-surface-secondary)]"
+                >
+                  <Icon name="merge" size={16} />
+                  他の単語帳に統合
                 </button>
               )}
               {onDelete && (
