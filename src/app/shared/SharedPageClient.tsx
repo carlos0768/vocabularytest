@@ -3,6 +3,7 @@
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { BattleEntrySection } from '@/components/battle/BattleEntrySection';
 import { DesktopSharedView } from '@/components/desktop/DesktopShared';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { Icon } from '@/components/ui';
@@ -126,7 +127,7 @@ function isDiscoverPayload(payload: DiscoverResponse | null): payload is SharedD
 
 export default function SharedPageClient({ initialDiscover }: SharedPageClientProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isPro } = useAuth();
   const isLoggedIn = Boolean(user);
   const { showToast } = useToast();
 
@@ -463,7 +464,7 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
         )}
 
         {category === 'all' ? (
-          <BrowseSection onSelectCategory={handleSelectCategory} />
+          <BrowseSection onSelectCategory={handleSelectCategory} isPro={isPro} />
         ) : (
           <div className="flex items-center gap-2 px-[14px] py-3">
             <button
@@ -555,8 +556,10 @@ export default function SharedPageClient({ initialDiscover }: SharedPageClientPr
 
 function BrowseSection({
   onSelectCategory,
+  isPro,
 }: {
   onSelectCategory: (category: PageCategory) => void;
+  isPro: boolean;
 }) {
   const tiles = (Object.keys(CATEGORY_META) as PageCategory[]).map((key) => ({
     key: key as string,
@@ -592,6 +595,9 @@ function BrowseSection({
             />
           </button>
         ))}
+      </div>
+      <div className="mt-2">
+        <BattleEntrySection isPro={isPro} />
       </div>
     </div>
   );
