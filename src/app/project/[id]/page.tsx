@@ -41,7 +41,7 @@ import { buildManualTranslations } from '@/lib/words/manual-translations';
 import { saveProjectSharedTags } from '@/lib/shared-projects/client';
 import { getNextVocabularyType, getVocabularyTypeLabel } from '@/lib/vocabulary-type';
 import { isProjectPageFlowStage } from '@/lib/onboarding/tutorial-stage';
-import { getGuestUserId, shuffleArray } from '@/lib/utils';
+import { getGuestUserId } from '@/lib/utils';
 import {
   buildProjectWordOrderSnapshot,
   countProjectWordStats,
@@ -71,11 +71,7 @@ import {
 } from '@/components/project/page/ProjectPageModals';
 import { ManualWordModal } from '@/components/project/page/ManualWordModal';
 import { BulkActionBar } from '@/components/project/page/ProjectBulkActions';
-import {
-  EmptyWordbookState,
-  type RecommendedWordSuggestion,
-  RecommendedWordsSection,
-} from '@/components/project/page/ProjectEmptyState';
+import { EmptyWordbookState } from '@/components/project/page/ProjectEmptyState';
 import {
   HeaderBtn,
   MenuButton,
@@ -139,10 +135,6 @@ type SharedProjectLookupResponse = {
   project?: Project;
   error?: string;
 };
-
-// A word suggested for an empty wordbook, picked from the user's other books.
-const RECOMMENDATION_SOURCE_PROJECT_LIMIT = 8;
-const RECOMMENDATION_LIMIT = 10;
 
 /**
  * ローカルで0語だった単語帳の単語をサーバーから取り直す。
@@ -315,14 +307,6 @@ export default function ProjectPage() {
   }, []);
   const [showWordLimitModal, setShowWordLimitModal] = useState(false);
 
-  // Spotify-style suggestions for an empty wordbook: words picked from the
-  // user's other books, addable in place with the row's + button. Loaded once
-  // when the book turns out to be empty; the section stays visible while the
-  // user keeps adding from it.
-  const [recommendedWords, setRecommendedWords] = useState<RecommendedWordSuggestion[]>([]);
-  const [recommendationsLoaded, setRecommendationsLoaded] = useState(false);
-  const [addingRecommendationIds, setAddingRecommendationIds] = useState<Set<string>>(new Set());
-
   const wordDetailOpen = selectedWord !== null;
   useEffect(() => {
     if (!wordDetailOpen) return;
@@ -449,47 +433,6 @@ export default function ProjectPage() {
       // sessionStorage が使えない環境では自動オープンだけ諦める
     }
   }, [projectId]);
-
-  useEffect(() => {
-    if (!wordsLoaded || recommendationsLoaded || !project || words.length > 0) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const userId = user ? user.id : getGuestUserId();
-        const projects = await repository.getProjects(userId);
-        const sourceProjects = shuffleArray(projects.filter((p) => p.id !== projectId))
-          .slice(0, RECOMMENDATION_SOURCE_PROJECT_LIMIT);
-
-        const seenEnglish = new Set<string>();
-        const pool: RecommendedWordSuggestion[] = [];
-        for (const sourceProject of sourceProjects) {
-          let sourceWords: Word[];
-          try {
-            sourceWords = await repository.getWords(sourceProject.id);
-          } catch {
-            continue;
-          }
-          for (const word of sourceWords) {
-            const key = word.english.trim().toLowerCase();
-            if (!key || seenEnglish.has(key)) continue;
-            seenEnglish.add(key);
-            pool.push({ word, sourceProjectTitle: sourceProject.title });
-          }
-        }
-
-        if (!cancelled) setRecommendedWords(shuffleArray(pool).slice(0, RECOMMENDATION_LIMIT));
-      } catch (recommendationError) {
-        console.warn('Failed to load recommended words:', recommendationError);
-      } finally {
-        if (!cancelled) setRecommendationsLoaded(true);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [wordsLoaded, recommendationsLoaded, project, words.length, repository, user, projectId]);
 
   const counts = useMemo(() => {
     const wordStats = countProjectWordStats(words);
@@ -1043,59 +986,6 @@ export default function ProjectPage() {
       showToast({ message: 'セクションの移動に失敗しました', type: 'error' });
     } finally {
       setMoveSectionLoading(false);
-    }
-  };
-
-  const handleAddRecommendedWord = async (suggestion: RecommendedWordSuggestion) => {
-    const sourceWord = suggestion.word;
-    if (addingRecommendationIds.has(sourceWord.id)) return;
-
-    const { canAdd, wouldExceed } = canAddWords(1);
-    if (!canAdd || wouldExceed) {
-      setShowWordLimitModal(true);
-      return;
-    }
-
-    setAddingRecommendationIds((prev) => new Set(prev).add(sourceWord.id));
-    try {
-      const created = await mutationRepository.createWords([
-        {
-          projectId,
-          english: sourceWord.english,
-          japanese: sourceWord.japanese,
-          translations: sourceWord.translations,
-          vocabularyType: sourceWord.vocabularyType,
-          japaneseSource: sourceWord.japaneseSource,
-          lexiconEntryId: sourceWord.lexiconEntryId,
-          lexiconSenseId: sourceWord.lexiconSenseId,
-          cefrLevel: sourceWord.cefrLevel,
-          distractors: sourceWord.distractors,
-          exampleSentence: sourceWord.exampleSentence,
-          exampleSentenceJa: sourceWord.exampleSentenceJa,
-          pronunciation: sourceWord.pronunciation,
-          partOfSpeechTags: sourceWord.partOfSpeechTags,
-          relatedWords: sourceWord.relatedWords,
-          usagePatterns: sourceWord.usagePatterns,
-          customSections: sourceWord.customSections,
-          morphology: sourceWord.morphology,
-        },
-      ]);
-      if (created && created.length > 0) {
-        setWords((prev) => [created[0]!, ...prev]);
-      }
-      setRecommendedWords((prev) => prev.filter((item) => item.word.id !== sourceWord.id));
-      invalidateHomeCache();
-      refreshWordCount();
-      showToast({ message: `「${sourceWord.english}」を追加しました`, type: 'success' });
-    } catch (addError) {
-      console.error('Failed to add recommended word:', addError);
-      showToast({ message: '単語の追加に失敗しました', type: 'error' });
-    } finally {
-      setAddingRecommendationIds((prev) => {
-        const next = new Set(prev);
-        next.delete(sourceWord.id);
-        return next;
-      });
     }
   };
 
@@ -2133,15 +2023,6 @@ export default function ProjectPage() {
           </div>
         )}
 
-        {/* Only populated when the book loaded empty; stays visible while the
-            user keeps adding suggestions so multiple + taps flow naturally. */}
-        {wordsLoaded && !selectMode && recommendedWords.length > 0 && (
-          <RecommendedWordsSection
-            suggestions={recommendedWords}
-            addingIds={addingRecommendationIds}
-            onAdd={(suggestion) => void handleAddRecommendedWord(suggestion)}
-          />
-        )}
       </div>
 
       {/* モバイル: セクション名 / 赤シート (左=英語・右=訳) / セクション送りの下部固定バー。
