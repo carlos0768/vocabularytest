@@ -1724,7 +1724,8 @@ export default function QuizPage() {
     ? currentQuestion.answerTokens.join(' ')
     : '';
   // 例文は Active (記述) のときだけ。Passive (四択・タイムアタック・言い換え) では出さない。
-  const desktopExample = !currentIsWordOrder && isTypeInMode && currentQuestion?.word.exampleSentence?.trim()
+  // イディオム問題 (前置詞だけ入力させる形式) でも出さない。
+  const desktopExample = !currentIsWordOrder && isTypeInMode && !typeInIdiomSegments && currentQuestion?.word.exampleSentence?.trim()
     ? {
         sentence: currentQuestion.word.exampleSentence.trim(),
         translation: normalizeDisplayText(currentQuestion.word.exampleSentenceJa),
@@ -2161,7 +2162,7 @@ export default function QuizPage() {
         )}
 
         {/* Example sentence revealed */}
-        {isRevealed && !currentIsWordOrder && isTypeInMode && currentQuestion?.word.exampleSentence && (
+        {isRevealed && !currentIsWordOrder && isTypeInMode && !typeInIdiomSegments && currentQuestion?.word.exampleSentence && (
           <div className="mt-4 shrink-0 rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-[13px_14px]">
             <div className="mb-[5px] font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">EXAMPLE</div>
             <div className="text-sm font-medium leading-[1.55] text-[var(--solid-ink)]">
