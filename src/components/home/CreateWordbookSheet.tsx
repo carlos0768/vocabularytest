@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { ScanCapturePanel } from '@/components/home/ScanCapturePanel';
 import { WordbookSelectRow } from '@/components/project/WordbookSelectRow';
+import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { saveManualAddIntent, saveVoiceAddIntent } from '@/lib/home/home-session-storage';
@@ -71,7 +72,8 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
       setMethod(isPro ? 'scan' : 'blank');
       setName('');
       setTargetProjectId('');
-      setExistingProjects(null);
+      // existingProjects はここで消さない。下の読み込みの方が先に終わることがあり、
+      // 消すと「読み込み中」のまま戻らなくなる (開くたびに読み直すので古い値は残らない)
       setSubmitting(false);
       setErrorMsg(null);
     }, 80);
@@ -84,7 +86,8 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
     let cancelled = false;
     const userId = user ? user.id : getGuestUserId();
     repository.getProjects(userId)
-      .then((projects) => { if (!cancelled) setExistingProjects(projects); })
+      // 保存済み単語の入れ物 (内部用の単語帳) は候補に出さない
+      .then((projects) => { if (!cancelled) setExistingProjects(excludeReelSavedProjects(projects)); })
       .catch((error) => {
         console.error('Failed to load projects:', error);
         if (!cancelled) setExistingProjects([]);
