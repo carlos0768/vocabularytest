@@ -134,6 +134,7 @@ import {
   logExampleGenerationOutcome,
 } from '@/lib/scan/example-generation-summary';
 import { createTimingMetrics, flushTimingLogs } from '@/lib/scan/timing-metrics';
+import { normalizeSectionName } from '@/lib/project/word-sections';
 
 // Vercel Hobby plan upper limit is 300 seconds.
 export const maxDuration = 300;
@@ -1140,6 +1141,23 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       wordsDelivered = true;
 
       const insertedWordsArray = insertedWords ?? [];
+      // 既存の単語帳へ追加するときに選ばれたセクションへ入れる。INSERT の互換経路には
+      // 混ぜず後から付ける (失敗しても語は未分類で残るだけなので、スキャンは失敗にしない)。
+      const targetSectionName = targetProjectId
+        ? normalizeSectionName((job as { target_section_name?: unknown }).target_section_name)
+        : null;
+      if (targetSectionName && insertedWordsArray.length > 0) {
+        const { error: sectionError } = await supabaseAdmin
+          .from('words')
+          .update({ section_name: targetSectionName })
+          .in('id', insertedWordsArray.map((word: { id: string }) => word.id));
+        if (sectionError) {
+          console.warn('[scan-jobs/process] Failed to assign section to scanned words', {
+            jobId,
+            message: sectionError.message,
+          });
+        }
+      }
       // insertedWordsArray は wordsToPersist と1対1（同じ順・同じ長さ）。
       // ここに resolvedWords（除外前）を渡すと、一部だけ除外されたときに
       // 訳が別の単語へ位置ズレして紐づく。

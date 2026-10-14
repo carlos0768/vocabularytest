@@ -10,6 +10,7 @@ export const HOME_SESSION_STORAGE_KEYS = {
   legacyProjectId: 'scanvocab_project_id',
   manualAddProjectId: 'scanvocab_manual_add_project_id',
   voiceAddProjectId: 'scanvocab_voice_add_project_id',
+  addIntentSectionName: 'scanvocab_add_intent_section_name',
 } as const;
 
 export interface HomeGeneratingWordbookPayload {
@@ -79,8 +80,13 @@ export function clearLegacyHomeProjectId(storage: HomeSessionStorage): void {
  * 自動で開くための受け渡し。作成元（CreateWordbookSheet）が projectId を
  * 保存し、単語帳ページが consume して一致した場合のみモーダルを開く。
  */
-export function saveManualAddIntent(storage: HomeSessionStorage, projectId: string): void {
+export function saveManualAddIntent(
+  storage: HomeSessionStorage,
+  projectId: string,
+  sectionName: string | null = null,
+): void {
   storage.setItem(HOME_SESSION_STORAGE_KEYS.manualAddProjectId, projectId);
+  saveAddIntentSectionName(storage, sectionName);
 }
 
 export function consumeManualAddIntent(storage: HomeSessionStorage): string | null {
@@ -91,8 +97,32 @@ export function consumeManualAddIntent(storage: HomeSessionStorage): string | nu
 }
 
 /** 「音声で作成」から来たとき、遷移先で音声追加モーダルを開くための印。 */
-export function saveVoiceAddIntent(storage: HomeSessionStorage, projectId: string): void {
+export function saveVoiceAddIntent(
+  storage: HomeSessionStorage,
+  projectId: string,
+  sectionName: string | null = null,
+): void {
   storage.setItem(HOME_SESSION_STORAGE_KEYS.voiceAddProjectId, projectId);
+  saveAddIntentSectionName(storage, sectionName);
+}
+
+/**
+ * 手入力 / 音声の追加モーダルを開くときの入り先セクション (ホームのシートで選んだもの)。
+ * 1度読んだら消す。null は未分類 (または選ばれていない)。
+ */
+export function consumeAddIntentSectionName(storage: HomeSessionStorage): string | null {
+  const sectionName = storage.getItem(HOME_SESSION_STORAGE_KEYS.addIntentSectionName);
+  if (sectionName === null) return null;
+  storage.removeItem(HOME_SESSION_STORAGE_KEYS.addIntentSectionName);
+  return sectionName || null;
+}
+
+function saveAddIntentSectionName(storage: HomeSessionStorage, sectionName: string | null): void {
+  if (sectionName) storage.setItem(HOME_SESSION_STORAGE_KEYS.addIntentSectionName, sectionName);
+  // 前の印が残っていれば消す (別の単語帳で選んだセクションを持ち越さない)
+  else if (storage.getItem(HOME_SESSION_STORAGE_KEYS.addIntentSectionName) !== null) {
+    storage.removeItem(HOME_SESSION_STORAGE_KEYS.addIntentSectionName);
+  }
 }
 
 export function consumeVoiceAddIntent(storage: HomeSessionStorage): string | null {

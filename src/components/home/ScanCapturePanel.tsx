@@ -35,6 +35,7 @@ import {
   setScanConfirmExistingProject,
 } from '@/lib/scan/scan-session-storage';
 import { CustomScanModePanel, type CustomScanModeSelection } from '@/components/scan/CustomScanModePanel';
+import { SectionSelectRow } from '@/components/project/page/SectionControls';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
 
 const MAX_SCAN_IMAGE_COUNT = 20;
@@ -72,6 +73,16 @@ interface ScanCapturePanelProps {
    */
   targetProjectId?: string;
   targetProjectTitle?: string;
+  /** 既存の単語帳へ追加するときの入り先セクション (null = 未分類)。 */
+  targetSectionName?: string | null;
+  /**
+   * 渡すとパネルの先頭にセクションの選択行を出す (単語帳ページから開いたとき)。
+   * 渡さなければ targetSectionName のまま送る (ホームのシートで選び済み)。
+   */
+  sectionPicker?: {
+    sectionNames: string[];
+    onCreate: (name: string) => Promise<boolean>;
+  };
   /**
    * Title for the project created from this scan (used when scanning into a
    * new word book, e.g. when the name was entered in the create sheet).
@@ -91,6 +102,8 @@ interface ScanCapturePanelProps {
 export function ScanCapturePanel({
   targetProjectId,
   targetProjectTitle,
+  targetSectionName = null,
+  sectionPicker,
   newProjectTitle,
   onBackgroundScanStarted,
   onClose,
@@ -103,6 +116,7 @@ export function ScanCapturePanel({
   const [morphologyOn, setMorphologyOn] = useState(false);
   // 例文生成。既定オン (オフにすれば例文ぶんのコインはかからない)。
   const [examplesOn, setExamplesOn] = useState(true);
+  const [sectionName, setSectionName] = useState<string | null>(targetSectionName);
   const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
     modeId: null,
     prompt: '',
@@ -176,6 +190,7 @@ export function ScanCapturePanel({
       customModeId: customPayload.customModeId,
       customPrompt: customPayload.customPrompt,
       targetProjectId,
+      targetSectionName: targetProjectId ? sectionName : null,
       projectTitle: targetProjectTitle ?? newProjectTitle,
       onProgress: setProcessingLabel,
     });
@@ -449,6 +464,18 @@ export function ScanCapturePanel({
         onChange={handleCameraInputChange} />
       <input ref={libraryInputRef} type="file" accept="image/*,.heic,.heif" multiple className="sr-only"
         onChange={handleLibraryInputChange} />
+
+      {targetProjectId && sectionPicker && (
+        <div className="mb-3">
+          <SectionSelectRow
+            sectionNames={sectionPicker.sectionNames}
+            value={sectionName}
+            disabled={processing}
+            onChange={setSectionName}
+            onCreate={sectionPicker.onCreate}
+          />
+        </div>
+      )}
 
       {/* Sub-options */}
       <div

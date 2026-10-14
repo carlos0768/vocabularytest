@@ -56,6 +56,7 @@ export async function createHomeBackgroundScanJob(params: {
   customPrompt?: string | null;
   projectTitle?: string | null;
   targetProjectId?: string | null;
+  targetSectionName?: string | null;
   onProgress?: (label: string) => void;
   fetcher?: HomeBackgroundScanFetch;
   prepareUploadImage?: HomeBackgroundScanUploadPreparation;
@@ -101,6 +102,7 @@ export async function createHomeBackgroundScanJob(params: {
       customPrompt: params.customPrompt,
       projectTitle: params.projectTitle,
       targetProjectId: params.targetProjectId,
+      targetSectionName: params.targetSectionName,
     });
     const response = await fetcher('/api/scan-jobs/create', {
       method: 'POST',

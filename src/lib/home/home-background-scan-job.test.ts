@@ -81,3 +81,28 @@ test('buildHomeBackgroundScanJobCreatePayload includes multiple scan modes and c
     clientPlatform: 'web',
   });
 });
+
+test('buildHomeBackgroundScanJobCreatePayload sends the target section only with a target project', () => {
+  const withProject = buildHomeBackgroundScanJobCreatePayload({
+    imagePaths: ['user-1/scan-1.jpg'],
+    scanMode: 'all',
+    targetProjectId: '11111111-1111-4111-8111-111111111111',
+    targetSectionName: 'Section 2',
+  });
+  assert.equal(withProject.targetSectionName, 'Section 2');
+
+  const newProject = buildHomeBackgroundScanJobCreatePayload({
+    imagePaths: ['user-1/scan-1.jpg'],
+    scanMode: 'all',
+    targetSectionName: 'Section 2',
+  });
+  assert.equal('targetSectionName' in newProject, false);
+
+  const unsectioned = buildHomeBackgroundScanJobCreatePayload({
+    imagePaths: ['user-1/scan-1.jpg'],
+    scanMode: 'all',
+    targetProjectId: '11111111-1111-4111-8111-111111111111',
+    targetSectionName: null,
+  });
+  assert.equal('targetSectionName' in unsectioned, false);
+});

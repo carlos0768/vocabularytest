@@ -16,6 +16,11 @@ interface ScanCaptureModalProps {
    */
   targetProjectId?: string;
   targetProjectTitle?: string;
+  /** 既存の単語帳へ追加するときの入り先セクションの初期値 (null = 未分類)。 */
+  targetSectionName?: string | null;
+  /** 渡すとスキャンの前にセクションを選べる。 */
+  sectionNames?: string[];
+  onCreateSection?: (name: string) => Promise<boolean>;
   /**
    * Title for the project created from this scan (used when scanning into a
    * new word book, e.g. when the name was entered in the create sheet).
@@ -45,6 +50,9 @@ export function ScanCaptureModal({
   defaultMode,
   targetProjectId,
   targetProjectTitle,
+  targetSectionName,
+  sectionNames,
+  onCreateSection,
   newProjectTitle,
   onBackgroundScanStarted,
 }: ScanCaptureModalProps) {
@@ -136,6 +144,8 @@ export function ScanCaptureModal({
             <ScanCapturePanel
               targetProjectId={targetProjectId}
               targetProjectTitle={targetProjectTitle}
+              targetSectionName={targetSectionName}
+              sectionPicker={sectionNames && onCreateSection ? { sectionNames, onCreate: onCreateSection } : undefined}
               newProjectTitle={newProjectTitle}
               onBackgroundScanStarted={onBackgroundScanStarted}
               onClose={onClose}

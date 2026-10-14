@@ -28,7 +28,7 @@ import { useWordCount } from '@/hooks/use-word-count';
 import { getDb, getRepository, hybridRepository, syncQueue } from '@/lib/db';
 import { remoteRepository } from '@/lib/db/remote-repository';
 import { scheduleWordStatusWrite } from '@/lib/db/debounced-status-write';
-import { consumeManualAddIntent, consumeVoiceAddIntent } from '@/lib/home/home-session-storage';
+import { consumeAddIntentSectionName, consumeManualAddIntent, consumeVoiceAddIntent } from '@/lib/home/home-session-storage';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { markProjectVisited } from '@/lib/project-visit';
 import {
@@ -291,6 +291,8 @@ export default function ProjectPage() {
   const [manualWordAddedCount, setManualWordAddedCount] = useState(0);
   // 音声でまとめて追加するモーダル。保存は手入力と同じ経路 (addEnrichedManualWord)。
   const [showVoiceWordModal, setShowVoiceWordModal] = useState(false);
+  // ホームのシートで選んで来たときの音声追加の入り先 (undefined なら見ているセクション)
+  const [voiceWordSectionName, setVoiceWordSectionName] = useState<string | null | undefined>(undefined);
   const [voiceWordAdding, setVoiceWordAdding] = useState(false);
   const [voiceWordAddingMessage, setVoiceWordAddingMessage] = useState<string | undefined>(undefined);
   // 手動追加時の語源解析トグル。オフにすると enrich-manual が語源解析
@@ -420,13 +422,21 @@ export default function ProjectPage() {
   // （CreateWordbookSheet が sessionStorage 経由で projectId を渡してくる）。
   useEffect(() => {
     try {
-      if (consumeManualAddIntent(sessionStorage) === projectId) {
-        setManualWordSectionName(null);
+      const manualIntent = consumeManualAddIntent(sessionStorage) === projectId;
+      const voiceIntent = consumeVoiceAddIntent(sessionStorage) === projectId;
+      // ホームのシートで選んだセクション。一覧もそのセクションを開いておく。
+      const intentSectionName = normalizeSectionName(consumeAddIntentSectionName(sessionStorage));
+      if ((manualIntent || voiceIntent) && intentSectionName) {
+        pendingSectionFocusRef.current = intentSectionName;
+      }
+      if (manualIntent) {
+        setManualWordSectionName(intentSectionName);
         setManualWordAddedCount(0);
         setShowManualWordModal(true);
       }
       // 「音声で作成」から来たときは音声追加モーダルを開く。
-      if (consumeVoiceAddIntent(sessionStorage) === projectId) {
+      if (voiceIntent) {
+        setVoiceWordSectionName(intentSectionName);
         setShowVoiceWordModal(true);
       }
     } catch {
@@ -790,7 +800,23 @@ export default function ProjectPage() {
     setBulkImportModalOpen(true);
   };
 
-  const handleConfirmBulkImport = async (targetProjectId: string) => {
+  // コピー先の単語帳の末尾にセクションを作る (コピーのモーダルから)
+  const handleCreateSectionInImportTarget = async (targetProjectId: string, rawName: string): Promise<boolean> => {
+    const target = importTargetProjects.find((p) => p.id === targetProjectId);
+    if (!target) return false;
+    const next = insertSectionName(target.sectionNames ?? [], rawName, 'end');
+    try {
+      await mutationRepository.updateProject(targetProjectId, { sectionNames: next });
+      setImportTargetProjects((prev) => prev.map((p) => (p.id === targetProjectId ? { ...p, sectionNames: next } : p)));
+      return true;
+    } catch (createError) {
+      console.error('Failed to create section in import target:', createError);
+      showToast({ message: 'セクションの作成に失敗しました', type: 'error' });
+      return false;
+    }
+  };
+
+  const handleConfirmBulkImport = async (targetProjectId: string, targetSectionName: string | null) => {
     if (selectedWordIds.size === 0 || bulkImportLoading) return;
     setBulkImportLoading(true);
     const targets = words.filter((w) => selectedWordIds.has(w.id));
@@ -813,13 +839,14 @@ export default function ProjectPage() {
         relatedWords: w.relatedWords,
         usagePatterns: w.usagePatterns,
         customSections: w.customSections,
+        sectionName: targetSectionName,
       }));
       await mutationRepository.createWords(wordsToCreate);
       invalidateHomeCache();
       refreshWordCount();
       const targetProject = importTargetProjects.find((p) => p.id === targetProjectId);
       showToast({
-        message: `${targets.length}語を「${targetProject?.title ?? '単語帳'}」にコピーしました`,
+        message: `${targets.length}語を「${targetProject?.title ?? '単語帳'}」${targetSectionName ? `の「${targetSectionName}」` : ''}にコピーしました`,
         type: 'success',
         // コピーしただけだと結果を確かめに行く導線が無いので、その場で
         // コピー先の単語帳を開けるようにする（タップする間だけ表示を延ばす）。
@@ -1613,8 +1640,8 @@ export default function ProjectPage() {
     }
 
     setVoiceWordAdding(true);
-    // 音声で追加した語は、開いたときに見ていたセクションに入れる
-    const voiceSectionName = currentSectionName;
+    // 音声で追加した語は、ホームで選んだセクションか、開いたときに見ていたセクションに入れる
+    const voiceSectionName = voiceWordSectionName !== undefined ? voiceWordSectionName : currentSectionName;
     let done = 0;
     let added = 0;
     const failed: string[] = [];
@@ -1635,6 +1662,7 @@ export default function ProjectPage() {
     setVoiceWordAdding(false);
     setVoiceWordAddingMessage(undefined);
     setShowVoiceWordModal(false);
+    setVoiceWordSectionName(undefined);
 
     if (added > 0) {
       showToast({ message: `${added}語を追加しました`, type: 'success' });
@@ -2214,7 +2242,10 @@ export default function ProjectPage() {
           existingEnglish={existingEnglishSet}
           morphologyEnabled={manualWordMorphologyEnabled}
           onMorphologyEnabledChange={handleManualWordMorphologyChange}
-          onClose={() => setShowVoiceWordModal(false)}
+          onClose={() => {
+            setShowVoiceWordModal(false);
+            setVoiceWordSectionName(undefined);
+          }}
           onAdd={handleAddVoiceWords}
         />
       )}
@@ -2230,6 +2261,9 @@ export default function ProjectPage() {
         onClose={() => setShowScanCaptureModal(false)}
         targetProjectId={projectId}
         targetProjectTitle={project.title}
+        targetSectionName={currentSectionName}
+        sectionNames={sectionNames}
+        onCreateSection={(name) => handleCreateSection(name)}
       />
 
       <SingleWordDeleteModal
@@ -2362,7 +2396,8 @@ export default function ProjectPage() {
         count={selectedWordIds.size}
         projects={importTargetProjects}
         onCancel={() => { if (!bulkImportLoading) setBulkImportModalOpen(false); }}
-        onConfirm={(targetProjectId) => void handleConfirmBulkImport(targetProjectId)}
+        onCreateSection={handleCreateSectionInImportTarget}
+        onConfirm={(targetProjectId, targetSectionName) => void handleConfirmBulkImport(targetProjectId, targetSectionName)}
       />
 
       <BulkDeleteModal
