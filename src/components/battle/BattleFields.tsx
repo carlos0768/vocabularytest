@@ -10,8 +10,8 @@
  * という構成にして、1画面に収まるようにしている。
  */
 
-import { useId } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { WordbookSelectRow } from '@/components/project/WordbookSelectRow';
 import { cn } from '@/lib/utils';
 import {
   BATTLE_BOT_LEVELS,
@@ -207,53 +207,18 @@ export function BattleSetupCard({
   onBotLevelChange: (level: BattleBotLevel) => void;
   disabled?: boolean;
 }) {
-  const selectId = useId();
-  const selected = projects.find((project) => project.id === projectId) ?? null;
-
   return (
     <section className="overflow-hidden rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] shadow-[2px_3px_0_var(--solid-shadow)]">
       {/* 単語帳 */}
-      <div className="relative flex items-center gap-2.5 border-b-2 border-[var(--color-border)] p-3">
-        {projects.length > 0 && (
-          <>
-            <label htmlFor={selectId} className="sr-only">
-              出題に使う単語帳
-            </label>
-            <select
-              id={selectId}
-              value={projectId}
-              onChange={(event) => onProjectChange(event.target.value)}
-              disabled={disabled}
-              className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.title}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-        <div
-          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)] bg-cover bg-center font-display text-[15px] font-extrabold text-[var(--solid-ink)]"
-          style={selected?.iconImage ? { backgroundImage: `url(${selected.iconImage})` } : undefined}
-        >
-          {!selected?.iconImage && (selected?.title.charAt(0) ?? '?')}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="font-mono text-[9px] font-bold tracking-[0.06em] text-[var(--color-muted)]">
-            自分が出題するときの単語帳
-          </div>
-          <div className="truncate font-display text-[14px] font-extrabold text-[var(--solid-ink)]">
-            {projectsLoading
-              ? '読み込み中...'
-              : selected?.title ?? '単語帳がありません'}
-          </div>
-        </div>
-        {projects.length > 0 && (
-          <Icon name="unfold_more" size={17} className="shrink-0 text-[var(--color-muted)]" />
-        )}
-      </div>
+      <WordbookSelectRow
+        projects={projects}
+        value={projectId}
+        onChange={onProjectChange}
+        label="自分が出題するときの単語帳"
+        loading={projectsLoading}
+        disabled={disabled}
+        className="border-b-2 border-[var(--color-border)]"
+      />
 
       <SettingRow icon="format_list_numbered" label="問題数">
         <InlineSegment

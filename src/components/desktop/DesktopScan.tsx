@@ -97,8 +97,8 @@ export function DesktopScanView({
   const [selectedOptions, setSelectedOptions] = useState<ScanOptionKey[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
-  // 例文生成。語源解析と同じく既定オフ。
-  const [examplesOn, setExamplesOn] = useState(false);
+  // 例文生成は既定オン (スマホのスキャンと同じ)
+  const [examplesOn, setExamplesOn] = useState(true);
   const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
     modeId: null,
     prompt: '',

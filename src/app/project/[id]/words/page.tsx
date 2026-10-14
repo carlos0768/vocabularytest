@@ -65,8 +65,8 @@ export default function WordListPage() {
     setManualWordMorphologyEnabled(enabled);
     writeManualMorphologyPref(enabled);
   };
-  // 手動追加時の例文生成トグル。語源解析と違い既定オフ・コイン消費なし。
-  const [manualWordExampleEnabled, setManualWordExampleEnabled] = useState(false);
+  // 手動追加時の例文生成トグル。既定オン・コイン消費なし。
+  const [manualWordExampleEnabled, setManualWordExampleEnabled] = useState(true);
   useEffect(() => {
     setManualWordExampleEnabled(readManualExamplePref());
   }, []);
