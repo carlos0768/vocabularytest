@@ -479,11 +479,17 @@ export function DesktopProjectDetailView({
                   </div>
                 </div>
               ) : (
-                <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>該当する単語がありません</div>
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 50 }}>
+                  <DesktopButton icon="add" onClick={onManualAdd}>
+                    単語を追加
+                  </DesktopButton>
+                </div>
               )
             ) : pagedRows.length === 0 ? (
-              <div className="muted" style={{ textAlign: 'center', padding: 50, fontSize: 13 }}>
-                {filterActive ? '該当する単語がありません' : 'このセクションには単語がありません'}
+              <div style={{ display: 'flex', justifyContent: 'center', padding: 50 }}>
+                <DesktopButton icon="add" onClick={onManualAdd}>
+                  単語を追加
+                </DesktopButton>
               </div>
             ) : (
               <WordListFrame>

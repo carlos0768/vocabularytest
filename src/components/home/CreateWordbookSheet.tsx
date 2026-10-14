@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { ScanCapturePanel } from '@/components/home/ScanCapturePanel';
+import { WordbookSelectRow } from '@/components/project/WordbookSelectRow';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
 import { saveManualAddIntent, saveVoiceAddIntent } from '@/lib/home/home-session-storage';
 import { getGuestUserId, FREE_WORDBOOK_LIMIT } from '@/lib/utils';
-import { thumbColor } from '@/lib/ui/thumb-color';
 import type { Project, SubscriptionStatus } from '@/types';
 
 type CreateMethod = 'scan' | 'voice' | 'blank';
@@ -49,12 +49,12 @@ interface CreateWordbookSheetProps {
 export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProps) {
   const router = useRouter();
   const { user, subscription, isPro } = useAuth();
-  // existing = 既存の単語帳を選ぶ段。選んだ単語帳へ、選択中の方法で単語を足す。
-  const [step, setStep] = useState<'method' | 'scan' | 'existing'>('method');
+  const [step, setStep] = useState<'method' | 'scan'>('method');
   const [method, setMethod] = useState<CreateMethod>(isPro ? 'scan' : 'blank');
   const [name, setName] = useState('');
-  // 既存の単語帳へ足すときの入り先。null なら新しい単語帳を作る。
-  const [targetProject, setTargetProject] = useState<Project | null>(null);
+  // 既存の単語帳へ足すときの入り先 (対戦ロビーと同じ選択行でこの画面のまま選ぶ)。
+  // '' なら新しい単語帳を作る。
+  const [targetProjectId, setTargetProjectId] = useState('');
   const [existingProjects, setExistingProjects] = useState<Project[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -70,7 +70,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
       setStep('method');
       setMethod(isPro ? 'scan' : 'blank');
       setName('');
-      setTargetProject(null);
+      setTargetProjectId('');
       setExistingProjects(null);
       setSubmitting(false);
       setErrorMsg(null);
@@ -78,17 +78,36 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
     return () => window.clearTimeout(timer);
   }, [isOpen, isPro]);
 
+  // 既存の単語帳の候補は開いたときに読む
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    const userId = user ? user.id : getGuestUserId();
+    repository.getProjects(userId)
+      .then((projects) => { if (!cancelled) setExistingProjects(projects); })
+      .catch((error) => {
+        console.error('Failed to load projects:', error);
+        if (!cancelled) setExistingProjects([]);
+      });
+    return () => { cancelled = true; };
+  }, [isOpen, repository, user]);
+
   if (!isOpen) return null;
 
   const trimmedName = name.trim();
-  const ctaDisabled = submitting || (method === 'blank' && !trimmedName);
+  const targetProject = existingProjects?.find((project) => project.id === targetProjectId) ?? null;
+  // 音声は英語で認識するので、古典の単語帳には足せない
+  const voiceUnavailable = method === 'voice' && targetProject?.kind === 'classical';
+  const ctaDisabled = submitting || (!targetProject && method === 'blank' && !trimmedName) || voiceUnavailable;
   const ctaLabel = method === 'scan'
     ? 'スキャンに進む'
-    : submitting
-      ? '作成中...'
-      : method === 'voice'
-        ? '作成して話す'
-        : '単語帳を作成';
+    : targetProject
+      ? 'この単語帳に追加'
+      : submitting
+        ? '作成中...'
+        : method === 'voice'
+          ? '作成して話す'
+          : '単語帳を作成';
 
   const handleSubmit = async () => {
     if (ctaDisabled) return;
@@ -96,6 +115,19 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
 
     if (method === 'scan') {
       setStep('scan');
+      return;
+    }
+
+    // 既存の単語帳へ足すときは作らずに、単語帳ページの追加モーダルを開く
+    if (targetProject) {
+      try {
+        if (method === 'voice') saveVoiceAddIntent(sessionStorage, targetProject.id);
+        else saveManualAddIntent(sessionStorage, targetProject.id);
+      } catch {
+        // sessionStorage が使えない環境では自動オープンだけ諦める
+      }
+      onClose();
+      router.push(`/project/${targetProject.id}`);
       return;
     }
 
@@ -131,43 +163,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
     }
   };
 
-  const openExistingStep = async () => {
-    setErrorMsg(null);
-    setStep('existing');
-    if (existingProjects) return;
-    try {
-      const userId = user ? user.id : getGuestUserId();
-      setExistingProjects(await repository.getProjects(userId));
-    } catch (error) {
-      console.error('Failed to load projects:', error);
-      setExistingProjects([]);
-      setErrorMsg('単語帳一覧を読み込めませんでした');
-    }
-  };
-
-  // 既存の単語帳を選んだら、選択中の方法でその単語帳へ足す。
-  // スキャンはこのシートの中で続け、音声・手入力は単語帳ページの追加モーダルを開く。
-  const handlePickExisting = (project: Project) => {
-    if (method === 'scan') {
-      setTargetProject(project);
-      setStep('scan');
-      return;
-    }
-    try {
-      if (method === 'voice') saveVoiceAddIntent(sessionStorage, project.id);
-      else saveManualAddIntent(sessionStorage, project.id);
-    } catch {
-      // sessionStorage が使えない環境では自動オープンだけ諦める
-    }
-    onClose();
-    router.push(`/project/${project.id}`);
-  };
-
-  const sheetTitle = step === 'scan'
-    ? '写真でスキャン'
-    : step === 'existing'
-      ? '既存の単語帳にインポート'
-      : '新しい単語帳';
+  const sheetTitle = step === 'scan' ? '写真でスキャン' : '新しい単語帳';
   const scanSubtitle = targetProject
     ? `「${targetProject.title}」に追加`
     : trimmedName
@@ -206,9 +202,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                 <button
                   type="button"
                   onClick={() => {
-                    // スキャンから戻るときは、来た段 (既存の単語帳の選択か方法の選択) へ戻す
-                    setStep(step === 'scan' && targetProject ? 'existing' : 'method');
-                    setTargetProject(null);
+                    setStep('method');
                   }}
                   aria-label="戻る"
                   className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]"
@@ -245,18 +239,11 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
               newProjectTitle={targetProject ? undefined : trimmedName || undefined}
               onClose={onClose}
             />
-          ) : step === 'existing' ? (
-            <ExistingWordbookList
-              projects={existingProjects}
-              // 音声は英語で認識するので、古典の単語帳には足せない
-              isDisabled={(project) => method === 'voice' && project.kind === 'classical'}
-              onPick={handlePickExisting}
-              errorMsg={errorMsg}
-            />
           ) : (
             <>
               {/* Name field */}
               <div className="mb-3.5">
+                {!targetProject && (<>
                 <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
                   単語帳の名前
                   {method !== 'blank' && (
@@ -285,18 +272,28 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                 {method === 'voice' && !trimmedName && (
                   <p className="mt-1 text-[10px] text-[var(--color-muted)]">未入力の場合は「{defaultVoiceWordbookTitle()}」になります</p>
                 )}
+                </>)}
 
-                <button
-                  type="button"
-                  onClick={() => void openExistingStep()}
-                  disabled={submitting}
-                  className="mt-3 flex w-full items-center gap-2.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-60"
+                <div
+                  className={`${targetProject ? '' : 'mt-3 '}overflow-hidden rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]`}
                   style={{ boxShadow: '2px 2px 0 var(--solid-ink)' }}
                 >
-                  <Icon name="drive_file_move" size={18} className="shrink-0 text-[var(--solid-ink)]" />
-                  <span className="min-w-0 flex-1 text-[13px] font-bold text-[var(--solid-ink)]">既存の単語帳にインポート</span>
-                  <Icon name="chevron_right" size={18} className="shrink-0 text-[var(--color-muted)]" />
-                </button>
+                  <WordbookSelectRow
+                    projects={existingProjects ?? []}
+                    value={targetProjectId}
+                    onChange={setTargetProjectId}
+                    label="既存の単語帳にインポート"
+                    loading={existingProjects === null}
+                    emptyOptionLabel="選ばない (新しく作る)"
+                    placeholder="選ばない (新しく作る)"
+                    isOptionDisabled={(project) => method === 'voice' && project.kind === 'classical'}
+                    disabled={submitting}
+                    className="px-3 py-2.5"
+                  />
+                </div>
+                {voiceUnavailable && (
+                  <p className="mt-1 text-[10px] font-bold text-[var(--color-error)]">音声で追加できるのは英語の単語帳だけです</p>
+                )}
               </div>
 
               {/* Method cards */}
@@ -381,7 +378,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
               >
                 {ctaLabel}
               </SolidButton>
-              {method === 'blank' && !trimmedName && (
+              {method === 'blank' && !trimmedName && !targetProject && (
                 <p className="mt-1.5 text-center text-[10px] text-[var(--color-muted)]">単語帳の名前を入力してください</p>
               )}
               {errorMsg && (
@@ -395,57 +392,3 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
   );
 }
 
-/** 「既存の単語帳にインポート」で入り先を選ぶ一覧。 */
-function ExistingWordbookList({
-  projects,
-  isDisabled,
-  onPick,
-  errorMsg,
-}: {
-  projects: Project[] | null;
-  isDisabled: (project: Project) => boolean;
-  onPick: (project: Project) => void;
-  errorMsg: string | null;
-}) {
-  if (projects === null) {
-    return (
-      <div className="flex items-center justify-center py-10 text-[var(--color-muted)]">
-        <Icon name="progress_activity" size={20} className="animate-spin" />
-      </div>
-    );
-  }
-  if (projects.length === 0) {
-    return (
-      <p className="py-8 text-center text-[12px] text-[var(--color-muted)]">
-        {errorMsg ?? '単語帳がありません'}
-      </p>
-    );
-  }
-  return (
-    <div className="flex max-h-[min(420px,60vh)] flex-col gap-1.5 overflow-y-auto">
-      {projects.map((project) => {
-        const disabled = isDisabled(project);
-        return (
-          <button
-            key={project.id}
-            type="button"
-            onClick={() => onPick(project)}
-            disabled={disabled}
-            className="flex items-center gap-2.5 rounded-[10px] border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-left transition-colors hover:border-[var(--solid-ink)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[7px] text-[12px] font-black text-white"
-              style={{ background: thumbColor(project.id) }}
-            >
-              {project.title.slice(0, 1)}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--solid-ink)]">
-              {project.title}
-            </span>
-            <Icon name="chevron_right" size={16} className="shrink-0 text-[var(--color-muted)]" />
-          </button>
-        );
-      })}
-    </div>
-  );
-}

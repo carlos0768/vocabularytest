@@ -101,9 +101,8 @@ export function ScanCapturePanel({
   const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
-  // 例文生成。語源解析と同じく既定オフ（後付けの有料オプションなので、
-  // 既存ユーザーが気づかず課金されないように）。
-  const [examplesOn, setExamplesOn] = useState(false);
+  // 例文生成。既定オン (オフにすれば例文ぶんのコインはかからない)。
+  const [examplesOn, setExamplesOn] = useState(true);
   const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
     modeId: null,
     prompt: '',

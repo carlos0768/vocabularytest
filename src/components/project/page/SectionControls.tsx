@@ -324,7 +324,6 @@ export type ProjectSectionNav = {
   disabled: boolean;
   onPrev: () => void;
   onNext: () => void;
-  onCreateStart: () => void;
   onCreateEnd: () => void;
 };
 
@@ -339,15 +338,16 @@ function SectionPagerButton({
   atEdge: boolean;
   disabled: boolean;
   onStep: () => void;
-  onCreate: () => void;
+  /** 渡したときだけ、端で「＋」になる (右端だけ) */
+  onCreate?: () => void;
 }) {
-  const create = atEdge && !disabled;
+  const create = atEdge && !disabled && onCreate !== undefined;
   const label = create ? '新しいセクション' : direction === 'prev' ? '前のセクション' : '次のセクション';
   return (
     <button
       type="button"
       onClick={create ? onCreate : onStep}
-      disabled={disabled}
+      disabled={disabled || (atEdge && !create)}
       aria-label={label}
       title={label}
       className={`inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40 ${
@@ -368,7 +368,6 @@ export function SectionPager({ nav }: { nav: ProjectSectionNav }) {
         atEdge={nav.atStart}
         disabled={nav.disabled}
         onStep={nav.onPrev}
-        onCreate={nav.onCreateStart}
       />
       <div className="flex min-w-0 flex-1 flex-col items-center text-center">
         {nav.label && (

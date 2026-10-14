@@ -172,8 +172,8 @@ async function loadRemoteWordsForEmptyLocalCache(projectId: string): Promise<Wor
 }
 
 /**
- * 下部バーのセクション送りボタン。端のセクションでは「＋」になり、
- * その側に新しいセクションを作る。
+ * 下部バーのセクション送りボタン。右端のセクションでは「＋」になり、
+ * 末尾に新しいセクションを作る。
  */
 function SectionStepButton({
   direction,
@@ -186,9 +186,10 @@ function SectionStepButton({
   atEdge: boolean;
   disabled?: boolean;
   onStep: () => void;
-  onCreate: () => void;
+  /** 渡したときだけ、端で「＋」になる (右端だけ) */
+  onCreate?: () => void;
 }) {
-  const create = atEdge && !disabled;
+  const create = atEdge && !disabled && onCreate !== undefined;
   return (
     <button
       type="button"
@@ -301,8 +302,8 @@ export default function ProjectPage() {
     setManualWordMorphologyEnabled(enabled);
     writeManualMorphologyPref(enabled);
   }, []);
-  // 手動追加時の例文生成トグル。語源解析と違い既定オフ・コイン消費なし。
-  const [manualWordExampleEnabled, setManualWordExampleEnabled] = useState(false);
+  // 手動追加時の例文生成トグル。既定オン・コイン消費なし。
+  const [manualWordExampleEnabled, setManualWordExampleEnabled] = useState(true);
   useEffect(() => {
     setManualWordExampleEnabled(readManualExamplePref());
   }, []);
@@ -542,7 +543,7 @@ export default function ProjectPage() {
       setSectionIndex(index);
     }
   }, [sectionGroups]);
-  const [createSectionPosition, setCreateSectionPosition] = useState<'start' | 'end' | null>(null);
+  const [createSectionPosition, setCreateSectionPosition] = useState<'end' | null>(null);
   const [createSectionLoading, setCreateSectionLoading] = useState(false);
   const [moveSectionModalOpen, setMoveSectionModalOpen] = useState(false);
   const [moveSectionLoading, setMoveSectionLoading] = useState(false);
@@ -1569,7 +1570,6 @@ export default function ProjectPage() {
     disabled: searching,
     onPrev: () => setSectionIndex(Math.max(0, sectionIndex - 1)),
     onNext: () => setSectionIndex(Math.min(sectionGroups.length - 1, sectionIndex + 1)),
-    onCreateStart: () => setCreateSectionPosition('start'),
     onCreateEnd: () => setCreateSectionPosition('end'),
   };
 
@@ -1903,22 +1903,16 @@ export default function ProjectPage() {
               onVoiceAdd={voiceAddAvailable ? openVoiceWordModal : undefined}
             />
           ) : (
-            <div className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center text-sm text-[var(--color-muted)]">
-              {query
-                ? '一致する単語がありません'
-                : filteredWords.length > 0 || wordFilterActive
-                  ? '条件に一致する単語がありません'
-                  : 'このセクションには単語がありません'}
-              {!query && !wordFilterActive && (
-                <button
-                  type="button"
-                  onClick={openManualWordModal}
-                  className="mx-auto mt-3 flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)]"
-                >
-                  <Icon name="add" size={14} />
-                  単語を追加
-                </button>
-              )}
+            /* 表示する語が無いときは枠も文言も出さず、追加ボタンだけを置く */
+            <div className="flex justify-center py-10">
+              <button
+                type="button"
+                onClick={openManualWordModal}
+                className="flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)]"
+              >
+                <Icon name="add" size={14} />
+                単語を追加
+              </button>
             </div>
           )
         ) : (
@@ -1974,7 +1968,6 @@ export default function ProjectPage() {
                 atEdge={sectionIndex === 0}
                 disabled={searching}
                 onStep={() => setSectionIndex(sectionIndex - 1)}
-                onCreate={() => setCreateSectionPosition('start')}
               />
               {/* 英語側の赤シート。一覧の左カラム (英語) を隠すので、バーでも左に置く */}
               <RedSheetToggle

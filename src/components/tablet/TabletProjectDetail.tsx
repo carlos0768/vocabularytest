@@ -327,13 +327,19 @@ export function TabletProjectDetailView({
               counts.total === 0 ? (
                 <EmptyWordbookState isPro={isPro} onScan={onScan} onManualAdd={onManualAdd} onVoiceAdd={onVoiceAdd} />
               ) : (
-                <div className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center text-sm text-[var(--color-muted)]">
-                  {query ? '一致する単語がありません' : '条件に一致する単語がありません'}
+                <div className="flex justify-center py-10">
+                  <button type="button" onClick={onManualAdd} className="flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] min-h-[44px]">
+                    <Icon name="add" size={14} />
+                    単語を追加
+                  </button>
                 </div>
               )
             ) : pagedRows.length === 0 ? (
-              <div className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center text-sm text-[var(--color-muted)]">
-                {filterActive ? '条件に一致する単語がありません' : 'このセクションには単語がありません'}
+              <div className="flex justify-center py-10">
+                <button type="button" onClick={onManualAdd} className="flex items-center gap-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2 text-[12px] font-bold text-[var(--solid-ink)] min-h-[44px]">
+                  <Icon name="add" size={14} />
+                  単語を追加
+                </button>
               </div>
             ) : (
               <WordListFrame className="rounded-[16px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3">
