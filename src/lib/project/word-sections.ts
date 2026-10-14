@@ -107,6 +107,13 @@ export function renameSectionName(
   return current.map((name) => (name === from ? to : name));
 }
 
+/** セクションを並びから外す (並び順はそのまま)。無い名前なら変えずに返す。 */
+export function removeSectionName(names: readonly string[], rawName: string): string[] {
+  const current = normalizeSectionNames(names);
+  const name = normalizeSectionName(rawName);
+  return name ? current.filter((existing) => existing !== name) : current;
+}
+
 /** 新しいセクションの名前の初期値 (「セクション3」など、まだ使われていない番号)。 */
 export function suggestNewSectionName(names: readonly string[]): string {
   const used = new Set(names);

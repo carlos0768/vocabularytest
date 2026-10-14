@@ -94,6 +94,7 @@ import {
   getSectionGroupLabel,
   insertSectionName,
   normalizeSectionName,
+  removeSectionName,
   renameSectionName,
   resolveProjectSectionNames,
 } from '@/lib/project/word-sections';
@@ -913,6 +914,45 @@ export default function ProjectPage() {
         return original ? { ...w, sectionName: original.sectionName } : w;
       }));
       showToast({ message: 'セクション名を変更できませんでした', type: 'error' });
+    } finally {
+      setRenameSectionLoading(false);
+    }
+  };
+
+  /**
+   * セクションを消す。中の語は消さずに未分類へ移す。
+   * 失敗したら単語帳の並び・語の所属とも元に戻す。
+   */
+  const handleDeleteSection = async () => {
+    const name = renameSectionTarget?.name;
+    if (!project || !name || renameSectionLoading) return;
+    const nextNames = removeSectionName(sectionNames, name);
+    const inTarget = (w: Word) => normalizeSectionName(w.sectionName) === name;
+    const targets = words.filter(inTarget);
+    const previousNames = project.sectionNames;
+    // 消したセクションの位置にいた語は未分類 (先頭) に出るので、そこへ移る
+    const deletedIndex = sectionIndex;
+
+    setRenameSectionLoading(true);
+    setProject((prev) => (prev ? { ...prev, sectionNames: nextNames } : prev));
+    setWords((prev) => prev.map((w) => (inTarget(w) ? { ...w, sectionName: null } : w)));
+    setSectionIndex(targets.length > 0 ? 0 : Math.max(0, deletedIndex - 1));
+    try {
+      await mutationRepository.updateProject(projectId, { sectionNames: nextNames });
+      for (const w of targets) {
+        await mutationRepository.updateWord(w.id, { sectionName: null });
+      }
+      setRenameSectionTarget(null);
+      showToast({ message: `「${name}」を削除しました`, type: 'success' });
+    } catch (deleteError) {
+      console.error('Failed to delete section:', deleteError);
+      pendingSectionFocusRef.current = name;
+      setProject((prev) => (prev ? { ...prev, sectionNames: previousNames } : prev));
+      setWords((prev) => prev.map((w) => {
+        const original = targets.find((t) => t.id === w.id);
+        return original ? { ...w, sectionName: original.sectionName } : w;
+      }));
+      showToast({ message: 'セクションを削除できませんでした', type: 'error' });
     } finally {
       setRenameSectionLoading(false);
     }
@@ -2259,6 +2299,10 @@ export default function ProjectPage() {
         loading={renameSectionLoading}
         onCancel={() => { if (!renameSectionLoading) setRenameSectionTarget(null); }}
         onConfirm={(name) => void handleConfirmRenameSection(name)}
+        onDelete={() => void handleDeleteSection()}
+        wordCount={renameSectionTarget?.name
+          ? words.filter((w) => normalizeSectionName(w.sectionName) === renameSectionTarget.name).length
+          : 0}
       />
 
       <CreateSectionModal

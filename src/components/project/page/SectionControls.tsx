@@ -229,7 +229,13 @@ export function CreateSectionModal(props: SectionNameModalProps & { open: boolea
  * target.name が null なら未分類の語に名前を付ける (新しいセクションになる)。
  */
 export function RenameSectionModal(
-  props: SectionNameModalProps & { target: { name: string | null } | null },
+  props: SectionNameModalProps & {
+    target: { name: string | null } | null;
+    /** セクションを消す (語は未分類へ)。名前の付いたセクションのときだけ使う */
+    onDelete?: () => void;
+    /** 消すセクションに入っている語数 (確認に出す) */
+    wordCount?: number;
+  },
 ) {
   const { target } = props;
   if (!target) return null;
@@ -240,6 +246,7 @@ export function RenameSectionModal(
       confirmLabel="変更"
       initialName={target.name ?? suggestNewSectionName(props.sectionNames)}
       currentName={target.name ?? undefined}
+      onDelete={target.name ? props.onDelete : undefined}
     />
   );
 }
@@ -253,14 +260,54 @@ function SectionNameModalBody({
   confirmLabel,
   initialName,
   currentName,
+  onDelete,
+  wordCount = 0,
 }: SectionNameModalProps & {
   title: string;
   confirmLabel: string;
   initialName: string;
   /** 名前変更のときの元の名前 (重複判定から外す) */
   currentName?: string;
+  onDelete?: () => void;
+  wordCount?: number;
 }) {
   const [name, setName] = useState(initialName);
+  // 削除は押した後にもう一度確かめる
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  if (confirmingDelete && onDelete) {
+    return (
+      <ModalFrame onCancel={onCancel} busy={loading}>
+        <h2 className="font-display text-[18px] font-extrabold text-[var(--solid-ink)]">
+          「{currentName}」を削除
+        </h2>
+        {wordCount > 0 && (
+          <p className="mt-2 text-[12px] text-[var(--color-muted)]">{wordCount}語は未分類に移ります</p>
+        )}
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmingDelete(false)}
+            disabled={loading}
+            className="flex-1 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[13px] font-bold text-[var(--solid-ink)] disabled:opacity-50"
+          >
+            戻る
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={loading}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] px-3 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
+            style={{ background: 'var(--color-error, #cc4d59)' }}
+          >
+            {loading && <Icon name="progress_activity" size={14} className="animate-spin" />}
+            削除
+          </button>
+        </div>
+      </ModalFrame>
+    );
+  }
+
   const normalized = normalizeSectionName(name);
   const unchanged = normalized !== null && normalized === currentName;
   const duplicate = normalized !== null && !unchanged && sectionNames.includes(normalized);
@@ -290,6 +337,17 @@ function SectionNameModalBody({
         onCancel={onCancel}
         onConfirm={submit}
       />
+      {onDelete && (
+        <button
+          type="button"
+          onClick={() => setConfirmingDelete(true)}
+          disabled={loading}
+          className="mx-auto mt-3 flex items-center gap-1 text-[12px] font-bold text-[var(--color-error)] disabled:opacity-50"
+        >
+          <Icon name="delete" size={14} />
+          セクションを削除
+        </button>
+      )}
     </ModalFrame>
   );
 }
