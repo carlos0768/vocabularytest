@@ -350,9 +350,7 @@ function SectionPagerButton({
       disabled={disabled || (atEdge && !create)}
       aria-label={label}
       title={label}
-      className={`inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40 ${
-        create ? 'border-dashed bg-[var(--color-accent-light)]' : 'bg-[var(--color-surface)]'
-      }`}
+      className="inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
     >
       <Icon name={create ? 'add' : direction === 'prev' ? 'chevron_left' : 'chevron_right'} size={18} />
     </button>
