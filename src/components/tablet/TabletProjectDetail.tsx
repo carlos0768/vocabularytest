@@ -146,6 +146,7 @@ export function TabletProjectDetailView({
   onVoiceAdd,
   onWordUpdated,
   sectionNav,
+  onOpenSections,
 }: TabletProjectDetailViewProps) {
   const router = useRouter();
   const { isPro } = useAuth();
@@ -188,6 +189,7 @@ export function TabletProjectDetailView({
           <div className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-muted)]">BOOK</div>
           <div className="truncate font-display text-[15px] font-extrabold leading-tight text-[var(--solid-ink)]">{project.title}</div>
         </div>
+        {onOpenSections && <RoundButton icon="format_list_bulleted" label="セクション" onClick={onOpenSections} />}
         {onShare && <RoundButton icon="ios_share" label="共有" onClick={onShare} />}
         <div className="relative">
           <RoundButton icon="more_horiz" label="その他の操作" onClick={() => setMoreMenuOpen((v) => !v)} expanded={moreMenuOpen} />

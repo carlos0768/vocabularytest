@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
@@ -15,9 +15,13 @@ import type { Project, SubscriptionStatus } from '@/types';
 
 type CreateMethod = 'scan' | 'voice' | 'blank';
 
-/** 名前を付けずに「音声で作成」したときの単語帳名。 */
-function defaultVoiceWordbookTitle(now = new Date()): string {
-  return `音声で作成 ${now.getMonth() + 1}/${now.getDate()}`;
+/**
+ * 作るときの単語帳名。名前欄は置かないので日付つきの名前を付け、あとから単語帳の
+ * メニューで変えてもらう (スキャンはスキャン内容から名前が付く)。
+ */
+function defaultWordbookTitle(method: 'voice' | 'blank', now = new Date()): string {
+  const date = `${now.getMonth() + 1}/${now.getDate()}`;
+  return method === 'voice' ? `音声で作成 ${date}` : `新しい単語帳 ${date}`;
 }
 
 interface MethodOption {
@@ -44,22 +48,20 @@ interface CreateWordbookSheetProps {
  * blank word book. Voice creates the word book and opens the voice-input
  * modal on the project page (via a sessionStorage intent). Choosing scan switches the SAME sheet to the scan
  * options step (ScanCapturePanel) instead of opening a separate modal.
- * The optional name is carried into the scan flow as the new project
- * title, and is required for blank creation.
+ * There is no name field: scan names the book from its contents, voice /
+ * blank get a dated default title (renamable from the project menu).
  */
 export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProps) {
   const router = useRouter();
   const { user, subscription, isPro } = useAuth();
   const [step, setStep] = useState<'method' | 'scan'>('method');
   const [method, setMethod] = useState<CreateMethod>(isPro ? 'scan' : 'blank');
-  const [name, setName] = useState('');
   // 既存の単語帳へ足すときの入り先 (対戦ロビーと同じ選択行でこの画面のまま選ぶ)。
   // '' なら新しい単語帳を作る。
   const [targetProjectId, setTargetProjectId] = useState('');
   const [existingProjects, setExistingProjects] = useState<Project[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const subscriptionStatus: SubscriptionStatus = subscription?.status || 'free';
   const wasPro = subscription?.plan === 'pro' && subscriptionStatus !== 'active';
@@ -70,7 +72,6 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
     const timer = window.setTimeout(() => {
       setStep('method');
       setMethod(isPro ? 'scan' : 'blank');
-      setName('');
       setTargetProjectId('');
       // existingProjects はここで消さない。下の読み込みの方が先に終わることがあり、
       // 消すと「読み込み中」のまま戻らなくなる (開くたびに読み直すので古い値は残らない)
@@ -97,11 +98,10 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
 
   if (!isOpen) return null;
 
-  const trimmedName = name.trim();
   const targetProject = existingProjects?.find((project) => project.id === targetProjectId) ?? null;
   // 音声は英語で認識するので、古典の単語帳には足せない
   const voiceUnavailable = method === 'voice' && targetProject?.kind === 'classical';
-  const ctaDisabled = submitting || (!targetProject && method === 'blank' && !trimmedName) || voiceUnavailable;
+  const ctaDisabled = submitting || voiceUnavailable;
   const ctaLabel = method === 'scan'
     ? 'スキャンに進む'
     : targetProject
@@ -147,7 +147,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
           return;
         }
       }
-      const title = trimmedName || (method === 'voice' ? defaultVoiceWordbookTitle() : trimmedName);
+      const title = defaultWordbookTitle(method);
       const project = await repository.createProject({ userId, title, kind: 'english' });
       // 単語ゼロで始まるので、遷移先で追加モーダルを自動で開く
       // （音声で作成なら音声追加、空の単語帳なら手入力）
@@ -167,11 +167,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
   };
 
   const sheetTitle = step === 'scan' ? '写真でスキャン' : '新しい単語帳';
-  const scanSubtitle = targetProject
-    ? `「${targetProject.title}」に追加`
-    : trimmedName
-      ? `「${trimmedName}」として作成`
-      : null;
+  const scanSubtitle = targetProject ? `「${targetProject.title}」に追加` : null;
 
   return (
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
@@ -239,46 +235,15 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
             <ScanCapturePanel
               targetProjectId={targetProject?.id}
               targetProjectTitle={targetProject?.title}
-              newProjectTitle={targetProject ? undefined : trimmedName || undefined}
-              onClose={onClose}
+                            onClose={onClose}
             />
           ) : (
             <>
-              {/* Name field */}
+              {/* 既存の単語帳にインポート */}
               <div className="mb-3.5">
-                {!targetProject && (<>
-                <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
-                  単語帳の名前
-                  {method !== 'blank' && (
-                    <span className="normal-case tracking-normal opacity-70">（任意）</span>
-                  )}
-                </div>
-                <div
-                  className="overflow-hidden rounded-[10px] border-2 border-[var(--solid-ink)]"
-                  style={{ boxShadow: '2px 2px 0 var(--solid-ink)' }}
-                >
-                  <input
-                    ref={nameInputRef}
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="例：鉄壁 Section 13"
-                    maxLength={50}
-                    disabled={submitting}
-                    className="w-full bg-[var(--color-surface)] px-3 py-3 text-[14px] font-medium text-[var(--solid-ink)] placeholder:text-[var(--color-muted)] focus:outline-none"
-                  />
-                </div>
-                {method === 'scan' && !trimmedName && (
-                  <p className="mt-1 text-[10px] text-[var(--color-muted)]">未入力の場合はスキャン内容から自動で名前が付きます</p>
-                )}
-
-                {method === 'voice' && !trimmedName && (
-                  <p className="mt-1 text-[10px] text-[var(--color-muted)]">未入力の場合は「{defaultVoiceWordbookTitle()}」になります</p>
-                )}
-                </>)}
 
                 <div
-                  className={`${targetProject ? '' : 'mt-3 '}overflow-hidden rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]`}
+                  className={`overflow-hidden rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]`}
                   style={{ boxShadow: '2px 2px 0 var(--solid-ink)' }}
                 >
                   <WordbookSelectRow
@@ -321,7 +286,6 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                           return;
                         }
                         setMethod(m.k);
-                        if (m.k === 'blank' && !trimmedName) nameInputRef.current?.focus();
                       }}
                       className="flex items-center gap-3 rounded-[14px] border-2 bg-[var(--color-surface)] px-4 py-3.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60"
                       style={{
@@ -381,9 +345,6 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
               >
                 {ctaLabel}
               </SolidButton>
-              {method === 'blank' && !trimmedName && !targetProject && (
-                <p className="mt-1.5 text-center text-[10px] text-[var(--color-muted)]">単語帳の名前を入力してください</p>
-              )}
               {errorMsg && (
                 <p className="mt-2 text-center text-[11px] text-[var(--color-error)]">{errorMsg}</p>
               )}

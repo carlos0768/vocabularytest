@@ -19,10 +19,6 @@ import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { invalidateHomeCache } from '@/lib/home-cache';
 import { getNextVocabularyType } from '@/lib/vocabulary-type';
 import {
-  readManualExamplePref,
-  writeManualExamplePref,
-} from '@/lib/preferences/manual-example-pref';
-import {
   readManualMorphologyPref,
   writeManualMorphologyPref,
 } from '@/lib/preferences/manual-morphology-pref';
@@ -64,15 +60,6 @@ export default function WordListPage() {
   const handleManualWordMorphologyChange = (enabled: boolean) => {
     setManualWordMorphologyEnabled(enabled);
     writeManualMorphologyPref(enabled);
-  };
-  // 手動追加時の例文生成トグル。既定オン・コイン消費なし。
-  const [manualWordExampleEnabled, setManualWordExampleEnabled] = useState(true);
-  useEffect(() => {
-    setManualWordExampleEnabled(readManualExamplePref());
-  }, []);
-  const handleManualWordExampleChange = (enabled: boolean) => {
-    setManualWordExampleEnabled(enabled);
-    writeManualExamplePref(enabled);
   };
   useEffect(() => {
   }, []);
@@ -265,7 +252,8 @@ export default function WordListPage() {
           english,
           japanese,
           includeMorphology: manualWordMorphologyEnabled,
-          includeExample: manualWordExampleEnabled,
+          // 手動追加の例文は常に作る (切り替えは無い・コイン消費なし)
+          includeExample: true,
           ...(userPos ? { partOfSpeechTags: [userPos] } : {}),
           ...(userExample ? { exampleSentence: userExample } : {}),
         }),
@@ -429,8 +417,6 @@ export default function WordListPage() {
         exampleSentence={manualWordExampleSentence}
         setExampleSentence={setManualWordExampleSentence}
         morphologyEnabled={manualWordMorphologyEnabled}
-        exampleEnabled={manualWordExampleEnabled}
-        setExampleEnabled={handleManualWordExampleChange}
         setMorphologyEnabled={handleManualWordMorphologyChange}
       />
 
