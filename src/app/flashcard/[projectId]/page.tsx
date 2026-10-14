@@ -49,6 +49,7 @@ import { useTutorialFlow } from '@/hooks/use-tutorial-flow';
 import { getCachedProjectWords, getHasLoaded } from '@/lib/home-cache';
 import { formatPartOfSpeechLabels, getPartOfSpeechLabel } from '@/lib/part-of-speech-labels';
 import { hasDisplayableMorphology } from '@/lib/morphology/format';
+import { useHideWordSection } from '@/hooks/use-hide-word-section';
 import { useMorphologyBackfill } from '@/hooks/use-morphology-backfill';
 import { triggerHaptic } from '@/lib/haptics';
 import type { Word, SubscriptionStatus } from '@/types';
@@ -269,7 +270,8 @@ export default function FlashcardPage() {
   // words 状態にも反映して再表示時のフェッチを防ぐ。
   // 早送り中は通り過ぎるだけのカードなので取りに行かない（1枚ごとに
   // /api/words/morphology を叩くと、指を滑らせただけで大量の通信が出る）。
-  const currentMorphology = useMorphologyBackfill(isScrubbing ? null : currentWord ?? null, {
+  const { hidden: hideEtymology } = useHideWordSection('etymology');
+  const currentMorphology = useMorphologyBackfill(isScrubbing || hideEtymology ? null : currentWord ?? null, {
     onBackfilled: (updated) => {
       setAllWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
     },
