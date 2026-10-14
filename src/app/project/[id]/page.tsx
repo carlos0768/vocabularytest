@@ -85,6 +85,8 @@ import {
 import {
   CreateSectionModal,
   MoveToSectionModal,
+  RenameSectionModal,
+  SectionRenameButton,
   type ProjectSectionNav,
 } from '@/components/project/page/SectionControls';
 import {
@@ -92,6 +94,7 @@ import {
   getSectionGroupLabel,
   insertSectionName,
   normalizeSectionName,
+  renameSectionName,
   resolveProjectSectionNames,
 } from '@/lib/project/word-sections';
 
@@ -544,6 +547,9 @@ export default function ProjectPage() {
   }, [sectionGroups]);
   const [createSectionPosition, setCreateSectionPosition] = useState<'end' | null>(null);
   const [createSectionLoading, setCreateSectionLoading] = useState(false);
+  // 名前を変えようとしているセクション (null なら閉じている)
+  const [renameSectionTarget, setRenameSectionTarget] = useState<string | null>(null);
+  const [renameSectionLoading, setRenameSectionLoading] = useState(false);
   const [moveSectionModalOpen, setMoveSectionModalOpen] = useState(false);
   const [moveSectionLoading, setMoveSectionLoading] = useState(false);
   // 手入力で追加する語の入り先。開いたときに見ていたセクションから始める。
@@ -867,6 +873,45 @@ export default function ProjectPage() {
     if (!ok) return;
     pendingSectionFocusRef.current = name;
     setCreateSectionPosition(null);
+  };
+
+  /**
+   * セクションの名前を変える。単語帳の並びと、そのセクションの語の所属名を書き換える。
+   * 失敗したら両方とも元に戻す。
+   */
+  const handleConfirmRenameSection = async (newName: string) => {
+    const oldName = renameSectionTarget;
+    if (!project || !oldName || renameSectionLoading) return;
+    const nextNames = renameSectionName(sectionNames, oldName, newName);
+    if (nextNames.includes(oldName)) return;
+    const targets = words.filter((w) => normalizeSectionName(w.sectionName) === oldName);
+    const previousNames = project.sectionNames;
+
+    setRenameSectionLoading(true);
+    // 名前が変わっても今のセクションを見続ける
+    pendingSectionFocusRef.current = newName;
+    setProject((prev) => (prev ? { ...prev, sectionNames: nextNames } : prev));
+    setWords((prev) => prev.map((w) => (
+      normalizeSectionName(w.sectionName) === oldName ? { ...w, sectionName: newName } : w
+    )));
+    try {
+      await mutationRepository.updateProject(projectId, { sectionNames: nextNames });
+      for (const w of targets) {
+        await mutationRepository.updateWord(w.id, { sectionName: newName });
+      }
+      setRenameSectionTarget(null);
+    } catch (renameError) {
+      console.error('Failed to rename section:', renameError);
+      pendingSectionFocusRef.current = oldName;
+      setProject((prev) => (prev ? { ...prev, sectionNames: previousNames } : prev));
+      setWords((prev) => prev.map((w) => {
+        const original = targets.find((t) => t.id === w.id);
+        return original ? { ...w, sectionName: original.sectionName } : w;
+      }));
+      showToast({ message: 'セクション名を変更できませんでした', type: 'error' });
+    } finally {
+      setRenameSectionLoading(false);
+    }
   };
 
   const handleConfirmMoveToSection = async (sectionName: string | null) => {
@@ -1570,6 +1615,7 @@ export default function ProjectPage() {
     onPrev: () => setSectionIndex(Math.max(0, sectionIndex - 1)),
     onNext: () => setSectionIndex(Math.min(sectionGroups.length - 1, sectionIndex + 1)),
     onCreateEnd: () => setCreateSectionPosition('end'),
+    onRename: currentSectionName ? () => setRenameSectionTarget(currentSectionName) : undefined,
   };
 
   return (
@@ -1977,9 +2023,17 @@ export default function ProjectPage() {
             </div>
             <div className="flex min-w-0 max-w-[40%] shrink flex-col items-center text-center">
               {currentSectionLabel && (
-                <span className="max-w-full truncate font-display text-[13px] font-extrabold leading-tight text-[var(--solid-ink)]">
-                  {currentSectionLabel}
-                </span>
+                <div className="flex max-w-full items-center">
+                  <span className="min-w-0 truncate font-display text-[13px] font-extrabold leading-tight text-[var(--solid-ink)]">
+                    {currentSectionLabel}
+                  </span>
+                  {currentSectionName && (
+                    <SectionRenameButton
+                      onClick={() => setRenameSectionTarget(currentSectionName)}
+                      className="-my-1 h-7 w-7"
+                    />
+                  )}
+                </div>
               )}
               <span
                 className={`whitespace-nowrap font-mono font-bold tabular-nums ${
@@ -2184,6 +2238,14 @@ export default function ProjectPage() {
         onCancel={() => { if (!moveSectionLoading) setMoveSectionModalOpen(false); }}
         onCreateSection={(name) => handleCreateSection(name)}
         onConfirm={(name) => void handleConfirmMoveToSection(name)}
+      />
+
+      <RenameSectionModal
+        currentName={renameSectionTarget}
+        sectionNames={sectionNames}
+        loading={renameSectionLoading}
+        onCancel={() => { if (!renameSectionLoading) setRenameSectionTarget(null); }}
+        onConfirm={(name) => void handleConfirmRenameSection(name)}
       />
 
       <CreateSectionModal

@@ -5,6 +5,7 @@ import {
   buildWordSectionGroups,
   getSectionGroupLabel,
   insertSectionName,
+  renameSectionName,
   resolveProjectSectionNames,
   suggestNewSectionName,
   UNSECTIONED_LABEL,
@@ -71,4 +72,12 @@ test('新しいセクション名の初期値は使われていない番号', ()
   assert.equal(suggestNewSectionName([]), 'セクション1');
   assert.equal(suggestNewSectionName(['セクション2', 'x']), 'セクション3');
   assert.equal(suggestNewSectionName(['セクション2']), 'セクション3');
+});
+
+test('セクションの名前変更は並びを保ち、重複・空・同名では変えない', () => {
+  assert.deepEqual(renameSectionName(['A', 'B', 'C'], 'B', ' B2 '), ['A', 'B2', 'C']);
+  assert.deepEqual(renameSectionName(['A', 'B'], 'B', 'A'), ['A', 'B']);
+  assert.deepEqual(renameSectionName(['A', 'B'], 'B', '  '), ['A', 'B']);
+  assert.deepEqual(renameSectionName(['A', 'B'], 'B', 'B'), ['A', 'B']);
+  assert.deepEqual(renameSectionName(['A'], 'X', 'Y'), ['A']);
 });
