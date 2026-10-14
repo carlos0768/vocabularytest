@@ -82,7 +82,10 @@ export default function DeleteAccountPage() {
         <button
           type="button"
           className="ds-btn"
-          onClick={() => router.push('/settings')}
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+            else router.replace('/settings');
+          }}
         >
           <Icon name="arrow_back" />
           設定へ戻る
