@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { FollowNotificationsButton } from '@/components/notifications/FollowNotificationsButton';
 import { Icon } from '@/components/ui/Icon';
 import type { LoadMoreState } from '@/hooks/use-infinite-scroll';
@@ -14,7 +15,9 @@ import {
   useDiscoverFeed,
   usePublicGroupsPreview,
 } from '@/components/desktop/shared/use-desktop-shared-data';
+import { useAuth } from '@/hooks/use-auth';
 import { useLayoutMode } from '@/hooks/use-layout-mode';
+import { FREE_DAILY_BATTLE_LIMIT } from '@/lib/battle/free-allowance';
 import {
   CategoryResults,
   DesktopLoadMore,
@@ -114,6 +117,7 @@ export function DesktopSharedView({
   loadMoreState: LoadMoreState;
   onLoadMore: () => void;
 }) {
+  const { isPro } = useAuth();
   const isCategory = category !== 'all';
   const isGroups = category === 'groups';
   const isOfficial = category === 'official';
@@ -264,6 +268,20 @@ export function DesktopSharedView({
               );
             })}
           </div>
+          {/* 対戦はFreeでも1日 FREE_DAILY_BATTLE_LIMIT 回まで遊べる。 */}
+          <Link href="/battle" className="ds-battle-cta" style={{ marginTop: 14 }}>
+            <span className="spine" />
+            <Icon name="bolt" style={{ fontSize: 28, marginLeft: 4 }} />
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span className="t">リアルタイム対戦</span>
+              <span className="s">
+                {isPro
+                  ? '早押し4択 / フレンド・ランダム'
+                  : `早押し4択 / 無料プランは1日${FREE_DAILY_BATTLE_LIMIT}回まで`}
+              </span>
+            </span>
+            <Icon name="chevron_right" style={{ fontSize: 18 }} />
+          </Link>
           <div
             style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 26, alignItems: 'start', paddingTop: 22 }}
           >

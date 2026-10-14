@@ -31,7 +31,6 @@ import { FollowNotificationsButton } from '@/components/notifications/FollowNoti
 import { GuidedTour, type TourStep } from '@/components/onboarding/GuidedTour';
 import { HomeAnnouncementSpotlight } from '@/components/announcements/HomeAnnouncementSpotlight';
 import { JoinedGroupsSection } from '@/components/groups/JoinedGroupsSection';
-import { BattleEntrySection } from '@/components/battle/BattleEntrySection';
 import { HomeGrammarBooksSection } from '@/components/home/HomeGrammarBooks';
 import { useHomeGrammarBooks } from '@/hooks/use-home-grammar-books';
 import { getDailyReviewLimit } from '@/lib/preferences/review-limit';
@@ -868,9 +867,6 @@ export function HomeClient() {
 
       {/* 語法問題集（Pro限定・グループ表示の上） */}
       <HomeGrammarBooksSection books={grammarBooks} />
-
-      {/* リアルタイム単語対戦（Freeは1日3回・グループ表示の上） */}
-      <BattleEntrySection isPro={isPro} />
 
       {/* 参加中のグループ（/shared から移設） */}
       <JoinedGroupsSection groups={myGroups} />

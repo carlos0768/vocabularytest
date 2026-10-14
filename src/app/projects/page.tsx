@@ -32,6 +32,10 @@ import {
 } from '@/lib/home-cache';
 import type { Project, SubscriptionStatus } from '@/types';
 import { thumbColor } from '@/lib/ui/thumb-color';
+import { MergeProjectModal } from '@/components/project/page/ProjectPageModals';
+import { listMergeTargetProjects } from '@/lib/project/merge-projects';
+import { mergeProjectWithLocalCache } from '@/lib/project/merge-projects-client';
+import { useToast } from '@/components/ui/toast';
 
 const SORTS = [
   { k: 'newest',   label: '新しい順',     icon: 'schedule' },
@@ -167,6 +171,33 @@ export default function ProjectListPage() {
     }
   }, [repository]);
 
+  // 「他の単語帳に統合」: 単語帳ページのメニューと同じモーダル・同じ処理
+  const { showToast } = useToast();
+  const [mergeSource, setMergeSource] = useState<(Project & { totalWords: number }) | null>(null);
+  const [mergeLoading, setMergeLoading] = useState(false);
+  const handleConfirmMerge = useCallback(async (targetProjectId: string) => {
+    const source = mergeSource;
+    const target = projects.find((p) => p.id === targetProjectId);
+    if (!source || !target || mergeLoading) return;
+    if (!user || !navigator.onLine) {
+      showToast({ message: 'オンラインのときに統合してください', type: 'error' });
+      return;
+    }
+    setMergeLoading(true);
+    try {
+      const moved = await mergeProjectWithLocalCache(source, target);
+      showToast({ message: `${moved}語を「${target.title}」に統合しました`, type: 'success' });
+      setMergeSource(null);
+      // 統合先の語数・進み具合も変わるので一覧ごと読み直す (統合はキャッシュにも当て済み)
+      void loadProjects();
+    } catch (mergeError) {
+      console.error('Failed to merge project:', mergeError);
+      showToast({ message: '統合に失敗しました', type: 'error' });
+    } finally {
+      setMergeLoading(false);
+    }
+  }, [loadProjects, mergeLoading, mergeSource, projects, showToast, user]);
+
   // 「バインダーに追加」は window.prompt ではなくピッカーシートで選ばせる
   const [binderTarget, setBinderTarget] = useState<Project | null>(null);
   const handleSetBinder = useCallback((project: Project) => {
@@ -228,6 +259,7 @@ export default function ProjectListPage() {
         onQueryChange={setQuery}
         onSortChange={setSort}
         onDeleteProject={(project) => void handleDeleteProject(project)}
+        onMergeProject={(project) => setMergeSource(project)}
         onSetBinder={handleSetBinder}
         onCreateNew={() => setDesktopCreateOpen(true)}
       />
@@ -238,6 +270,16 @@ export default function ProjectListPage() {
         project={binderTarget}
         binders={existingBinders}
         onApply={(binder) => void applyBinder(binder)}
+      />
+      <MergeProjectModal
+        key={mergeSource?.id ?? 'closed'}
+        open={mergeSource !== null}
+        loading={mergeLoading}
+        sourceTitle={mergeSource?.title ?? ''}
+        wordCount={mergeSource?.totalWords ?? 0}
+        projects={mergeSource ? listMergeTargetProjects(projects, mergeSource) : []}
+        onCancel={() => { if (!mergeLoading) setMergeSource(null); }}
+        onConfirm={(targetProjectId) => void handleConfirmMerge(targetProjectId)}
       />
       <div className="relative min-h-screen bg-[var(--color-background)] pb-[150px] pt-3 font-[var(--font-body)] desktop:hidden">
       <div className="px-5 pb-3.5 pt-2.5">
@@ -317,6 +359,7 @@ export default function ProjectListPage() {
                 key={project.id}
                 project={project}
                 onSetBinder={handleSetBinder}
+                onMerge={setMergeSource}
                 onDelete={(p) => void handleDeleteProject(p)}
               />
             ))}
@@ -341,9 +384,12 @@ export default function ProjectListPage() {
 function BookRow({
   project,
   onSetBinder,
+  onMerge,
   onDelete,
 }: {
   project: ProjectRowStats;
+  /** 「...」メニューの「他の単語帳に統合」 */
+  onMerge?: (project: ProjectRowStats) => void;
   /** 「...」メニューの「バインダーに追加」。デスクトップと同じピッカーを開く */
   onSetBinder?: (project: Project) => void;
   /** 「...」メニューの「削除」 */
@@ -351,7 +397,7 @@ function BookRow({
 }) {
   const bg = thumbColor(project.id);
   const [menuOpen, setMenuOpen] = useState(false);
-  const hasMenu = Boolean(onSetBinder || onDelete);
+  const hasMenu = Boolean(onSetBinder || onMerge || onDelete);
 
   return (
     // 「...」ボタンは <a> の中に <button> を入れないよう Link の兄弟として置く
@@ -419,6 +465,16 @@ function BookRow({
               >
                 <Icon name="folder" size={15} />
                 バインダーに追加
+              </button>
+            )}
+            {onMerge && (
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); onMerge(project); }}
+                className="flex w-full items-center gap-2 border-b border-[var(--color-border-light)] px-3.5 py-3 text-left text-[13px] font-bold text-[var(--solid-ink)] active:bg-[var(--color-surface-secondary)]"
+              >
+                <Icon name="merge" size={15} />
+                他の単語帳に統合
               </button>
             )}
             {onDelete && (

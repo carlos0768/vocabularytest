@@ -2,8 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  GOAL_DAILY_QUIZ_HREF,
-  GOAL_REVIEW_QUIZ_HREF,
   buildCalendarMonth,
   buildGoalDailyQuizHref,
   buildGoalReviewQuizHref,
@@ -59,8 +57,8 @@ test('buildCalendarMonth は月曜はじまりの月に空白を入れない', (
   assert.equal(cells[29].day, 30);
 });
 
-test('GOAL_DAILY_QUIZ_HREF は単語帳をまたいで学習モードで 10 問飛ばし、戻り先に /goal を持たせる', () => {
-  assert.equal(GOAL_DAILY_QUIZ_HREF, '/quiz/all?learn=1&count=10&from=%2Fgoal');
+test('buildGoalDailyQuizHref は単語帳をまたいで学習モードで 10 問飛ばし、戻り先を from に持たせる', () => {
+  assert.equal(buildGoalDailyQuizHref('/goal'), '/quiz/all?learn=1&count=10&from=%2Fgoal');
 });
 
 test('describeGoalProjectTitles は1冊ならそのまま、複数なら先頭+件数にする', () => {
@@ -69,8 +67,7 @@ test('describeGoalProjectTitles は1冊ならそのまま、複数なら先頭+�
   assert.equal(describeGoalProjectTitles(['英検準1級', 'TOEIC', 'IELTS']), '英検準1級ほか2冊');
 });
 
-test('クイズへのリンクは戻り先を from に持たせる (目標ページ / ホーム)', () => {
-  assert.equal(GOAL_REVIEW_QUIZ_HREF, '/quiz/all?review=1&from=%2Fgoal');
+test('クイズへのリンクはホームから開けばホームへ戻す', () => {
   assert.equal(buildGoalDailyQuizHref('/'), '/quiz/all?learn=1&count=10&from=%2F');
   assert.equal(buildGoalReviewQuizHref('/'), '/quiz/all?review=1&from=%2F');
 });

@@ -94,7 +94,7 @@ export function HomeTodayStudy({
           loading
             ? '読み込み中...'
             : study.dueCount > 0
-              ? `復習期限の語 ${study.dueCount}語`
+              ? undefined
               : '今日の復習はありません'
         }
         tone="ink"

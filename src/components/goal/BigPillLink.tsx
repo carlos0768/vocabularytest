@@ -19,7 +19,8 @@ export function BigPillLink({
   icon: string;
   badge: string;
   title: string;
-  sub: string;
+  /** 見出しの下の1行。無ければ出さない */
+  sub?: string;
   tone: 'accent' | 'ink';
 }) {
   const enabled = href !== null;
@@ -45,7 +46,7 @@ export function BigPillLink({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block font-display text-[16px] font-black leading-tight">{title}</span>
-        <span className="mt-0.5 block truncate text-[11px] font-bold opacity-85">{sub}</span>
+        {sub && <span className="mt-0.5 block truncate text-[11px] font-bold opacity-85">{sub}</span>}
       </span>
       <Icon name={enabled ? 'arrow_forward' : icon} size={20} className="shrink-0" />
     </>

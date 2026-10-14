@@ -159,7 +159,7 @@ export const CALENDAR_WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土'
 /**
  * 「今日の10問」へのリンク。目標の単語帳が複数あり得るので `/quiz/[projectId]` ではなく
  * `/quiz/all` を使い、絞り込みは `writeReviewProjectFilter` で別途渡す。
- * `from` はクイズを閉じたときの戻り先 (目標ページ / ホーム)。
+ * `from` はクイズを閉じたときの戻り先。
  */
 export function buildGoalDailyQuizHref(from: string): string {
   return `/quiz/all?learn=1&count=${GOAL_DAILY_QUESTION_COUNT}&from=${encodeURIComponent(from)}`;
@@ -169,9 +169,6 @@ export function buildGoalDailyQuizHref(from: string): string {
 export function buildGoalReviewQuizHref(from: string): string {
   return `/quiz/all?review=1&from=${encodeURIComponent(from)}`;
 }
-
-export const GOAL_DAILY_QUIZ_HREF = buildGoalDailyQuizHref('/goal');
-export const GOAL_REVIEW_QUIZ_HREF = buildGoalReviewQuizHref('/goal');
 
 /** 目標の判定に要る単語帳の情報だけ。 */
 export interface GoalCandidateProject {
