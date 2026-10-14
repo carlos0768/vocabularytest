@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
+import { WordbookChoiceRow } from './WordbookChoiceRow';
 
 export type ReviewFilterProject = {
   id: string;
@@ -107,56 +108,21 @@ export function ReviewProjectFilterSheet({
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setDraft(new Set())}
-            className="mb-2 flex items-center gap-3 rounded-[12px] border-2 px-3.5 py-3 text-left"
-            style={{
-              borderColor: allSelected ? 'var(--solid-ink)' : 'var(--color-border)',
-              boxShadow: allSelected ? '2px 2px 0 var(--solid-ink)' : 'none',
-              background: 'var(--color-surface)',
-            }}
-          >
-            <span
-              className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full"
-              style={{
-                border: `1.5px solid ${allSelected ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                background: allSelected ? 'var(--color-accent)' : 'var(--color-surface)',
-              }}
-            >
-              {allSelected && <Icon name="check" size={13} className="text-white" />}
-            </span>
-            <span className="font-display text-[14px] font-bold text-[var(--solid-ink)]">すべての単語帳</span>
-          </button>
+          <div className="mb-2 flex flex-col">
+            <WordbookChoiceRow label="すべての単語帳" selected={allSelected} onClick={() => setDraft(new Set())} emphasized />
+          </div>
 
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col gap-1.5">
               {projects.map((project) => {
                 const active = !allSelected && draft.has(project.id);
                 return (
-                  <button
+                  <WordbookChoiceRow
                     key={project.id}
-                    type="button"
+                    label={project.title}
+                    selected={active}
                     onClick={() => toggleProject(project.id)}
-                    className="flex items-center gap-3 rounded-[12px] border-2 px-3.5 py-2.5 text-left"
-                    style={{
-                      borderColor: active ? 'var(--solid-ink)' : 'var(--color-border)',
-                      background: 'var(--color-surface)',
-                    }}
-                  >
-                    <span
-                      className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full"
-                      style={{
-                        border: `1.5px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                        background: active ? 'var(--color-accent)' : 'var(--color-surface)',
-                      }}
-                    >
-                      {active && <Icon name="check" size={13} className="text-white" />}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-display text-[13.5px] font-bold text-[var(--solid-ink)]">
-                      {project.title}
-                    </span>
-                  </button>
+                  />
                 );
               })}
             </div>

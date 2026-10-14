@@ -121,12 +121,8 @@ export default function GoalPage() {
   }, [load]);
 
   const sheetProjects = useMemo<GoalSheetProject[]>(
-    () => projects.map((project) => ({
-      id: project.id,
-      title: project.title,
-      totalWords: (wordsByProject[project.id] ?? []).length,
-    })),
-    [projects, wordsByProject],
+    () => projects.map((project) => ({ id: project.id, title: project.title })),
+    [projects],
   );
 
   // 目標の単語帳のうち、消されていないものだけ (表示だけ、保存は触らない)
