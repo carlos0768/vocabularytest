@@ -6,7 +6,7 @@
  * スマホのホームを横に伸ばすのではなく、幅を使って**折り返すグリッド**にする:
  *   上段: 今日の学習 (復習 / 今日解いた / 連続) + ショートカット (3〜4 列)
  *   中段: マイ単語帳 (3〜5 列の正方形タイル。横スクロールはしない) / バインダー
- *   下段: 語法問題集 (グリッド) / 単語対戦 / 参加中のグループ
+ *   下段: 語法問題集 (グリッド) / 参加中のグループ
  * 部品はスマホ版と共用 (HomeTiles / HomeShortcutGrid / 各 Section)。
  * データの契約は DesktopHomeView と同じ (home-client が同じ props を渡す)。
  * タッチ前提: hover でしか出ないものは置かない。
@@ -15,7 +15,6 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import type { DesktopHomeViewProps } from '@/components/desktop/DesktopHome';
-import { BattleEntrySection } from '@/components/battle/BattleEntrySection';
 import { JoinedGroupsSection } from '@/components/groups/JoinedGroupsSection';
 import { FollowingTodayStrip } from '@/components/home/FollowingTodayStrip';
 import { HomeGrammarBooksSection } from '@/components/home/HomeGrammarBooks';
@@ -27,7 +26,6 @@ import { FollowNotificationsButton } from '@/components/notifications/FollowNoti
 import { GeneratingProjectCard } from '@/components/project/GeneratingProjectCard';
 import { SolidEmpty, SolidPanel } from '@/components/redesign/SolidPage';
 import { Icon } from '@/components/ui/Icon';
-import { useAuth } from '@/hooks/use-auth';
 import type { FollowSuggestion } from '@/lib/follows/suggestions';
 import type { FollowingTodayActivity } from '@/lib/follows/today-activity';
 import { cn } from '@/lib/utils';
@@ -157,8 +155,6 @@ export function TabletHomeView({
   onDismissUpgrade,
   followingToday,
 }: TabletHomeViewProps) {
-  const { isPro } = useAuth();
-
   // バインダー (フォルダ) 一覧を binder 名で集計する
   const binders = useMemo(() => {
     const byBinder = new Map<string, number>();
@@ -281,7 +277,6 @@ export function TabletHomeView({
       {/* 以下はスマホと同じセクション部品。内側の 18px 余白を本文の端に合わせる */}
       <div className="-mx-[18px]">
         <HomeGrammarBooksSection books={grammarBooks} layout="grid" />
-        <BattleEntrySection isPro={isPro} />
         <JoinedGroupsSection groups={joinedGroups} />
       </div>
     </div>

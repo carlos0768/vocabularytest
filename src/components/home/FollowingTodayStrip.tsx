@@ -62,7 +62,7 @@ export function FollowingTodayStrip({
 }: {
   activity: FollowingTodayActivity[];
   suggestions: FollowSuggestion[];
-  /** 自分が今日解いた問題数。渡すと先頭に自分のカードを出す。 */
+  /** 自分が今日解いた問題数。渡すと、フォロー中の誰かが今日解いていれば先頭に自分のカードを出す。 */
   selfSolvedCount?: number;
 }) {
   const { username, accountId, avatarUrl } = useProfile();
@@ -71,7 +71,8 @@ export function FollowingTodayStrip({
     typeof window === 'undefined' ? new Set() : readDismissed(),
   );
   const visibleSuggestions = suggestions.filter((item) => !dismissed.has(item.userId));
-  const showSelf = selfSolvedCount !== undefined;
+  // 自分のカードは比べる相手（今日解いたフォロー中の人）がいるときだけ出す
+  const showSelf = selfSolvedCount !== undefined && activity.length > 0;
   // 解いた数の多い順（同数は元の並びを保つ）
   const sortedActivity = [...activity].sort((a, b) => b.answerCount - a.answerCount);
 
