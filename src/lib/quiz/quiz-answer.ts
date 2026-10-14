@@ -62,3 +62,17 @@ export function buildQuizAnswerOutcomePlan(params: {
         },
   };
 }
+
+/**
+ * 回答後に、いま表示している問題の語へ当てる更新。
+ * 語彙モード (`vocabularyType`) だけは外す: 一般は語彙モードで記述 / 四択を出し分けるので、
+ * 習得レベルの交互切り替え (Active → Passive) をこの問題に当てると、答えた直後の
+ * 記述の画面が四択に化ける。新しい語彙モードは保存と出題プール (`allWords`) にだけ入れ、
+ * 次に組み直した出題から効かせる。
+ */
+export function getAnsweredQuestionWordUpdates(
+  updates: QuizAnswerOutcomePlan['wordUpdates'],
+): Omit<QuizAnswerOutcomePlan['wordUpdates'], 'vocabularyType'> {
+  const { vocabularyType: _vocabularyType, ...rest } = updates;
+  return rest;
+}

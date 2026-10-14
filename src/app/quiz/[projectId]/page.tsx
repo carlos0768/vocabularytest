@@ -92,6 +92,7 @@ import {
 } from '@/lib/quiz/quiz-progress';
 import {
   buildQuizAnswerOutcomePlan,
+  getAnsweredQuestionWordUpdates,
   getTypeInCorrectAnswer,
   isTypeInAnswerCorrect,
 } from '@/lib/quiz/quiz-answer';
@@ -1174,7 +1175,7 @@ export default function QuizPage() {
           if (error) throw new Error(error.message);
         }
 
-        setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, ...updates } } : q));
+        setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, ...getAnsweredQuestionWordUpdates(updates) } } : q));
         setAllWords((prev) => prev.map((w) => (
           w.id === target.wordId
             ? mergeTranslationProgress(w, target, translationUpdates)
@@ -1182,7 +1183,7 @@ export default function QuizPage() {
         )));
       } else {
         await repository.updateWord(word.id, updates);
-        setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, ...updates } } : q));
+        setQuestions((prev) => prev.map((q, i) => i === currentIndex ? { ...q, word: { ...q.word, ...getAnsweredQuestionWordUpdates(updates) } } : q));
         setAllWords((prev) => prev.map((w) => w.id === word.id ? { ...w, ...updates } : w));
       }
       if (user) {
