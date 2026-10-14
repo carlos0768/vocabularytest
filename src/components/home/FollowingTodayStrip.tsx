@@ -72,6 +72,8 @@ export function FollowingTodayStrip({
   );
   const visibleSuggestions = suggestions.filter((item) => !dismissed.has(item.userId));
   const showSelf = selfSolvedCount !== undefined;
+  // 解いた数の多い順（同数は元の並びを保つ）
+  const sortedActivity = [...activity].sort((a, b) => b.answerCount - a.answerCount);
 
   if (!showSelf && activity.length === 0 && visibleSuggestions.length === 0) return null;
 
@@ -109,7 +111,7 @@ export function FollowingTodayStrip({
           </Link>
         )}
         <div className="-mr-[18px] flex min-w-0 flex-1 snap-x gap-1.5 overflow-x-auto pb-1 pr-[18px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {activity.map((item) => (
+          {sortedActivity.map((item) => (
             <Link key={item.userId} href={`/profile/${encodeURIComponent(item.profile.accountId)}`} className={CARD_CLASS}>
               <Avatar profile={item.profile} />
               <div className="mt-1.5 w-full truncate text-center font-display text-[11px] font-extrabold text-[var(--solid-ink)]">
