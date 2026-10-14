@@ -196,9 +196,8 @@ function SectionStepButton({
       onClick={create ? onCreate : onStep}
       disabled={disabled || (atEdge && !create)}
       aria-label={create ? '新しいセクション' : direction === 'prev' ? '前のセクション' : '次のセクション'}
-      className={`flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40 ${
-        create ? 'border-dashed bg-[var(--color-accent-light)]' : 'bg-[var(--color-surface)]'
-      }`}
+      // 「＋」も矢印と同じ角丸の四角・同じ地の色 (色で目立たせない)
+      className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px disabled:opacity-40"
     >
       <Icon name={create ? 'add' : direction === 'prev' ? 'chevron_left' : 'chevron_right'} size={20} />
     </button>
