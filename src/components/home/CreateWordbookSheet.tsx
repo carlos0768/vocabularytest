@@ -6,6 +6,8 @@ import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { ScanCapturePanel } from '@/components/home/ScanCapturePanel';
 import { WordbookSelectRow } from '@/components/project/WordbookSelectRow';
+import { SectionSelectRow } from '@/components/project/page/SectionControls';
+import { insertSectionName, normalizeSectionNames } from '@/lib/project/word-sections';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { useAuth } from '@/hooks/use-auth';
 import { getRepository } from '@/lib/db';
@@ -59,6 +61,8 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
   // 既存の単語帳へ足すときの入り先 (対戦ロビーと同じ選択行でこの画面のまま選ぶ)。
   // '' なら新しい単語帳を作る。
   const [targetProjectId, setTargetProjectId] = useState('');
+  // 既存の単語帳へ足すときの入り先セクション (null = 未分類)
+  const [targetSectionName, setTargetSectionName] = useState<string | null>(null);
   const [existingProjects, setExistingProjects] = useState<Project[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -73,6 +77,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
       setStep('method');
       setMethod(isPro ? 'scan' : 'blank');
       setTargetProjectId('');
+      setTargetSectionName(null);
       // existingProjects はここで消さない。下の読み込みの方が先に終わることがあり、
       // 消すと「読み込み中」のまま戻らなくなる (開くたびに読み直すので古い値は残らない)
       setSubmitting(false);
@@ -99,6 +104,29 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
   if (!isOpen) return null;
 
   const targetProject = existingProjects?.find((project) => project.id === targetProjectId) ?? null;
+  const targetSectionNames = normalizeSectionNames(targetProject?.sectionNames ?? []);
+
+  const handleTargetProjectChange = (projectId: string) => {
+    setTargetProjectId(projectId);
+    setTargetSectionName(null);
+  };
+
+  // 選んだ単語帳の末尾に新しいセクションを作る (単語帳ページの「＋」と同じ並び)
+  const handleCreateSection = async (name: string): Promise<boolean> => {
+    if (!targetProject) return false;
+    const next = insertSectionName(targetSectionNames, name, 'end');
+    try {
+      await repository.updateProject(targetProject.id, { sectionNames: next });
+      setExistingProjects((prev) => prev?.map((project) => (
+        project.id === targetProject.id ? { ...project, sectionNames: next } : project
+      )) ?? prev);
+      return true;
+    } catch (error) {
+      console.error('Failed to create section:', error);
+      setErrorMsg('セクションの作成に失敗しました');
+      return false;
+    }
+  };
   // 音声は英語で認識するので、古典の単語帳には足せない
   const voiceUnavailable = method === 'voice' && targetProject?.kind === 'classical';
   const ctaDisabled = submitting || voiceUnavailable;
@@ -124,8 +152,8 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
     // 既存の単語帳へ足すときは作らずに、単語帳ページの追加モーダルを開く
     if (targetProject) {
       try {
-        if (method === 'voice') saveVoiceAddIntent(sessionStorage, targetProject.id);
-        else saveManualAddIntent(sessionStorage, targetProject.id);
+        if (method === 'voice') saveVoiceAddIntent(sessionStorage, targetProject.id, targetSectionName);
+        else saveManualAddIntent(sessionStorage, targetProject.id, targetSectionName);
       } catch {
         // sessionStorage が使えない環境では自動オープンだけ諦める
       }
@@ -167,7 +195,9 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
   };
 
   const sheetTitle = step === 'scan' ? '写真でスキャン' : '新しい単語帳';
-  const scanSubtitle = targetProject ? `「${targetProject.title}」に追加` : null;
+  const scanSubtitle = targetProject
+    ? `「${targetProject.title}」${targetSectionName ? `の「${targetSectionName}」` : ''}に追加`
+    : null;
 
   return (
     <div className="fixed inset-0 z-[100]" style={{ fontFamily: 'var(--font-body)' }}>
@@ -235,7 +265,8 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
             <ScanCapturePanel
               targetProjectId={targetProject?.id}
               targetProjectTitle={targetProject?.title}
-                            onClose={onClose}
+              targetSectionName={targetProject ? targetSectionName : null}
+              onClose={onClose}
             />
           ) : (
             <>
@@ -249,7 +280,7 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                   <WordbookSelectRow
                     projects={existingProjects ?? []}
                     value={targetProjectId}
-                    onChange={setTargetProjectId}
+                    onChange={handleTargetProjectChange}
                     label="既存の単語帳にインポート"
                     loading={existingProjects === null}
                     emptyOptionLabel="選ばない (新しく作る)"
@@ -259,6 +290,17 @@ export function CreateWordbookSheet({ isOpen, onClose }: CreateWordbookSheetProp
                     className="px-3 py-2.5"
                   />
                 </div>
+                {targetProject && (
+                  <div className="mt-2">
+                    <SectionSelectRow
+                      sectionNames={targetSectionNames}
+                      value={targetSectionName}
+                      disabled={submitting}
+                      onChange={setTargetSectionName}
+                      onCreate={handleCreateSection}
+                    />
+                  </div>
+                )}
                 {voiceUnavailable && (
                   <p className="mt-1 text-[10px] font-bold text-[var(--color-error)]">音声で追加できるのは英語の単語帳だけです</p>
                 )}

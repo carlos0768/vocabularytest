@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import type { Project, Word } from '@/types';
 import { thumbColor } from '@/lib/ui/thumb-color';
+import { SectionSelectRow } from '@/components/project/page/SectionControls';
+import { normalizeSectionNames } from '@/lib/project/word-sections';
 
 export function DeleteProjectModal({
   open,
@@ -140,6 +142,7 @@ export function ImportToProjectModal({
   loading,
   count,
   projects,
+  onCreateSection,
   onCancel,
   onConfirm,
 }: {
@@ -147,10 +150,15 @@ export function ImportToProjectModal({
   loading: boolean;
   count: number;
   projects: Project[];
+  /** コピー先の単語帳に新しいセクションを作る。 */
+  onCreateSection: (projectId: string, name: string) => Promise<boolean>;
   onCancel: () => void;
-  onConfirm: (projectId: string) => void;
+  /** sectionName はコピー先のセクション (null = 未分類)。 */
+  onConfirm: (projectId: string, sectionName: string | null) => void;
 }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedSectionName, setSelectedSectionName] = useState<string | null>(null);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null;
 
   if (!open) return null;
   return (
@@ -188,7 +196,10 @@ export function ImportToProjectModal({
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => setSelectedProjectId(p.id)}
+                    onClick={() => {
+                      if (selectedProjectId !== p.id) setSelectedSectionName(null);
+                      setSelectedProjectId(p.id);
+                    }}
                     disabled={loading}
                     className={`flex items-center gap-2.5 rounded-[10px] border-2 px-3 py-2.5 text-left transition-all duration-100 ${
                       selectedProjectId === p.id
@@ -213,6 +224,17 @@ export function ImportToProjectModal({
               </div>
             )}
           </div>
+          {selectedProject && (
+            <div className="mt-3">
+              <SectionSelectRow
+                sectionNames={normalizeSectionNames(selectedProject.sectionNames ?? [])}
+                value={selectedSectionName}
+                disabled={loading}
+                onChange={setSelectedSectionName}
+                onCreate={(name) => onCreateSection(selectedProject.id, name)}
+              />
+            </div>
+          )}
           <div className="mt-4 flex gap-2">
             <button
               type="button"
@@ -224,7 +246,7 @@ export function ImportToProjectModal({
             </button>
             <button
               type="button"
-              onClick={() => selectedProjectId && onConfirm(selectedProjectId)}
+              onClick={() => selectedProjectId && onConfirm(selectedProjectId, selectedSectionName)}
               disabled={loading || !selectedProjectId}
               className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] px-3 py-2.5 text-[13px] font-bold text-[var(--color-on-accent)] disabled:opacity-60"
             >

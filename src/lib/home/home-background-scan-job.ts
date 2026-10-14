@@ -13,6 +13,8 @@ export interface HomeBackgroundScanJobCreatePayload {
   customModeId?: string;
   customPrompt?: string;
   targetProjectId?: string;
+  /** 既存の単語帳へ追加するときの入り先セクション。未指定なら未分類。 */
+  targetSectionName?: string;
   clientPlatform: 'web';
 }
 
@@ -27,6 +29,7 @@ export function buildHomeBackgroundScanJobCreatePayload(params: {
   customPrompt?: string | null;
   projectTitle?: string | null;
   targetProjectId?: string | null;
+  targetSectionName?: string | null;
   now?: Date;
 }): HomeBackgroundScanJobCreatePayload {
   const dateLabel = (params.now ?? new Date()).toLocaleDateString('ja-JP', {
@@ -51,6 +54,9 @@ export function buildHomeBackgroundScanJobCreatePayload(params: {
       ? { customPrompt: params.customPrompt }
       : {}),
     targetProjectId: params.targetProjectId || undefined,
+    ...(params.targetProjectId && params.targetSectionName
+      ? { targetSectionName: params.targetSectionName }
+      : {}),
     clientPlatform: 'web',
   };
 }

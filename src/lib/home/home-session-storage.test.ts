@@ -6,6 +6,7 @@ import {
   clearHomeGeneratingWordbook,
   clearLegacyHomeProjectId,
   consumeHomeGeneratingWordbook,
+  consumeAddIntentSectionName,
   consumeManualAddIntent,
   consumeVoiceAddIntent,
   getHomeSelectedProjectId,
@@ -157,6 +158,21 @@ test('consumeVoiceAddIntent returns the saved project id once', () => {
   assert.equal(consumeVoiceAddIntent(storage), null);
   // 手入力の印とは別のキーなので、互いに消し合わない
   assert.equal(consumeManualAddIntent(storage), null);
+});
+
+test('add intents carry the chosen section once and clear a stale one', () => {
+  const storage = new MemoryStorage();
+
+  saveManualAddIntent(storage, 'project-1', 'Section 2');
+  assert.equal(consumeManualAddIntent(storage), 'project-1');
+  assert.equal(consumeAddIntentSectionName(storage), 'Section 2');
+  assert.equal(consumeAddIntentSectionName(storage), null);
+
+  saveVoiceAddIntent(storage, 'project-2', 'Section 3');
+  // 未分類で開き直したら、前に選んだセクションは持ち越さない
+  saveVoiceAddIntent(storage, 'project-2');
+  assert.equal(consumeVoiceAddIntent(storage), 'project-2');
+  assert.equal(consumeAddIntentSectionName(storage), null);
 });
 
 test('clearLegacyHomeProjectId removes only the legacy project id key', () => {

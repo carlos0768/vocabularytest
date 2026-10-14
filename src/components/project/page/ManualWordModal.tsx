@@ -184,39 +184,6 @@ export function ManualWordModal({
               )}
             </div>
 
-            {/* 語源解析トグル（スキャンパネルと同じチェックカード型） */}
-            <button
-              type="button"
-              onClick={() => onMorphologyEnabledChange(!morphologyEnabled)}
-              disabled={loading}
-              className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all disabled:opacity-60"
-              style={{
-                borderColor: morphologyEnabled ? 'var(--solid-ink)' : 'var(--color-border)',
-                boxShadow: morphologyEnabled ? '2px 2px 0 var(--solid-ink)' : 'none',
-              }}
-            >
-              <span
-                className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
-                style={{
-                  border: `1.25px solid ${morphologyEnabled ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                  background: morphologyEnabled ? 'var(--color-accent)' : 'var(--color-surface)',
-                }}
-              >
-                {morphologyEnabled && <Icon name="check" size={11} className="text-white" />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--solid-ink)]">
-                  <span className="truncate">語源解析</span>
-                  <span className="shrink-0 font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
-                    +1コイン/語
-                  </span>
-                </span>
-                <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
-                  接頭語・接尾語・接中語と語根の成り立ちを解説
-                </span>
-              </span>
-            </button>
-
             <button
               type="button"
               onClick={() => setShowOptional((v) => !v)}
@@ -228,6 +195,38 @@ export function ManualWordModal({
 
             {showOptional && (
               <div className="space-y-3 border-t border-[var(--color-border)] pt-3">
+              {/* 語源解析トグル（スキャンパネルと同じチェックカード型） */}
+              <button
+                type="button"
+                onClick={() => onMorphologyEnabledChange(!morphologyEnabled)}
+                disabled={loading}
+                className="flex w-full items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all disabled:opacity-60"
+                style={{
+                  borderColor: morphologyEnabled ? 'var(--solid-ink)' : 'var(--color-border)',
+                  boxShadow: morphologyEnabled ? '2px 2px 0 var(--solid-ink)' : 'none',
+                }}
+              >
+                <span
+                  className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+                  style={{
+                    border: `1.25px solid ${morphologyEnabled ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                    background: morphologyEnabled ? 'var(--color-accent)' : 'var(--color-surface)',
+                  }}
+                >
+                  {morphologyEnabled && <Icon name="check" size={11} className="text-white" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--solid-ink)]">
+                    <span className="truncate">語源解析</span>
+                    <span className="shrink-0 font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
+                      +1コイン/語
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
+                    接頭語・接尾語・接中語と語根の成り立ちを解説
+                  </span>
+                </span>
+              </button>
                 <div>
                   <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--color-muted)]">
                     品詞（任意）

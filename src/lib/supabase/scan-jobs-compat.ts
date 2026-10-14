@@ -33,11 +33,32 @@ function isMissingCompatColumn(error: PostgrestError | null): boolean {
   );
 }
 
+function isMissingTargetSectionColumn(error: PostgrestError | null): boolean {
+  if (!error) return false;
+  if (error.code !== '42703' && error.code !== 'PGRST204') return false;
+  const message = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`.toLowerCase();
+  return message.includes('target_section_name');
+}
+
 /**
  * Inserts scan_jobs rows with backward compatibility for DBs
  * where save_mode/target_project_id columns are not deployed yet.
  */
 export async function insertScanJobWithCompat(
+  supabase: SupabaseClient,
+  payload: ScanJobInsertPayload,
+): Promise<InsertScanJobCompatResult> {
+  // 入り先セクションの列はいちばん新しい。未適用の DB では、ほかの列まで落とす
+  // 下の互換経路に入れず、セクションだけ諦めて (未分類で保存) 作り直す。
+  if (payload.target_section_name == null) {
+    return insertScanJobWithLegacyCompat(supabase, withoutTargetSection(payload));
+  }
+  const result = await insertScanJobWithLegacyCompat(supabase, payload);
+  if (!isMissingTargetSectionColumn(result.error)) return result;
+  return insertScanJobWithLegacyCompat(supabase, withoutTargetSection(payload));
+}
+
+async function insertScanJobWithLegacyCompat(
   supabase: SupabaseClient,
   payload: ScanJobInsertPayload,
 ): Promise<InsertScanJobCompatResult> {
@@ -84,4 +105,10 @@ export async function insertScanJobWithCompat(
     error: legacyAttempt.error,
     usedLegacyColumns: true,
   };
+}
+
+function withoutTargetSection(payload: ScanJobInsertPayload): ScanJobInsertPayload {
+  const rest = { ...payload };
+  delete rest.target_section_name;
+  return rest;
 }

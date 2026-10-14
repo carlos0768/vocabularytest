@@ -22,6 +22,7 @@ import {
 import { randomUUID } from 'crypto';
 import { processJobById } from '../process/route';
 import { getBearerToken } from '@/lib/api/bearer-token';
+import { normalizeSectionName } from '@/lib/project/word-sections';
 
 export const maxDuration = 300;
 
@@ -55,6 +56,8 @@ const requestSchema = z.object({
   customModeId: z.string().uuid().nullable().optional(),
   customPrompt: z.string().max(MAX_CUSTOM_SCAN_MODE_PROMPT_LENGTH).nullable().optional(),
   targetProjectId: z.string().uuid().optional(),
+  // 既存の単語帳へ追加するときの入り先セクション (無ければ未分類)
+  targetSectionName: z.string().max(200).nullable().optional(),
   clientPlatform: z.enum(['android', 'ios', 'web']).optional().default('web'),
 }).strict().superRefine((value, ctx) => {
   if (!value.imagePath && (!value.imagePaths || value.imagePaths.length === 0)) {
@@ -108,6 +111,7 @@ export async function POST(request: NextRequest) {
       customModeId,
       customPrompt,
       targetProjectId,
+      targetSectionName,
       clientPlatform,
     } = parsed.data;
 
@@ -226,6 +230,7 @@ export async function POST(request: NextRequest) {
         image_paths: imagePaths,   // All images
         save_mode: saveMode,
         target_project_id: validatedTargetProjectId,
+        target_section_name: validatedTargetProjectId ? normalizeSectionName(targetSectionName) : null,
         status: 'pending',
       },
     );
