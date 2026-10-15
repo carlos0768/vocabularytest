@@ -733,6 +733,31 @@ for (const includeExamples of [false, true]) test(`/api/extract always attaches 
   assert.equal(skipMasterExamples, false);
 });
 
+test('/api/extract attaches open-data examples to the scanned words', async () => {
+  const client = new FakeExtractClient();
+  const calls: string[] = [];
+
+  const response = await handleExtractPost(
+    jsonRequest({ image: 'data:image/png;base64,AAAA' }),
+    createDeps(client, calls, {
+      applyOpenExamples: ((words: Array<Record<string, unknown>>) => {
+        calls.push(`applyOpenExamples:${words.map((w) => w.english).join(',')}`);
+        return {
+          words: words.map((w) => ({ ...w, exampleSentence: 'I read a book.', exampleSentenceJa: '私は本を読んだ。' })),
+          appliedCount: words.length,
+        };
+      }) as never,
+    }),
+  );
+
+  const payload = await jsonPayload(response);
+  assert.equal(response.status, 200);
+  assert.ok(calls.includes('applyOpenExamples:book'));
+  const [word] = payload.words as Array<Record<string, unknown>>;
+  assert.equal(word.exampleSentence, 'I read a book.');
+  assert.equal(word.exampleSentenceJa, '私は本を読んだ。');
+});
+
 // ============================================
 // コイン制オン（COIN_SYSTEM_ENABLED=true）の経路
 // ============================================

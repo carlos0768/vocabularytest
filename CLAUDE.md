@@ -134,7 +134,7 @@ Coin system core: `src/lib/coins/` (rates, scan gate, manual-morphology gate, re
 2. Response validated with Zod schema (`src/lib/schemas/ai-response.ts`)
 3. Words stored in sessionStorage -> `/scan/confirm` for user editing
 4. On save: Project + Words created via repository (Local or Hybrid)
-5. Background: GPT-4o-mini generates distractors (example sentences are **not** generated at scan time since 2026-10-15 — scans only attach examples already stocked in `lexicon_entries` / `classical_entries`; the 「例文生成 (+2コイン)」 toggle and the 例文ジャンル setting are paused. Flags: `SCAN_EXAMPLE_GENERATION_ENABLED` in `src/lib/scan/example-source.ts`, `EXAMPLE_GENRES_FEATURE_ENABLED` in `src/lib/preferences/example-genres.ts`)
+5. Background: GPT-4o-mini generates distractors (example sentences are **not** generated at scan time since 2026-10-15 — scans only attach stocked examples — first the open-data stock (`src/lib/open-examples/`, Tatoeba CC BY 2.0 FR, built by `scripts/open-examples/build_dataset.py`, matched to the word's Japanese translation by `selectOpenExample`), otherwise what is already in `lexicon_entries` / `classical_entries`; the 「例文生成 (+2コイン)」 toggle and the 例文ジャンル setting are paused. Flags: `SCAN_EXAMPLE_GENERATION_ENABLED` in `src/lib/scan/example-source.ts`, `EXAMPLE_GENRES_FEATURE_ENABLED` in `src/lib/preferences/example-genres.ts`)
 6. Quiz pulls words, shuffles options, updates word status with SM-2 spaced repetition
 
 ### Authentication Flow

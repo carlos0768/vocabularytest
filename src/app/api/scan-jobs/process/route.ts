@@ -14,6 +14,7 @@ import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { applyClassicalDictionary as applyClassical } from '@/lib/classical/apply';
 import { isClassicalWord } from '@/lib/classical/is-classical';
 import { applyClassicalExamples } from '@/lib/classical/examples';
+import { applyOpenDataExamples } from '@/lib/open-examples/server';
 import { filterWordsForProjectKind, inferProjectKindFromWords } from '@/lib/classical/purity';
 import { readProjectKind } from '@/lib/classical/project-kind';
 import type { ProjectKind } from '@/types';
@@ -155,6 +156,7 @@ export interface ProcessJobDeps {
   resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
+  applyOpenExamples?: typeof applyOpenDataExamples;
   resolveMorphology?: typeof resolveMorphologyForWords;
   prefillWordOrderQuizzes?: typeof prefillWordOrderQuizzesForWords;
   sendPushNotifications?: typeof sendScanJobPushNotifications;
@@ -423,6 +425,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
     const resolveImmediateWords = processDeps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst;
     const backfillWords = processDeps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata;
     const generateExamples = processDeps?.generateExamples ?? generateExampleSentences;
+    const applyOpenExamples = processDeps?.applyOpenExamples ?? applyOpenDataExamples;
     const resolveMorphology = processDeps?.resolveMorphology ?? resolveMorphologyForWords;
     const prefillWordOrderQuizzes = processDeps?.prefillWordOrderQuizzes ?? prefillWordOrderQuizzesForWords;
     const sendPushNotifications = processDeps?.sendPushNotifications ?? sendScanJobPushNotifications;
@@ -707,7 +710,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       // 古典語を弾くので、印がこの時点で付いている必要がある）。
       // 古典語が無ければDBには一切触らない。
       const classicalResult = await applyClassical(sourceModedWords, { supabaseAdmin });
-      const resolvedWords = classicalResult.words;
+      // 例文はオープンデータ (Tatoeba) を優先し、訳に合う例文が無い語だけ辞書の転記が残る。
+      // client_local / server_cloud の分岐より前なので、どちらの保存経路にも載る。
+      const openExampleResult = applyOpenExamples(classicalResult.words);
+      const resolvedWords = openExampleResult.words;
       const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
 
       // --- Morphology (語源解析): opt-in, best-effort ---
@@ -818,6 +824,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         classicalResolvedCount: classicalResult.resolvedCount,
         classicalDroppedForEnglish: classicalResult.droppedClassicalCount,
         classicalStrippedEnglishExamples: classicalResult.strippedExampleCount,
+        openDataExampleCount: openExampleResult.appliedCount,
         masterHitCount: resolvedResult?.metrics.masterHitCount ?? 0,
         masterTranslationHitCount: resolvedResult?.metrics.masterTranslationHitCount ?? 0,
         aiJapaneseCount,

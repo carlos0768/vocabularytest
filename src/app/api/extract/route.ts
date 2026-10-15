@@ -33,6 +33,7 @@ import { ensureSourceLabels } from '../../../../shared/source-labels';
 import { applyClassicalDictionary } from '@/lib/classical/apply';
 import { isClassicalWord, shouldSkipEnglishEnrichment } from '@/lib/classical/is-classical';
 import { applyClassicalExamples } from '@/lib/classical/examples';
+import { applyOpenDataExamples } from '@/lib/open-examples/server';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
@@ -96,6 +97,7 @@ export type ExtractRouteDeps = {
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
   applyClassicalExamples?: typeof applyClassicalExamples;
+  applyOpenExamples?: typeof applyOpenDataExamples;
   saveExamples?: typeof saveExamplesToLexicon;
   resolveMorphology?: typeof resolveMorphologyForWords;
   fetchAiGeneration?: typeof fetchAiGenerationEnabled;
@@ -120,6 +122,7 @@ function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
     backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata,
     generateExamples: deps?.generateExamples ?? generateExampleSentences,
     applyClassicalExamples: deps?.applyClassicalExamples ?? applyClassicalExamples,
+    applyOpenExamples: deps?.applyOpenExamples ?? applyOpenDataExamples,
     saveExamples: deps?.saveExamples ?? saveExamplesToLexicon,
     resolveMorphology: deps?.resolveMorphology ?? resolveMorphologyForWords,
     fetchAiGeneration: deps?.fetchAiGeneration ?? fetchAiGenerationEnabled,
@@ -156,6 +159,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     backfillWords,
     generateExamples,
     applyClassicalExamples: applyClassicalExamplesDep,
+    applyOpenExamples,
     saveExamples,
     resolveMorphology,
     fetchAiGeneration,
@@ -418,7 +422,9 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // 古典語が無ければDBには一切触らないので、英単語だけのスキャンには影響しない。
     // ここより後の語源解析・派生語・例文生成はすべて isClassicalWord() で古典語を弾く。
     const classicalResult = await applyClassical(sourceModedWords);
-    const extractedWords = classicalResult.words;
+    // 例文はオープンデータ (Tatoeba) を優先し、訳に合う例文が無い語だけ辞書の転記が残る。
+    const openExampleResult = applyOpenExamples(classicalResult.words);
+    const extractedWords = openExampleResult.words;
     const aiJapaneseCount = extractedWords.filter((word) => word.japaneseSource === 'ai').length;
 
     console.log('[extract] Extraction done', {
@@ -430,6 +436,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       classicalResolvedCount: classicalResult.resolvedCount,
       classicalDroppedForEnglish: classicalResult.droppedClassicalCount,
       classicalStrippedEnglishExamples: classicalResult.strippedExampleCount,
+      openDataExampleCount: openExampleResult.appliedCount,
       masterHitCount: resolved?.metrics.masterHitCount ?? 0,
       masterTranslationHitCount: resolved?.metrics.masterTranslationHitCount ?? 0,
       masterHeadwordFallbackHitCount: resolved?.metrics.masterHeadwordFallbackHitCount ?? 0,
