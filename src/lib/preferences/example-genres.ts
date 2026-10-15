@@ -13,6 +13,21 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { isActiveProSubscription } from '@/lib/subscription/status';
 
+/**
+ * 例文ジャンル機能のオン・オフ。
+ *
+ * 2026-10-15 に停止。スキャンの例文を辞書のストックだけにした
+ * (`SCAN_EXAMPLE_GENERATION_ENABLED`) のに合わせ、個人向けに作り分ける
+ * ジャンル指定もやめる。止めている間:
+ * - 生成系API（スキャン・例文・クイズ）は `fetchExampleGenresForProUser` が
+ *   空配列を返すので、プロンプトにジャンル指示が入らず、生成した例文は
+ *   共有マスターへ書き戻される
+ * - 設定画面 (`/settings/customize`) からジャンルの欄を外す
+ * 保存済みの `user_preferences.example_genres` は消さない。戻すときはこの
+ * 定数を true にするだけでよい。
+ */
+export const EXAMPLE_GENRES_FEATURE_ENABLED = false;
+
 export const MAX_EXAMPLE_GENRES = 5;
 export const MAX_EXAMPLE_GENRE_LENGTH = 30;
 
@@ -139,5 +154,6 @@ export async function fetchExampleGenresForProUser(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<string[]> {
+  if (!EXAMPLE_GENRES_FEATURE_ENABLED) return [];
   return fetchExampleGenres(supabase, userId);
 }

@@ -28,6 +28,7 @@ import { InsufficientCoinsModal } from '@/components/coins/InsufficientCoinsModa
 import { CustomScanModePanel, type CustomScanModeSelection } from '@/components/scan/CustomScanModePanel';
 import type { EikenLevel } from '@/app/api/extract/route';
 import type { LexiconEntry, Project } from '@/types';
+import { SCAN_EXAMPLE_GENERATION_ENABLED } from '@/lib/scan/example-source';
 
 // Two ink washes over the page ground, so the hatch stays a hatch in both themes.
 type DesktopScanProject = Pick<Project, 'id' | 'title' | 'createdAt' | 'iconImage'>;
@@ -97,8 +98,8 @@ export function DesktopScanView({
   const [selectedOptions, setSelectedOptions] = useState<ScanOptionKey[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
-  // 例文生成は既定オン (スマホのスキャンと同じ)
-  const [examplesOn, setExamplesOn] = useState(true);
+  // 例文生成。停止中は常にオフ (例文は辞書のストックだけ、`SCAN_EXAMPLE_GENERATION_ENABLED`)
+  const [examplesOn, setExamplesOn] = useState(SCAN_EXAMPLE_GENERATION_ENABLED);
   const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
     modeId: null,
     prompt: '',
@@ -693,27 +694,29 @@ export function DesktopScanView({
             </button>
 
             {/* 例文生成トグル（+2コイン） */}
-            <button
-              type="button"
-              className={'ds-method' + (examplesOn ? ' sel' : '')}
-              onClick={() => setExamplesOn((prev) => !prev)}
-              aria-pressed={examplesOn}
-              style={{ marginTop: 10, width: '100%' }}
-            >
-              <div className="mic" style={{ background: examplesOn ? 'var(--color-accent-light)' : 'var(--color-surface-secondary)' }}>
-                <Icon name="auto_awesome" style={{ color: examplesOn ? 'var(--color-accent-ink)' : 'var(--color-ink)' }} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="mt">
-                  例文生成
-                  <span className="ds-tag accent">+2コイン</span>
+            {SCAN_EXAMPLE_GENERATION_ENABLED && (
+              <button
+                type="button"
+                className={'ds-method' + (examplesOn ? ' sel' : '')}
+                onClick={() => setExamplesOn((prev) => !prev)}
+                aria-pressed={examplesOn}
+                style={{ marginTop: 10, width: '100%' }}
+              >
+                <div className="mic" style={{ background: examplesOn ? 'var(--color-accent-light)' : 'var(--color-surface-secondary)' }}>
+                  <Icon name="auto_awesome" style={{ color: examplesOn ? 'var(--color-accent-ink)' : 'var(--color-ink)' }} />
                 </div>
-                <div className="md">単語ごとに例文と訳を生成（古典語は古文の例文）</div>
-              </div>
-              <span className="mradio">
-                {examplesOn && <Icon name="check" style={{ fontSize: 15 }} />}
-              </span>
-            </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="mt">
+                    例文生成
+                    <span className="ds-tag accent">+2コイン</span>
+                  </div>
+                  <div className="md">単語ごとに例文と訳を生成（古典語は古文の例文）</div>
+                </div>
+                <span className="mradio">
+                  {examplesOn && <Icon name="check" style={{ fontSize: 15 }} />}
+                </span>
+              </button>
+            )}
 
           </div>
         </div>

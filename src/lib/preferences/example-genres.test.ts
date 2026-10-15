@@ -5,6 +5,7 @@ import {
   MAX_EXAMPLE_GENRES,
   buildExampleGenreGuidance,
   fetchExampleGenres,
+  EXAMPLE_GENRES_FEATURE_ENABLED,
   fetchExampleGenresForProUser,
   isProSubscriber,
   normalizeExampleGenres,
@@ -185,18 +186,19 @@ test('isProSubscriber returns false for expired pro period', async () => {
   assert.equal(await isProSubscriber(supabase, 'user-1'), false);
 });
 
-test('fetchExampleGenresForProUser returns genres for pro users', async () => {
-  const supabase = createProAwareSupabaseStub({
-    subscriptions: { data: ACTIVE_PRO_SUBSCRIPTION_ROW, error: null },
-    preferences: { data: { example_genres: ['サッカー', '映画'] }, error: null },
-  });
-  assert.deepEqual(await fetchExampleGenresForProUser(supabase, 'user-1'), ['サッカー', '映画']);
+test('genre feature is paused', () => {
+  assert.equal(EXAMPLE_GENRES_FEATURE_ENABLED, false);
 });
 
-test('fetchExampleGenresForProUser returns genres for non-pro users too (genres are free-plan available)', async () => {
-  const supabase = createProAwareSupabaseStub({
-    subscriptions: { data: { ...ACTIVE_PRO_SUBSCRIPTION_ROW, status: 'free', plan: 'free' }, error: null },
-    preferences: { data: { example_genres: ['サッカー', '映画'] }, error: null },
-  });
-  assert.deepEqual(await fetchExampleGenresForProUser(supabase, 'user-1'), ['サッカー', '映画']);
+test('fetchExampleGenresForProUser returns no genres while the feature is paused, even when some are saved', async () => {
+  for (const subscription of [
+    ACTIVE_PRO_SUBSCRIPTION_ROW,
+    { ...ACTIVE_PRO_SUBSCRIPTION_ROW, status: 'free', plan: 'free' },
+  ]) {
+    const supabase = createProAwareSupabaseStub({
+      subscriptions: { data: subscription, error: null },
+      preferences: { data: { example_genres: ['サッカー', '映画'] }, error: null },
+    });
+    assert.deepEqual(await fetchExampleGenresForProUser(supabase, 'user-1'), []);
+  }
 });

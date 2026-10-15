@@ -23,6 +23,7 @@ import { randomUUID } from 'crypto';
 import { processJobById } from '../process/route';
 import { getBearerToken } from '@/lib/api/bearer-token';
 import { normalizeSectionName } from '@/lib/project/word-sections';
+import { shouldGenerateScanExamples } from '@/lib/scan/example-source';
 
 export const maxDuration = 300;
 
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
       imagePath,
       imagePaths: multiplePaths,
       includeMorphology,
-      includeExamples,
+      includeExamples: requestedIncludeExamples,
       projectKind,
       customModeId,
       customPrompt,
@@ -114,6 +115,8 @@ export async function POST(request: NextRequest) {
       targetSectionName,
       clientPlatform,
     } = parsed.data;
+    // スキャンの例文は辞書のストックだけを付ける（AI 生成と +2コインは停止中）。
+    const includeExamples = shouldGenerateScanExamples(requestedIncludeExamples);
 
     // Support both single imagePath and multiple imagePaths
     const imagePaths: string[] = multiplePaths || (imagePath ? [imagePath] : []);

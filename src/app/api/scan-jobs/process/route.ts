@@ -88,6 +88,11 @@ import {
   type ExampleGenerationSummary,
 } from '@/lib/ai/generate-example-sentences';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
+import {
+  resolveClassicalScanExamplePolicy,
+  shouldAttachStockedScanExamples,
+  shouldGenerateScanExamples,
+} from '@/lib/scan/example-source';
 import { backfillPronunciations } from '@/lib/ai/pronunciation-lookup';
 import { runWithApiCostScanContext, updateApiCostScanContext } from '@/lib/api-cost/scan-context';
 import { refundScanCoinsForJob } from '@/lib/coins/refund';
@@ -673,15 +678,20 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const warningSet = new Set<string>([...Array.from(warningCodes), ...pageWarnings]);
       const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
       // 例文生成はオプトイン（+2コイン）。列が無い（未適用の）DBでは undefined
-      // なので既定オフに倒れる。
-      const includeExamples = (job as { include_examples?: unknown }).include_examples === true;
+      // なので既定オフに倒れる。生成停止中（SCAN_EXAMPLE_GENERATION_ENABLED）は
+      // 行に true が残っていても生成しない。
+      const includeExamples = shouldGenerateScanExamples(
+        (job as { include_examples?: unknown }).include_examples === true,
+      );
       const lexiconResolutionStart = Date.now();
-      // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
-      // 例文生成オフのときはマスター由来の転記も止める（無料の転記だけ残すと
-      // 既定オフが実質機能しない）。
+      // 生成停止中は辞書（マスター）の例文を常に転記する。生成が有効なあいだは、
+      // ジャンル指定ユーザ・オプトインしていないユーザには転記しない。
       const resolvedResult = masterFirstEnabled
         ? await resolveImmediateWords(dedupedWords, undefined, {
-            skipMasterExamples: exampleGenres.length > 0 || !includeExamples,
+            skipMasterExamples: !shouldAttachStockedScanExamples({
+              includeExamples,
+              hasExampleGenres: exampleGenres.length > 0,
+            }),
           })
         : null;
       const rollbackResult = masterFirstEnabled
@@ -742,11 +752,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         }
       }
 
-      // --- Classical (古文) example generation: opt-in, best-effort ---
+      // --- Classical (古文) examples: best-effort ---
       // 語源解析と同じく、client_local / server_cloud の分岐より前に一度だけ
       // resolvedWords へ付与する。英語の例文生成とは別プロンプト・別生成器で、
-      // 共通辞書に貯まっている例文があれば AI を呼ばずに流用する。
-      if (includeExamples) {
+      // 共通辞書に貯まっている例文があれば AI を呼ばずに流用する。生成停止中は
+      // 辞書の例文だけを付ける（cacheOnly）。
+      const classicalExamplePolicy = resolveClassicalScanExamplePolicy(includeExamples);
+      if (classicalExamplePolicy) {
         const classicalTargets = resolvedWords
           .map((word, index) => ({ word, index }))
           .filter(({ word }) => isClassicalWord(word) && !word.exampleSentence);
@@ -764,7 +776,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
                     (word as { classicalEntryId?: string | null }).classicalEntryId ?? null,
                 })),
                 apiKeys,
-                { supabaseAdmin },
+                { supabaseAdmin, ...classicalExamplePolicy },
               ),
             );
 

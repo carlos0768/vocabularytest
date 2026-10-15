@@ -186,7 +186,7 @@ export default function SettingsPage() {
 
       <SettingsGroup label="カスタマイズ">
         <ThemeSetting />
-        <SettingsRow icon="tune" label="通知・パーソナライズ" description="学習リマインダー、例文ジャンル" href="/settings/customize" />
+        <SettingsRow icon="tune" label="通知・パーソナライズ" description="学習リマインダー、単語の表示" href="/settings/customize" />
       </SettingsGroup>
 
       {isAuthenticated && (

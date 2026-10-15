@@ -140,6 +140,8 @@ export async function applyClassicalExamples(
   deps: {
     supabaseAdmin?: SupabaseClient;
     generateExamples?: typeof generateClassicalExamples;
+    /** true なら共通辞書に貯まった例文だけを返し、足りないぶんを生成しない。 */
+    cacheOnly?: boolean;
   } = {},
 ): Promise<Array<CachedClassicalExample | null>> {
   const results: Array<CachedClassicalExample | null> = targets.map(() => null);
@@ -189,7 +191,7 @@ export async function applyClassicalExamples(
     });
   });
 
-  if (seeds.length === 0) return results;
+  if (seeds.length === 0 || deps.cacheOnly) return results;
 
   let generated: Awaited<ReturnType<typeof generateClassicalExamples>>;
   try {

@@ -37,6 +37,11 @@ import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
+import {
+  resolveClassicalScanExamplePolicy,
+  shouldAttachStockedScanExamples,
+  shouldGenerateScanExamples,
+} from '@/lib/scan/example-source';
 import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
 import { fetchAiGenerationEnabled } from '@/lib/preferences/ai-generation';
@@ -191,7 +196,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       scanModes: requestedScanModes,
       eikenLevel,
       includeMorphology,
-      includeExamples,
+      includeExamples: requestedIncludeExamples,
       customModeId,
       customPrompt,
     } = parsed.data as {
@@ -204,6 +209,8 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       customModeId: string | null;
       customPrompt: string | null;
     };
+    // スキャンの例文は辞書のストックだけを付ける（AI 生成と +2コインは停止中）。
+    const includeExamples = shouldGenerateScanExamples(requestedIncludeExamples);
     const modes = normalizeExtractModes(requestedScanModes, [mode]);
     const primaryMode = modes[0] ?? 'all';
     updateApiCostScanContext({ userId: user.id, modes });
@@ -389,14 +396,15 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // 5. RETURN SUCCESS RESPONSE
     // ============================================
     // ユーザの興味ジャンル（例文パーソナライズ用・Pro限定）。非Pro/取得失敗時は空配列で続行。
-    // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
+    // 例文生成が有効なあいだは、ジャンル指定ユーザはマスター例文を読み込まず毎回ジャンル別に生成する。
     const exampleGenres = await fetchExampleGenresForProUser(supabase, user.id);
     const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
     const resolved = masterFirstEnabled
       ? await resolveImmediateWords(result.data.words, undefined, {
-          // 例文生成がオフなら、マスター由来の例文の転記も止める。無料の転記だけ
-          // 残すと「既定オフ」が実質機能せず、+2 を払う理由も無くなる。
-          skipMasterExamples: exampleGenres.length > 0 || !includeExamples,
+          skipMasterExamples: !shouldAttachStockedScanExamples({
+            includeExamples,
+            hasExampleGenres: exampleGenres.length > 0,
+          }),
         })
       : null;
     const rollbackResult = masterFirstEnabled
@@ -533,11 +541,13 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       }
     }
 
-    // --- Classical (古文) example generation: opt-in, best-effort ---
+    // --- Classical (古文) examples: best-effort ---
     //
     // 英語とは別プロンプト・別生成器。共通辞書に貯まっている例文があれば
-    // AIを呼ばずにそれを流用する（訳のヒント流用と同じ思想）。
-    if (includeExamples) {
+    // AIを呼ばずにそれを流用する（訳のヒント流用と同じ思想）。生成停止中は
+    // 辞書の例文だけを付ける（cacheOnly）。
+    const classicalExamplePolicy = resolveClassicalScanExamplePolicy(includeExamples);
+    if (classicalExamplePolicy) {
       try {
         const classicalWordsNeedingExamples = extractedWords
           .map((word, index) => ({ word, index }))
@@ -552,6 +562,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
               classicalEntryId: (word as { classicalEntryId?: string | null }).classicalEntryId ?? null,
             })),
             apiKeys,
+            classicalExamplePolicy,
           );
 
           classicalWordsNeedingExamples.forEach(({ index }, seedIndex) => {

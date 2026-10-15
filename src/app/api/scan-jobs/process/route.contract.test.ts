@@ -563,20 +563,22 @@ test('processJobById returns 404 when a valid job id has no row', async () => {
   assertClaimContract(client.operations[0]);
 });
 
-test('client_local completion keeps result payload successful when example generation fails', async () => {
+test('client_local never generates examples even when the job row has include_examples (stocked examples only)', async () => {
   const client = new FakeScanProcessClient({
-    // 例文生成そのものの失敗ハンドリングを見るテストなのでオンにする
+    // 停止前に作られたジョブの行に true が残っていても生成しない
     claimedJob: pendingClientLocalJob({ include_examples: true }),
     userPreference: { ai_enabled: false },
   });
   const pushNotifications: unknown[] = [];
   const apnsNotifications: unknown[] = [];
+  let generateExamplesCalled = false;
 
   const response = await processJobById(
     JOB_ID,
     createContractDeps(client, {
       generateExamples: async () => {
-        throw new Error('JSON parse failed');
+        generateExamplesCalled = true;
+        throw new Error('should not be called');
       },
       sendPushNotifications: async (_client, params) => {
         await nextTimerTick();
@@ -617,10 +619,9 @@ test('client_local completion keeps result payload successful when example gener
   assert.equal(resultPayload.extractedWords[0].english, 'apple');
   assert.equal(resultPayload.extractedWords[0].japaneseSource, 'scan');
   assert.equal(resultPayload.lexiconEntries[0].id, 'lexicon-apple');
-  assert.deepEqual(resultPayload.warnings, ['example_generation_failed']);
-  assert.equal(resultPayload.exampleGeneration.requested, 1);
-  assert.equal(resultPayload.exampleGeneration.failed, 1);
-  assert.equal(resultPayload.exampleGeneration.failureKinds.parse, 1);
+  assert.equal(generateExamplesCalled, false);
+  assert.equal(resultPayload.exampleGeneration, undefined);
+  assert.equal((resultPayload.warnings ?? []).includes('example_generation_failed'), false);
 
   assert.equal(client.operations.some((operation) =>
     operation.table === 'scan_jobs' &&
