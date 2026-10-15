@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * 目標の設定シート。目標は「どの単語帳を」「いつまでに」の組で、
- * 単語帳の選択で指定する。
+ * 目標の設定シート。目標は「どの単語帳 (のどのセクション) を」「いつまでに」の組で、
+ * 単語帳の選択で指定する。セクションのある単語帳は、選ぶと下にセクションが並び、
+ * 一部だけ外せる (全部選んだままなら単語帳まるごと)。
  */
 
 import { useMemo, useState } from 'react';
@@ -10,10 +11,19 @@ import { Icon } from '@/components/ui/Icon';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { WordbookChoiceRow } from '@/components/quiz/WordbookChoiceRow';
 import { parseLocalDateKey, toLocalDateKey, type StudyGoal } from '@/lib/goal/study-goal';
+import type { SectionScope } from '@/lib/project/word-sections';
+
+export interface GoalSheetSection {
+  /** セクション名 (未分類は空文字) */
+  key: string;
+  label: string;
+}
 
 export interface GoalSheetProject {
   id: string;
   title: string;
+  /** 2つ以上のまとまりがある単語帳だけ。無ければ単語帳単位でしか選べない */
+  sections?: GoalSheetSection[];
 }
 
 const DEFAULT_GOAL_SPAN_DAYS = 30;
@@ -58,6 +68,8 @@ function GoalSetupForm({
   const [projectIds, setProjectIds] = useState<string[]>(
     current?.projectIds ?? (projects[0] ? [projects[0].id] : []),
   );
+  // 一部のセクションだけ選んでいる単語帳 (全部選んでいる単語帳は載せない)
+  const [sectionScope, setSectionScope] = useState<SectionScope>(() => ({ ...current?.sectionsByProject }));
   const [targetDate, setTargetDate] = useState<string>(
     initialTargetDate ?? current?.targetDate ?? defaultTargetDate(),
   );
@@ -70,6 +82,39 @@ function GoalSetupForm({
     setProjectIds((prev) =>
       prev.includes(id) ? prev.filter((existing) => existing !== id) : [...prev, id],
     );
+    setSectionScope(({ [id]: _removed, ...rest }) => rest);
+  };
+
+  const selectedSectionKeys = (project: GoalSheetProject): string[] =>
+    sectionScope[project.id] ?? (project.sections ?? []).map((section) => section.key);
+
+  const toggleSection = (project: GoalSheetProject, key: string) => {
+    const allKeys = (project.sections ?? []).map((section) => section.key);
+    const current = new Set(selectedSectionKeys(project));
+    if (current.has(key)) current.delete(key);
+    else current.add(key);
+    const next = allKeys.filter((candidate) => current.has(candidate));
+    // 全部外したら単語帳ごと外す。全部選んだら単語帳まるごとに戻す
+    if (next.length === 0) {
+      toggleProject(project.id);
+      return;
+    }
+    setSectionScope(({ [project.id]: _removed, ...rest }) =>
+      next.length === allKeys.length ? rest : { ...rest, [project.id]: next },
+    );
+  };
+
+  const handleSave = () => {
+    if (!canSave) return;
+    const selected = new Set(projectIds);
+    const sectionsByProject = Object.fromEntries(
+      Object.entries(sectionScope).filter(([id]) => selected.has(id)),
+    );
+    onSave({
+      projectIds,
+      targetDate,
+      ...(Object.keys(sectionsByProject).length > 0 ? { sectionsByProject } : {}),
+    });
   };
 
   return (
@@ -119,14 +164,31 @@ function GoalSetupForm({
               </p>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {projects.map((project) => (
-                  <WordbookChoiceRow
-                    key={project.id}
-                    label={project.title}
-                    selected={projectIds.includes(project.id)}
-                    onClick={() => toggleProject(project.id)}
-                  />
-                ))}
+                {projects.map((project) => {
+                  const selected = projectIds.includes(project.id);
+                  const sectionKeys = selected && project.sections ? selectedSectionKeys(project) : [];
+                  return (
+                    <div key={project.id} className="flex flex-col gap-1.5">
+                      <WordbookChoiceRow
+                        label={project.title}
+                        selected={selected}
+                        onClick={() => toggleProject(project.id)}
+                      />
+                      {selected && project.sections && (
+                        <div className="flex flex-col gap-1.5 pl-6">
+                          {project.sections.map((section) => (
+                            <WordbookChoiceRow
+                              key={section.key}
+                              label={section.label}
+                              selected={sectionKeys.includes(section.key)}
+                              onClick={() => toggleSection(project, section.key)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -140,7 +202,9 @@ function GoalSetupForm({
             min={today}
             onChange={(event) => setTargetDate(event.target.value)}
             aria-label="目標日"
-            className="w-full rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[14px] font-bold text-[var(--solid-ink)]"
+            // iOS Safari の日付入力はネイティブの見た目のままだと固有の最小幅を持ち、
+            // width:100% を無視してダイアログの右端からはみ出す。
+            className="block w-full min-w-0 max-w-full min-h-[46px] appearance-none [&::-webkit-date-and-time-value]:text-left rounded-[12px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] px-3 py-2.5 text-[14px] font-bold text-[var(--solid-ink)]"
           />
 
           <div className="mt-3.5 flex items-center gap-2">
@@ -153,7 +217,7 @@ function GoalSetupForm({
               type="button"
               variant="accent"
               disabled={!canSave}
-              onClick={() => canSave && onSave({ projectIds, targetDate })}
+              onClick={handleSave}
               className="flex-1"
               faceClassName="!w-full !justify-center"
               iconLeft="flag"

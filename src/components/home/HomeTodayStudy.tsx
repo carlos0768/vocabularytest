@@ -3,7 +3,7 @@
 /**
  * ホームの一番上の「今日やること」。
  *
- * 目標 (/goal で決める単語帳 + 期日) が無ければ全単語帳の「今日復習しておきたい単語」、
+ * 目標 (/goal で決める単語帳 (セクション) + 期日) が無ければ全単語帳の「今日復習しておきたい単語」、
  * 目標を設定するとその目標の「今日の10問」に切り替わる (`resolveTodayStudy`)。
  * 目標は端末の localStorage にあるので、サーバー描画と初回の水和では「目標なし」で描き、
  * クライアントで読み直す (useSyncExternalStore の server snapshot)。
@@ -65,7 +65,7 @@ export function HomeTodayStudy({
       <div className={className}>
         <BigPillLink
           href={study.questionCount > 0 ? HOME_DAILY_QUIZ_HREF : null}
-          onNavigate={() => writeReviewProjectFilter(study.projectIds)}
+          onNavigate={() => writeReviewProjectFilter(study.projectIds, study.sectionsByProject)}
           icon="quiz"
           badge={String(count)}
           title={`今日の${count}問`}

@@ -8,6 +8,7 @@ import {
   resolveTodayStudy,
   daysUntil,
   describeGoalCountdown,
+  describeGoalProjectTarget,
   describeGoalProjectTitles,
   parseLocalDateKey,
   toLocalDateKey,
@@ -101,6 +102,34 @@ test('resolveTodayStudy は目標があれば目標の今日の10問に切り替
       dueCount: 50,
       today: new Date(2026, 9, 14, 22, 0),
     }),
-    { kind: 'goal', projectIds: ['a', 'b'], title: '英検準1級ほか1冊', remainingDays: 7, questionCount: 7 },
+    { kind: 'goal', projectIds: ['a', 'b'], sectionsByProject: null, title: '英検準1級ほか1冊', remainingDays: 7, questionCount: 7 },
   );
+});
+
+test('resolveTodayStudy はセクションで絞った目標の問題数と呼び名を数える', () => {
+  const projects = [
+    { id: 'a', title: 'ターゲット1900', totalWords: 30, sectionWordCounts: { Day1: 4, Day2: 2, '': 24 } },
+  ];
+  assert.deepEqual(
+    resolveTodayStudy({
+      goal: { projectIds: ['a'], sectionsByProject: { a: ['Day1'] }, targetDate: '2026-10-21' },
+      projects,
+      dueCount: 0,
+      today: null,
+    }),
+    {
+      kind: 'goal',
+      projectIds: ['a'],
+      sectionsByProject: { a: ['Day1'] },
+      title: 'ターゲット1900 Day1',
+      remainingDays: null,
+      questionCount: 4,
+    },
+  );
+});
+
+test('describeGoalProjectTarget はセクションの数で呼び名を変える', () => {
+  assert.equal(describeGoalProjectTarget('ターゲット', undefined), 'ターゲット');
+  assert.equal(describeGoalProjectTarget('ターゲット', ['']), 'ターゲット 未分類');
+  assert.equal(describeGoalProjectTarget('ターゲット', ['Day1', 'Day2']), 'ターゲット (2セクション)');
 });

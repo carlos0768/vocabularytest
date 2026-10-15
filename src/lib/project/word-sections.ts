@@ -133,3 +133,60 @@ export function suggestNewSectionName(names: readonly string[]): string {
   while (used.has(`セクション${n}`)) n += 1;
   return `セクション${n}`;
 }
+
+/**
+ * セクションの選択 (目標・横断クイズの絞り込み)。単語帳IDごとに選んだセクションのキーを持ち、
+ * 単語帳が載っていなければその単語帳の全語を対象にする。
+ */
+export type SectionScope = Record<string, string[]>;
+
+/** 未分類のまとまりのキー。正規化したセクション名は空にならないので名前と衝突しない。 */
+export const UNSECTIONED_SECTION_KEY = '';
+
+/** 語が入っているまとまりのキー (未分類は `UNSECTIONED_SECTION_KEY`)。 */
+export function getWordSectionKey(word: Pick<Word, 'sectionName'>): string {
+  return normalizeSectionName(word.sectionName) ?? UNSECTIONED_SECTION_KEY;
+}
+
+/** まとまりのキーの表示名。 */
+export function getSectionKeyLabel(key: string): string {
+  return key === UNSECTIONED_SECTION_KEY ? UNSECTIONED_LABEL : key;
+}
+
+/** 単語帳の語をまとまりのキーごとに数える。 */
+export function countWordsBySectionKey(words: readonly Pick<Word, 'sectionName'>[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const word of words) {
+    const key = getWordSectionKey(word);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/** 保存値を読み直す。形の合わない単語帳は落とし (= その単語帳は全語)、空なら undefined。 */
+export function normalizeSectionScope(value: unknown): SectionScope | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const scope: SectionScope = {};
+  for (const [projectId, keys] of Object.entries(value as Record<string, unknown>)) {
+    if (!projectId || !Array.isArray(keys)) continue;
+    const normalized = Array.from(new Set(
+      keys
+        .filter((key): key is string => typeof key === 'string')
+        .map((key) => normalizeSectionName(key) ?? UNSECTIONED_SECTION_KEY),
+    ));
+    if (normalized.length > 0) scope[projectId] = normalized;
+  }
+  return Object.keys(scope).length > 0 ? scope : undefined;
+}
+
+/** 選んだセクションの語だけ残す。単語帳がスコープに載っていなければ全語を残す。 */
+export function filterWordsBySectionScope<T extends Pick<Word, 'projectId' | 'sectionName'>>(
+  words: readonly T[],
+  scope: SectionScope | null | undefined,
+): T[] {
+  if (!scope) return [...words];
+  return words.filter((word) => {
+    const keys = scope[word.projectId];
+    return !keys || keys.includes(getWordSectionKey(word));
+  });
+}

@@ -42,7 +42,8 @@ import {
 } from '@/lib/utils';
 import { sortWordsByPriority } from '@/lib/spaced-repetition';
 import { selectDailyReviewWords } from '@/lib/quiz/daily-review-selection';
-import { readReviewProjectFilter, writeReviewProjectFilter } from '@/lib/quiz/review-project-filter';
+import { readReviewProjectFilter, readReviewSectionFilter, writeReviewProjectFilter } from '@/lib/quiz/review-project-filter';
+import { filterWordsBySectionScope } from '@/lib/project/word-sections';
 import { getDailyReviewLimit } from '@/lib/preferences/review-limit';
 import { triggerHaptic } from '@/lib/haptics';
 import { loadCollectionWords } from '@/lib/collection-words';
@@ -172,6 +173,8 @@ export default function QuizPage() {
   const [reviewProjectFilter, setReviewProjectFilter] = useState<string[] | null>(() =>
     readReviewProjectFilter(),
   );
+  // 目標の「今日の10問」でセクションまで絞ったとき。単語帳を選び直すと消える
+  const [reviewSectionFilter, setReviewSectionFilter] = useState(() => readReviewSectionFilter());
   const [availableReviewProjects, setAvailableReviewProjects] = useState<ReviewFilterProject[]>([]);
   const [reviewFilterSheetOpen, setReviewFilterSheetOpen] = useState(false);
 
@@ -344,6 +347,7 @@ export default function QuizPage() {
     restoredFromStorage.current = false;
     setLoading(true);
     setReviewProjectFilter(ids);
+    setReviewSectionFilter(null);
   }, [clearQuizState]);
 
   const backToProject = useCallback(() => {
@@ -841,7 +845,10 @@ export default function QuizPage() {
             const arrays = await Promise.all(projectIds.map((id) => wordRepo.getWords(id)));
             wordsByProject = Object.fromEntries(projectIds.map((id, idx) => [id, arrays[idx] ?? []]));
           }
-          const allFlat = projectIds.flatMap((id) => wordsByProject[id] ?? []);
+          const projectWords = projectIds.flatMap((id) => wordsByProject[id] ?? []);
+          const allFlat = (reviewMode || learnMode) && reviewProjectFilter && reviewProjectFilter.length > 0
+            ? filterWordsBySectionScope(projectWords, reviewSectionFilter)
+            : projectWords;
           if (wrongMode) {
             const wordById = new Map(allFlat.map((word) => [word.id, word]));
             const projectWordIds = new Set((wordsByProject[projectId] ?? []).map((word) => word.id));
@@ -962,7 +969,7 @@ export default function QuizPage() {
     };
 
     void loadWords({ poolOnly: restored });
-  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, ensureParaphraseMaterials, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, binderName, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter]);
+  }, [projectId, repository, router, generateQuestions, startQuizWithDistractors, ensureParaphraseMaterials, authLoading, userPreferencesLoading, aiEnabled, questionCount, reviewMode, learnMode, wrongMode, favoritesMode, reminderMode, reminderPriorityParam, collectionId, binderName, backToProject, user, isPro, billingEnabled, storageKey, needsDistractors, needsWordOrderQuiz, quizDirection, reviewProjectFilter, reviewSectionFilter]);
 
   useEffect(() => {
     if (authLoading || !user || reviewMode || learnMode || wrongMode || favoritesMode || reminderMode || collectionId || binderName) return;

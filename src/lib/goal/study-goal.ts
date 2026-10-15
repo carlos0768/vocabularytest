@@ -1,10 +1,16 @@
 /**
  * 目標ページ (/goal) の状態と純粋な計算。
  *
- * 目標は「どの単語帳を・いつまでに」の組で、単語帳の選択で指定する。
+ * 目標は「どの単語帳 (のどのセクション) を・いつまでに」の組で、単語帳の選択で指定する。
  * 端末の localStorage に持つ (1日の復習上限などと同じ扱い)。
  * サーバーには無いので、SSR では常に null を返す。
  */
+
+import {
+  getSectionKeyLabel,
+  normalizeSectionScope,
+  type SectionScope,
+} from '@/lib/project/word-sections';
 
 const STORAGE_KEY = 'merken-study-goal';
 
@@ -14,6 +20,8 @@ export const GOAL_DAILY_QUESTION_COUNT = 10;
 export interface StudyGoal {
   /** 目標にした単語帳 (複数選択可) */
   projectIds: string[];
+  /** 単語帳ごとに目標にしたセクション。載っていない単語帳は全セクションが対象 */
+  sectionsByProject?: SectionScope;
   /** 目標日 (YYYY-MM-DD、端末のローカル日付) */
   targetDate: string;
 }
@@ -55,7 +63,14 @@ export function getStudyGoal(): StudyGoal | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    if (isStudyGoal(parsed)) return parsed;
+    if (isStudyGoal(parsed)) {
+      const sectionsByProject = normalizeSectionScope(parsed.sectionsByProject);
+      return {
+        projectIds: parsed.projectIds,
+        targetDate: parsed.targetDate,
+        ...(sectionsByProject ? { sectionsByProject } : {}),
+      };
+    }
     if (isLegacyStudyGoal(parsed)) {
       return { projectIds: [parsed.projectId], targetDate: parsed.targetDate };
     }
@@ -122,6 +137,16 @@ export function describeGoalProjectTitles(projectTitles: string[]): string {
   return `${projectTitles[0]}ほか${projectTitles.length - 1}冊`;
 }
 
+/**
+ * 目標の単語帳1冊ぶんの呼び名。セクションを絞っていれば
+ * 1つなら「単語帳 セクション名」、複数なら「単語帳 (Nセクション)」。
+ */
+export function describeGoalProjectTarget(title: string, sectionKeys: readonly string[] | undefined): string {
+  if (!sectionKeys || sectionKeys.length === 0) return title;
+  if (sectionKeys.length === 1) return `${title} ${getSectionKeyLabel(sectionKeys[0]!)}`;
+  return `${title} (${sectionKeys.length}セクション)`;
+}
+
 /** 目標バナーの文言 (「〇〇まであと7日」) */
 export function describeGoalCountdown(projectTitle: string, remainingDays: number): string {
   if (remainingDays > 0) return `${projectTitle}まであと${remainingDays}日`;
@@ -175,6 +200,18 @@ export interface GoalCandidateProject {
   id: string;
   title: string;
   totalWords: number;
+  /** セクション (未分類は空文字) ごとの語数。目標をセクションで絞ったときの問題数に使う */
+  sectionWordCounts?: Record<string, number>;
+}
+
+/** 目標の範囲に入る語数。セクションで絞っていれば、そのセクションの語数の合計 */
+export function countGoalProjectWords(
+  project: GoalCandidateProject,
+  sectionKeys: readonly string[] | undefined,
+): number {
+  if (!sectionKeys || !project.sectionWordCounts) return project.totalWords;
+  const counts = project.sectionWordCounts;
+  return sectionKeys.reduce((sum, key) => sum + (counts[key] ?? 0), 0);
 }
 
 /**
@@ -188,6 +225,8 @@ export type TodayStudy =
   | {
     kind: 'goal';
     projectIds: string[];
+    /** 単語帳ごとに絞ったセクション (クイズの絞り込みにそのまま渡す) */
+    sectionsByProject: SectionScope | null;
     title: string;
     remainingDays: number | null;
     /** 実際に出せる問題数 (目標の単語帳の語数が10未満ならその数。0 = 出せない) */
@@ -209,11 +248,18 @@ export function resolveTodayStudy({
   const goalIds = new Set(goal?.projectIds ?? []);
   const goalProjects = projects.filter((project) => goalIds.has(project.id));
   if (!goal || goalProjects.length === 0) return { kind: 'review', dueCount };
-  const totalWords = goalProjects.reduce((sum, project) => sum + project.totalWords, 0);
+  const scope = goal.sectionsByProject;
+  const totalWords = goalProjects.reduce(
+    (sum, project) => sum + countGoalProjectWords(project, scope?.[project.id]),
+    0,
+  );
   return {
     kind: 'goal',
     projectIds: goalProjects.map((project) => project.id),
-    title: describeGoalProjectTitles(goalProjects.map((project) => project.title)),
+    sectionsByProject: scope && Object.keys(scope).length > 0 ? scope : null,
+    title: describeGoalProjectTitles(
+      goalProjects.map((project) => describeGoalProjectTarget(project.title, scope?.[project.id])),
+    ),
     remainingDays: today ? daysUntil(goal.targetDate, today) : null,
     questionCount: Math.min(GOAL_DAILY_QUESTION_COUNT, totalWords),
   };
