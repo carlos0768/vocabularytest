@@ -3,7 +3,7 @@
 /**
  * 目標ページ (/goal)。下部バーの「目標」から開く。
  *
- * 目標は「どの単語帳を(複数可)・いつまでに」で、単語帳の選択で指定する (端末に保存)。
+ * 目標は「どの単語帳を(複数可、セクション単位でも可)・いつまでに」で、単語帳の選択で指定する (端末に保存)。
  * ここに載せるのは 目標日までの残り日数 と 月間カレンダー (今日・目標日・学習した日)。
  * 「今日の10問」「今日復習しておきたい単語」はホームの一番上 (`HomeTodayStudy`) に置き、
  * 目標があれば前者、無ければ後者に切り替える。
@@ -21,12 +21,20 @@ import {
   clearStudyGoal,
   daysUntil,
   describeGoalCountdown,
+  describeGoalProjectTarget,
   describeGoalProjectTitles,
   getStudyGoal,
   setStudyGoal,
   toLocalDateKey,
   type StudyGoal,
 } from '@/lib/goal/study-goal';
+import {
+  buildWordSectionGroups,
+  filterWordsBySectionScope,
+  getSectionKeyLabel,
+  resolveProjectSectionNames,
+  UNSECTIONED_SECTION_KEY,
+} from '@/lib/project/word-sections';
 import { excludeReelSavedProjects } from '@/lib/reels/saved-words';
 import { getActivityHistory, getGuestUserId } from '@/lib/utils';
 import { summarizeWordMemory } from '@/lib/words/memory';
@@ -121,8 +129,24 @@ export default function GoalPage() {
   }, [load]);
 
   const sheetProjects = useMemo<GoalSheetProject[]>(
-    () => projects.map((project) => ({ id: project.id, title: project.title })),
-    [projects],
+    () => projects.map((project) => {
+      const words = wordsByProject[project.id] ?? [];
+      const groups = buildWordSectionGroups(
+        resolveProjectSectionNames(project.sectionNames, words),
+        words,
+        words,
+      );
+      if (groups.length < 2) return { id: project.id, title: project.title };
+      return {
+        id: project.id,
+        title: project.title,
+        sections: groups.map((group) => {
+          const key = group.name ?? UNSECTIONED_SECTION_KEY;
+          return { key, label: getSectionKeyLabel(key) };
+        }),
+      };
+    }),
+    [projects, wordsByProject],
   );
 
   // 目標の単語帳のうち、消されていないものだけ (表示だけ、保存は触らない)
@@ -132,8 +156,11 @@ export default function GoalPage() {
     return projects.filter((project) => idSet.has(project.id));
   }, [goal, projects]);
   const goalWords = useMemo(
-    () => goalProjects.flatMap((project) => wordsByProject[project.id] ?? []),
-    [goalProjects, wordsByProject],
+    () => filterWordsBySectionScope(
+      goalProjects.flatMap((project) => wordsByProject[project.id] ?? []),
+      goal?.sectionsByProject,
+    ),
+    [goal, goalProjects, wordsByProject],
   );
   const goalMemory = useMemo(() => summarizeWordMemory(goalWords), [goalWords]);
   // 1語でも未習得なら 100% と出さない (四捨五入で「達成」に見えるのを避ける)
@@ -154,7 +181,9 @@ export default function GoalPage() {
   };
 
   const hasGoal = goalProjects.length > 0;
-  const goalTitle = describeGoalProjectTitles(goalProjects.map((project) => project.title));
+  const goalTitle = describeGoalProjectTitles(
+    goalProjects.map((project) => describeGoalProjectTarget(project.title, goal?.sectionsByProject?.[project.id])),
+  );
 
   // モバイルではスクロールさせず1画面に収める (useLockPageScroll)。高さは body が
   // 確保しているノッチ分 (env(safe-area-inset-top)) を引いた残りで、下の余白は

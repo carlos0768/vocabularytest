@@ -75,6 +75,7 @@ import { useFollowingTodayActivity } from '@/hooks/use-following-today-activity'
 import { FollowingTodayStrip } from '@/components/home/FollowingTodayStrip';
 import { usePageScrolled } from '@/hooks/use-page-scrolled';
 import type { Project, SubscriptionStatus, Word } from '@/types';
+import { countWordsBySectionKey } from '@/lib/project/word-sections';
 
 // Final tip of the guided flow: the play button as a quiz shortcut. Shown only
 // once the flashcard→quiz flow is complete (tutorial stage 'done').
@@ -106,6 +107,8 @@ type HomeStats = {
 type HomeProjectStats = ProjectWithStats & {
   reviewWords: number;
   newWords: number;
+  /** 目標をセクションで絞ったときの「今日の10問」の問題数に使う */
+  sectionWordCounts: Record<string, number>;
 };
 
 type HomePendingScan = {
@@ -151,6 +154,7 @@ async function getProjectsWithWords(
         ...project,
         reviewWords: memorySummary.learning,
         newWords: memorySummary.unlearned,
+        sectionWordCounts: countWordsBySectionKey(words),
       };
     }),
     allWords: Object.values(wordsByProject).flat(),
@@ -247,6 +251,7 @@ async function mergePendingLocalWordsIntoRemoteResult(
         ...project,
         reviewWords: memorySummary.learning,
         newWords: memorySummary.unlearned,
+        sectionWordCounts: countWordsBySectionKey(words),
       };
     }),
     allWords,

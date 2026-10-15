@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Word } from '@/types';
 import {
+  UNSECTIONED_SECTION_KEY,
+  countWordsBySectionKey,
+  filterWordsBySectionScope,
+  normalizeSectionScope,
   buildWordSectionGroups,
   getSectionGroupLabel,
   insertSectionName,
@@ -96,4 +100,33 @@ test('セクションの並べ替えは隣と入れ替え、端を越えない',
   assert.deepEqual(moveSectionName(['A', 'B'], 'A', -1), ['A', 'B']);
   assert.deepEqual(moveSectionName(['A', 'B'], 'B', 1), ['A', 'B']);
   assert.deepEqual(moveSectionName(['A'], 'X', 1), ['A']);
+});
+
+test('filterWordsBySectionScope は載っている単語帳だけ選んだセクションに絞る', () => {
+  const words = [
+    { id: 'a', projectId: 'p1', sectionName: 'Day1' },
+    { id: 'b', projectId: 'p1', sectionName: 'Day2' },
+    { id: 'c', projectId: 'p1', sectionName: null },
+    { id: 'd', projectId: 'p2', sectionName: 'Day1' },
+  ];
+  const ids = (list: typeof words) => list.map((word) => word.id);
+  assert.deepEqual(ids(filterWordsBySectionScope(words, { p1: ['Day2', UNSECTIONED_SECTION_KEY] })), ['b', 'c', 'd']);
+  assert.deepEqual(ids(filterWordsBySectionScope(words, null)), ['a', 'b', 'c', 'd']);
+});
+
+test('normalizeSectionScope は形の合わない値を落とす', () => {
+  assert.equal(normalizeSectionScope(null), undefined);
+  assert.equal(normalizeSectionScope(['x']), undefined);
+  assert.equal(normalizeSectionScope({ p1: [] }), undefined);
+  assert.deepEqual(
+    normalizeSectionScope({ p1: [' Day1 ', 'Day1', '', 3], p2: 'Day1' }),
+    { p1: ['Day1', UNSECTIONED_SECTION_KEY] },
+  );
+});
+
+test('countWordsBySectionKey は未分類を空文字で数える', () => {
+  assert.deepEqual(
+    countWordsBySectionKey([{ sectionName: 'Day1' }, { sectionName: null }, { sectionName: 'Day1' }]),
+    { Day1: 2, [UNSECTIONED_SECTION_KEY]: 1 },
+  );
 });
