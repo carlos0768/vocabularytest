@@ -22,6 +22,14 @@ export type QuizDirection = 'en-to-ja' | 'ja-to-en';
 
 export const QUIZ_STATE_TTL_MS = 30 * 60 * 1000;
 
+/**
+ * 【一時的な切り替え】四択 (英→日) の誤答を、保存済みの AI 生成の誤答ではなく
+ * 同じ単語帳の他の語の訳からランダムに選ぶ (保存済みが無いときの既存の逃げ道を常に使う)。
+ * true の間はクイズ画面も `/api/generate-quiz-distractors` を呼ばない。
+ * 保存済みの誤答は消さないので、false に戻せば元どおり AI 生成の誤答が出る。
+ */
+export const USE_RANDOM_JAPANESE_DISTRACTORS = true;
+
 export const GENERIC_JA_DISTRACTOR_POOL = [
   '確認する', '提供する', '参加する', '検討する', '対応する', '説明する', '準備する', '記録する',
 ] as const;
@@ -84,7 +92,7 @@ export function generateQuizQuestions(
   count: number,
   direction: QuizDirection = 'en-to-ja',
   shuffle: <T>(items: T[]) => T[] = shuffleArray,
-  settings: { preserveOrder?: boolean; primaryOnly?: boolean } = {},
+  settings: { preserveOrder?: boolean; primaryOnly?: boolean; randomDistractors?: boolean } = {},
 ): QuizQuestion[] {
   const questions: QuizQuestion[] = [];
   const sourceWords = settings.primaryOnly ? selectPrimaryMeaningWords(words) : words;
@@ -150,7 +158,10 @@ export function generateQuizQuestions(
     );
     // 保存済みの誤答に「選択肢1」等が混ざっていることがある（材料が尽きた回の
     // 名残）。1件でも混ざると答えが割れるので、件数の判定より先に落とす。
-    let distractors: string[] = withoutPlaceholderDistractors(word.distractors);
+    // `randomDistractors` のときは保存済みを見ず、他の語の訳からランダムに選ぶ。
+    let distractors: string[] = settings.randomDistractors
+      ? []
+      : withoutPlaceholderDistractors(word.distractors);
 
     if (distractors.length === 0) {
       const otherWords = quizWords.filter((item) => getQuizTargetKey(item) !== wordTargetKey && getWordMemoryBaseKey(item) !== wordBaseKey);
