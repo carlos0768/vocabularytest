@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { SolidButton } from '@/components/redesign/SolidPage';
 import { Modal } from '@/components/ui/modal';
 import {
+  QuizCompletionView,
   QuizModeChooser,
   QuizProgressBoard,
   QuizRoundStatus,
@@ -341,39 +342,16 @@ export default function ClozeQuizPage() {
   }
 
   if (isComplete) {
-    const percentage = results.total > 0 ? Math.round((results.correct / results.total) * 100) : 0;
     return (
-      <BattleScreen center wide header={header()}>
-        <div className="mx-auto w-full max-w-sm rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-7 text-center shadow-[3px_4px_0_var(--solid-shadow)] animate-fade-in-up">
-          <p className="font-display text-5xl font-black text-[var(--solid-ink)]">
-            {percentage}
-            <span className="text-2xl">%</span>
-          </p>
-          <div className="mx-auto mt-4 h-3 w-full overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
-            <div
-              className="h-full bg-[var(--color-accent)] transition-[width] duration-700 ease-out"
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
-          <p className="mt-4 text-sm font-bold text-[var(--color-muted)]">
-            {results.correct} / {results.total} 問正解
-          </p>
-          <div className="mt-7 space-y-3">
-            <SolidButton
-              variant="accent"
-              size="lg"
-              iconLeft="refresh"
-              onClick={() => setRound((value) => value + 1)}
-              className="w-full justify-center"
-            >
-              新しい問題で解く
-            </SolidButton>
-            <SolidButton size="lg" onClick={backToProject} className="w-full justify-center">
-              単語一覧に戻る
-            </SolidButton>
-          </div>
-        </div>
-      </BattleScreen>
+      <QuizCompletionView
+        results={results}
+        rows={questions.flatMap((q, i) => {
+          const answered = wordsById.get(q.wordId);
+          return answered ? [{ word: answered, result: answerResults[i] ?? null }] : [];
+        })}
+        onNext={() => setRound((value) => value + 1)}
+        onFinish={backToProject}
+      />
     );
   }
 
