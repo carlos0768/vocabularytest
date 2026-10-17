@@ -14,6 +14,7 @@ import { sendScanJobPushNotifications } from '@/lib/notifications/web-push';
 import { applyClassicalDictionary as applyClassical } from '@/lib/classical/apply';
 import { isClassicalWord } from '@/lib/classical/is-classical';
 import { applyClassicalExamples } from '@/lib/classical/examples';
+import { applyOpenDataExamples } from '@/lib/open-examples/server';
 import { filterWordsForProjectKind, inferProjectKindFromWords } from '@/lib/classical/purity';
 import { readProjectKind } from '@/lib/classical/project-kind';
 import type { ProjectKind } from '@/types';
@@ -88,6 +89,11 @@ import {
   type ExampleGenerationSummary,
 } from '@/lib/ai/generate-example-sentences';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
+import {
+  resolveClassicalScanExamplePolicy,
+  shouldAttachStockedScanExamples,
+  shouldGenerateScanExamples,
+} from '@/lib/scan/example-source';
 import { backfillPronunciations } from '@/lib/ai/pronunciation-lookup';
 import { runWithApiCostScanContext, updateApiCostScanContext } from '@/lib/api-cost/scan-context';
 import { refundScanCoinsForJob } from '@/lib/coins/refund';
@@ -150,6 +156,7 @@ export interface ProcessJobDeps {
   resolveImmediateWords?: typeof resolveImmediateWordsWithMasterFirst;
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
+  applyOpenExamples?: typeof applyOpenDataExamples;
   resolveMorphology?: typeof resolveMorphologyForWords;
   prefillWordOrderQuizzes?: typeof prefillWordOrderQuizzesForWords;
   sendPushNotifications?: typeof sendScanJobPushNotifications;
@@ -418,6 +425,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
     const resolveImmediateWords = processDeps?.resolveImmediateWords ?? resolveImmediateWordsWithMasterFirst;
     const backfillWords = processDeps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata;
     const generateExamples = processDeps?.generateExamples ?? generateExampleSentences;
+    const applyOpenExamples = processDeps?.applyOpenExamples ?? applyOpenDataExamples;
     const resolveMorphology = processDeps?.resolveMorphology ?? resolveMorphologyForWords;
     const prefillWordOrderQuizzes = processDeps?.prefillWordOrderQuizzes ?? prefillWordOrderQuizzesForWords;
     const sendPushNotifications = processDeps?.sendPushNotifications ?? sendScanJobPushNotifications;
@@ -673,15 +681,20 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       const warningSet = new Set<string>([...Array.from(warningCodes), ...pageWarnings]);
       const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
       // 例文生成はオプトイン（+2コイン）。列が無い（未適用の）DBでは undefined
-      // なので既定オフに倒れる。
-      const includeExamples = (job as { include_examples?: unknown }).include_examples === true;
+      // なので既定オフに倒れる。生成停止中（SCAN_EXAMPLE_GENERATION_ENABLED）は
+      // 行に true が残っていても生成しない。
+      const includeExamples = shouldGenerateScanExamples(
+        (job as { include_examples?: unknown }).include_examples === true,
+      );
       const lexiconResolutionStart = Date.now();
-      // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
-      // 例文生成オフのときはマスター由来の転記も止める（無料の転記だけ残すと
-      // 既定オフが実質機能しない）。
+      // 生成停止中は辞書（マスター）の例文を常に転記する。生成が有効なあいだは、
+      // ジャンル指定ユーザ・オプトインしていないユーザには転記しない。
       const resolvedResult = masterFirstEnabled
         ? await resolveImmediateWords(dedupedWords, undefined, {
-            skipMasterExamples: exampleGenres.length > 0 || !includeExamples,
+            skipMasterExamples: !shouldAttachStockedScanExamples({
+              includeExamples,
+              hasExampleGenres: exampleGenres.length > 0,
+            }),
           })
         : null;
       const rollbackResult = masterFirstEnabled
@@ -697,7 +710,10 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
       // 古典語を弾くので、印がこの時点で付いている必要がある）。
       // 古典語が無ければDBには一切触らない。
       const classicalResult = await applyClassical(sourceModedWords, { supabaseAdmin });
-      const resolvedWords = classicalResult.words;
+      // 例文はオープンデータ (Tatoeba) を優先し、訳に合う例文が無い語だけ辞書の転記が残る。
+      // client_local / server_cloud の分岐より前なので、どちらの保存経路にも載る。
+      const openExampleResult = applyOpenExamples(classicalResult.words);
+      const resolvedWords = openExampleResult.words;
       const aiJapaneseCount = resolvedWords.filter((word) => word.japaneseSource === 'ai').length;
 
       // --- Morphology (語源解析): opt-in, best-effort ---
@@ -742,11 +758,13 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         }
       }
 
-      // --- Classical (古文) example generation: opt-in, best-effort ---
+      // --- Classical (古文) examples: best-effort ---
       // 語源解析と同じく、client_local / server_cloud の分岐より前に一度だけ
       // resolvedWords へ付与する。英語の例文生成とは別プロンプト・別生成器で、
-      // 共通辞書に貯まっている例文があれば AI を呼ばずに流用する。
-      if (includeExamples) {
+      // 共通辞書に貯まっている例文があれば AI を呼ばずに流用する。生成停止中は
+      // 辞書の例文だけを付ける（cacheOnly）。
+      const classicalExamplePolicy = resolveClassicalScanExamplePolicy(includeExamples);
+      if (classicalExamplePolicy) {
         const classicalTargets = resolvedWords
           .map((word, index) => ({ word, index }))
           .filter(({ word }) => isClassicalWord(word) && !word.exampleSentence);
@@ -764,7 +782,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
                     (word as { classicalEntryId?: string | null }).classicalEntryId ?? null,
                 })),
                 apiKeys,
-                { supabaseAdmin },
+                { supabaseAdmin, ...classicalExamplePolicy },
               ),
             );
 
@@ -806,6 +824,7 @@ export async function processJobById(jobId: string, processDeps?: ProcessJobDeps
         classicalResolvedCount: classicalResult.resolvedCount,
         classicalDroppedForEnglish: classicalResult.droppedClassicalCount,
         classicalStrippedEnglishExamples: classicalResult.strippedExampleCount,
+        openDataExampleCount: openExampleResult.appliedCount,
         masterHitCount: resolvedResult?.metrics.masterHitCount ?? 0,
         masterTranslationHitCount: resolvedResult?.metrics.masterTranslationHitCount ?? 0,
         aiJapaneseCount,

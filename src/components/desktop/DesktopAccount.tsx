@@ -171,7 +171,7 @@ export function DesktopSettingsView({
             <div className="ds-set-row" style={{ display: 'block' }}>
               <ThemeSetting />
             </div>
-            <SettingsLink icon="tune" label="通知・パーソナライズ" description="学習リマインダー、例文ジャンル" href="/settings/customize" />
+            <SettingsLink icon="tune" label="通知・パーソナライズ" description="学習リマインダー、単語の表示" href="/settings/customize" />
           </div>
 
           <div className="ds-set-group">

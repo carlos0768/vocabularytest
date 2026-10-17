@@ -582,7 +582,7 @@ test('/api/extract success response keeps scanInfo, sourceLabels, lexiconEntries
   ]);
 });
 
-test('/api/extract still generates examples synchronously when AI generation is disabled', async () => {
+test('/api/extract never generates examples even when includeExamples is requested (stocked examples only)', async () => {
   const client = new FakeExtractClient();
   const calls: string[] = [];
 
@@ -609,15 +609,14 @@ test('/api/extract still generates examples synchronously when AI generation is 
   );
 
   assert.equal(response.status, 200);
-  // prefillが走らないユーザーは従来どおり同期生成でカバーする
+  // スキャンの例文は辞書のストックだけ（SCAN_EXAMPLE_GENERATION_ENABLED = false）
   assert.deepEqual(calls, [
     'extractWords:false',
     'resolveImmediateWords',
-    'generateExamples:book',
   ]);
 });
 
-test('/api/extract generates examples synchronously for word-order eligible words even with AI generation enabled', async () => {
+test('/api/extract never generates examples for word-order eligible words either', async () => {
   const client = new FakeExtractClient();
   const calls: string[] = [];
 
@@ -663,11 +662,9 @@ test('/api/extract generates examples synchronously for word-order eligible word
   );
 
   assert.equal(response.status, 200);
-  // 語順クイズ対象語（複数トークン）はprefill対象外なので同期生成が残る
   assert.deepEqual(calls, [
     'extractIdioms',
     'resolveImmediateWords',
-    'generateExamples:give up',
   ]);
 });
 
@@ -703,13 +700,13 @@ test('/api/extract generates no examples when includeExamples is omitted (defaul
   assert.deepEqual(calls, ['extractWords:false', 'resolveImmediateWords']);
 });
 
-test('/api/extract skips master-cached examples when includeExamples is off', async () => {
+for (const includeExamples of [false, true]) test(`/api/extract always attaches master-cached examples (includeExamples=${includeExamples})`, async () => {
   const client = new FakeExtractClient();
   const calls: string[] = [];
   let skipMasterExamples: unknown;
 
   const response = await handleExtractPost(
-    jsonRequest({ image: 'data:image/png;base64,AAAA' }),
+    jsonRequest({ image: 'data:image/png;base64,AAAA', includeExamples }),
     createDeps(client, calls, {
       fetchAiGeneration: async () => false,
       resolveImmediateWords: (async (words: unknown[], _unused: unknown, options?: { skipMasterExamples?: boolean }) => {
@@ -732,8 +729,33 @@ test('/api/extract skips master-cached examples when includeExamples is off', as
   );
 
   assert.equal(response.status, 200);
-  // 無料の転記まで残すと既定OFFが実質機能しない
-  assert.equal(skipMasterExamples, true);
+  // スキャンの例文は辞書のストックが唯一の出どころなので、常に転記する
+  assert.equal(skipMasterExamples, false);
+});
+
+test('/api/extract attaches open-data examples to the scanned words', async () => {
+  const client = new FakeExtractClient();
+  const calls: string[] = [];
+
+  const response = await handleExtractPost(
+    jsonRequest({ image: 'data:image/png;base64,AAAA' }),
+    createDeps(client, calls, {
+      applyOpenExamples: ((words: Array<Record<string, unknown>>) => {
+        calls.push(`applyOpenExamples:${words.map((w) => w.english).join(',')}`);
+        return {
+          words: words.map((w) => ({ ...w, exampleSentence: 'I read a book.', exampleSentenceJa: '私は本を読んだ。' })),
+          appliedCount: words.length,
+        };
+      }) as never,
+    }),
+  );
+
+  const payload = await jsonPayload(response);
+  assert.equal(response.status, 200);
+  assert.ok(calls.includes('applyOpenExamples:book'));
+  const [word] = payload.words as Array<Record<string, unknown>>;
+  assert.equal(word.exampleSentence, 'I read a book.');
+  assert.equal(word.exampleSentenceJa, '私は本を読んだ。');
 });
 
 // ============================================

@@ -37,6 +37,7 @@ import {
 import { CustomScanModePanel, type CustomScanModeSelection } from '@/components/scan/CustomScanModePanel';
 import { SectionSelectRow } from '@/components/project/page/SectionControls';
 import type { ExtractMode, EikenLevel } from '@/app/api/extract/route';
+import { SCAN_EXAMPLE_GENERATION_ENABLED } from '@/lib/scan/example-source';
 
 const MAX_SCAN_IMAGE_COUNT = 20;
 
@@ -114,8 +115,8 @@ export function ScanCapturePanel({
   const [activeSubs, setActiveSubs] = useState<SubOption[]>(['all']);
   const [eikenLevel, setEikenLevel] = useState<EikenLevel>(null);
   const [morphologyOn, setMorphologyOn] = useState(false);
-  // 例文生成。既定オン (オフにすれば例文ぶんのコインはかからない)。
-  const [examplesOn, setExamplesOn] = useState(true);
+  // 例文生成。停止中は常にオフ (例文は辞書のストックだけ、`SCAN_EXAMPLE_GENERATION_ENABLED`)。
+  const [examplesOn, setExamplesOn] = useState(SCAN_EXAMPLE_GENERATION_ENABLED);
   const [sectionName, setSectionName] = useState<string | null>(targetSectionName);
   const [customSelection, setCustomSelection] = useState<CustomScanModeSelection>({
     modeId: null,
@@ -605,39 +606,41 @@ export function ScanCapturePanel({
           </button>
 
           {/* Example sentence (例文生成) toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic();
-              setExamplesOn((prev) => !prev);
-            }}
-            className="mt-2 flex w-full items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all"
-            style={{
-              borderColor: examplesOn ? 'var(--solid-ink)' : 'var(--color-border)',
-              boxShadow: examplesOn ? '2px 2px 0 var(--solid-ink)' : 'none',
-            }}
-          >
-            <span
-              className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+          {SCAN_EXAMPLE_GENERATION_ENABLED && (
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic();
+                setExamplesOn((prev) => !prev);
+              }}
+              className="mt-2 flex w-full items-start gap-2 rounded-[10px] border-2 bg-[var(--color-surface)] px-3 py-2.5 text-left transition-all"
               style={{
-                border: `1.25px solid ${examplesOn ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                background: examplesOn ? 'var(--color-accent)' : 'var(--color-surface)',
+                borderColor: examplesOn ? 'var(--solid-ink)' : 'var(--color-border)',
+                boxShadow: examplesOn ? '2px 2px 0 var(--solid-ink)' : 'none',
               }}
             >
-              {examplesOn && <Icon name="check" size={11} className="text-white" />}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--solid-ink)]">
-                <span className="truncate">例文生成</span>
-                <span className="shrink-0 font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
-                  +2コイン
+              <span
+                className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+                style={{
+                  border: `1.25px solid ${examplesOn ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                  background: examplesOn ? 'var(--color-accent)' : 'var(--color-surface)',
+                }}
+              >
+                {examplesOn && <Icon name="check" size={11} className="text-white" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--solid-ink)]">
+                  <span className="truncate">例文生成</span>
+                  <span className="shrink-0 font-mono text-[8px] font-bold tracking-[0.04em] text-[var(--color-accent)]">
+                    +2コイン
+                  </span>
+                </span>
+                <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
+                  単語ごとに例文と訳を生成（古典語は古文の例文）
                 </span>
               </span>
-              <span className="mt-0.5 block text-[10px] font-medium text-[var(--color-muted)]">
-                単語ごとに例文と訳を生成（古典語は古文の例文）
-              </span>
-            </span>
-          </button>
+            </button>
+          )}
         </div>
 
       </div>

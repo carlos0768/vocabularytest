@@ -33,10 +33,16 @@ import { ensureSourceLabels } from '../../../../shared/source-labels';
 import { applyClassicalDictionary } from '@/lib/classical/apply';
 import { isClassicalWord, shouldSkipEnglishEnrichment } from '@/lib/classical/is-classical';
 import { applyClassicalExamples } from '@/lib/classical/examples';
+import { applyOpenDataExamples } from '@/lib/open-examples/server';
 import { resolveImmediateWordsWithMasterFirst } from '@/lib/lexicon/master-first-scan';
 import { backfillMissingJapaneseTranslationsWithMetadata } from '@/lib/words/backfill-japanese';
 import { generateExampleSentences, saveExamplesToLexicon } from '@/lib/ai/generate-example-sentences';
 import { fetchExampleGenresForProUser } from '@/lib/preferences/example-genres';
+import {
+  resolveClassicalScanExamplePolicy,
+  shouldAttachStockedScanExamples,
+  shouldGenerateScanExamples,
+} from '@/lib/scan/example-source';
 import { normalizeWordForTranslationPersistence } from '@/lib/words/translation-persistence';
 import { isWordOrderEligible } from '@/lib/quiz/word-order';
 import { fetchAiGenerationEnabled } from '@/lib/preferences/ai-generation';
@@ -91,6 +97,7 @@ export type ExtractRouteDeps = {
   backfillWords?: typeof backfillMissingJapaneseTranslationsWithMetadata;
   generateExamples?: typeof generateExampleSentences;
   applyClassicalExamples?: typeof applyClassicalExamples;
+  applyOpenExamples?: typeof applyOpenDataExamples;
   saveExamples?: typeof saveExamplesToLexicon;
   resolveMorphology?: typeof resolveMorphologyForWords;
   fetchAiGeneration?: typeof fetchAiGenerationEnabled;
@@ -115,6 +122,7 @@ function getDeps(deps?: ExtractRouteDeps): Required<ExtractRouteDeps> {
     backfillWords: deps?.backfillWords ?? backfillMissingJapaneseTranslationsWithMetadata,
     generateExamples: deps?.generateExamples ?? generateExampleSentences,
     applyClassicalExamples: deps?.applyClassicalExamples ?? applyClassicalExamples,
+    applyOpenExamples: deps?.applyOpenExamples ?? applyOpenDataExamples,
     saveExamples: deps?.saveExamples ?? saveExamplesToLexicon,
     resolveMorphology: deps?.resolveMorphology ?? resolveMorphologyForWords,
     fetchAiGeneration: deps?.fetchAiGeneration ?? fetchAiGenerationEnabled,
@@ -151,6 +159,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     backfillWords,
     generateExamples,
     applyClassicalExamples: applyClassicalExamplesDep,
+    applyOpenExamples,
     saveExamples,
     resolveMorphology,
     fetchAiGeneration,
@@ -191,7 +200,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       scanModes: requestedScanModes,
       eikenLevel,
       includeMorphology,
-      includeExamples,
+      includeExamples: requestedIncludeExamples,
       customModeId,
       customPrompt,
     } = parsed.data as {
@@ -204,6 +213,8 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       customModeId: string | null;
       customPrompt: string | null;
     };
+    // スキャンの例文は辞書のストックだけを付ける（AI 生成と +2コインは停止中）。
+    const includeExamples = shouldGenerateScanExamples(requestedIncludeExamples);
     const modes = normalizeExtractModes(requestedScanModes, [mode]);
     const primaryMode = modes[0] ?? 'all';
     updateApiCostScanContext({ userId: user.id, modes });
@@ -389,14 +400,15 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // 5. RETURN SUCCESS RESPONSE
     // ============================================
     // ユーザの興味ジャンル（例文パーソナライズ用・Pro限定）。非Pro/取得失敗時は空配列で続行。
-    // ジャンル指定ユーザはマスター例文を読み込まず、毎回ジャンル別に生成する。
+    // 例文生成が有効なあいだは、ジャンル指定ユーザはマスター例文を読み込まず毎回ジャンル別に生成する。
     const exampleGenres = await fetchExampleGenresForProUser(supabase, user.id);
     const masterFirstEnabled = isMasterFirstResolutionEnabledForModes(modes);
     const resolved = masterFirstEnabled
       ? await resolveImmediateWords(result.data.words, undefined, {
-          // 例文生成がオフなら、マスター由来の例文の転記も止める。無料の転記だけ
-          // 残すと「既定オフ」が実質機能せず、+2 を払う理由も無くなる。
-          skipMasterExamples: exampleGenres.length > 0 || !includeExamples,
+          skipMasterExamples: !shouldAttachStockedScanExamples({
+            includeExamples,
+            hasExampleGenres: exampleGenres.length > 0,
+          }),
         })
       : null;
     const rollbackResult = masterFirstEnabled
@@ -410,7 +422,9 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
     // 古典語が無ければDBには一切触らないので、英単語だけのスキャンには影響しない。
     // ここより後の語源解析・派生語・例文生成はすべて isClassicalWord() で古典語を弾く。
     const classicalResult = await applyClassical(sourceModedWords);
-    const extractedWords = classicalResult.words;
+    // 例文はオープンデータ (Tatoeba) を優先し、訳に合う例文が無い語だけ辞書の転記が残る。
+    const openExampleResult = applyOpenExamples(classicalResult.words);
+    const extractedWords = openExampleResult.words;
     const aiJapaneseCount = extractedWords.filter((word) => word.japaneseSource === 'ai').length;
 
     console.log('[extract] Extraction done', {
@@ -422,6 +436,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       classicalResolvedCount: classicalResult.resolvedCount,
       classicalDroppedForEnglish: classicalResult.droppedClassicalCount,
       classicalStrippedEnglishExamples: classicalResult.strippedExampleCount,
+      openDataExampleCount: openExampleResult.appliedCount,
       masterHitCount: resolved?.metrics.masterHitCount ?? 0,
       masterTranslationHitCount: resolved?.metrics.masterTranslationHitCount ?? 0,
       masterHeadwordFallbackHitCount: resolved?.metrics.masterHeadwordFallbackHitCount ?? 0,
@@ -533,11 +548,13 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
       }
     }
 
-    // --- Classical (古文) example generation: opt-in, best-effort ---
+    // --- Classical (古文) examples: best-effort ---
     //
     // 英語とは別プロンプト・別生成器。共通辞書に貯まっている例文があれば
-    // AIを呼ばずにそれを流用する（訳のヒント流用と同じ思想）。
-    if (includeExamples) {
+    // AIを呼ばずにそれを流用する（訳のヒント流用と同じ思想）。生成停止中は
+    // 辞書の例文だけを付ける（cacheOnly）。
+    const classicalExamplePolicy = resolveClassicalScanExamplePolicy(includeExamples);
+    if (classicalExamplePolicy) {
       try {
         const classicalWordsNeedingExamples = extractedWords
           .map((word, index) => ({ word, index }))
@@ -552,6 +569,7 @@ export async function handleExtractPost(request: NextRequest, deps?: ExtractRout
               classicalEntryId: (word as { classicalEntryId?: string | null }).classicalEntryId ?? null,
             })),
             apiKeys,
+            classicalExamplePolicy,
           );
 
           classicalWordsNeedingExamples.forEach(({ index }, seedIndex) => {
