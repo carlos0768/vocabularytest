@@ -36,6 +36,12 @@ const MODES: ReadonlyArray<{
     title: '言い換えで解く',
     scope: '英語の言い換えがある単語だけ出題されます',
   },
+  {
+    key: 'cloze',
+    icon: 'edit_note',
+    title: '空所補充',
+    scope: 'Passive (P) の単語だけ出題されます',
+  },
 ];
 
 /**

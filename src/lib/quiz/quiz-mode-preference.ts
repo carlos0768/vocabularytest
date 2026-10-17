@@ -1,5 +1,5 @@
 /**
- * クイズの解き方 (四択 / 記述 / 言い換え / 音読チャレンジ) の端末ごとの記憶。
+ * クイズの解き方 (四択 / 記述 / 言い換え / 音読チャレンジ / 空所補充) の端末ごとの記憶。
  *
  * 端末によって使い方が変わる ——「電車では四択、家では声で」のように——ので、
  * アカウントではなく端末に紐づける。したがって localStorage に置き、
@@ -16,17 +16,18 @@ import { PARAPHRASE_FEATURE_ENABLED } from '@/lib/paraphrase/feature-flag';
 import { jstDayKey } from '@/lib/date/jst';
 
 /**
- * 選択画面に出すのは `general` (一般) と `timeattack` (タイムアタック) の2つ。
+ * 選択画面に出すのは `general` (一般) と `timeattack` (タイムアタック) と `cloze` (空所補充)。
  * `normal` / `typing` は一般が単語ごとに振り分ける先の形式で、選択画面には出さないが、
  * 端末に残った古い選択や音読ページからの戻りで来うるので型と判定には残してある。
+ * `cloze` は別ページ (`/cloze-quiz`) で解く。
  */
-export type QuizMode = 'general' | 'timeattack' | 'normal' | 'typing' | 'paraphrase' | 'voice';
+export type QuizMode = 'general' | 'timeattack' | 'normal' | 'typing' | 'paraphrase' | 'voice' | 'cloze';
 
 /**
- * 音読チャレンジ (別ページ) ではなく、四択クイズ画面の中で解ける形式。
+ * 音読チャレンジ・空所補充 (どちらも別ページ) ではなく、四択クイズ画面の中で解ける形式。
  * `paraphrase` は英語 → 英語の同義語を 4 択で選ぶ言い換えクイズ (出題材料はオープンデータ)。
  */
-export type QuizAnswerFormat = Exclude<QuizMode, 'voice'>;
+export type QuizAnswerFormat = Exclude<QuizMode, 'voice' | 'cloze'>;
 
 /** 端末ごとの選択を入れる localStorage のキー。 */
 export const QUIZ_MODE_STORAGE_KEY = 'merken_quiz_mode';
@@ -51,11 +52,11 @@ export function quizModeDayKey(now: Date = new Date()): string {
 export const QUIZ_FORMAT_QUERY_KEY = 'format';
 
 export function isQuizMode(value: unknown): value is QuizMode {
-  return isQuizAnswerFormat(value) || value === 'voice';
+  return isQuizAnswerFormat(value) || value === 'voice' || value === 'cloze';
 }
 
 /**
- * 四択クイズ画面の中で解ける形式か (音読は別ページなので含まない)。
+ * 四択クイズ画面の中で解ける形式か (音読・空所補充は別ページなので含まない)。
  * 言い換えは機能を止めている間は形式として認めない —— 端末に残った選択・URL・中断復帰の
  * どれから来ても、ここで弾いて四択に倒す。
  */
