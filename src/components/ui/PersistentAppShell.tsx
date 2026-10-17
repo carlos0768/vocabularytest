@@ -25,7 +25,7 @@ const NO_SHELL_PATHS = [
 
 const HIDE_BOTTOM_NAV_PATHS = [
   '/project/', '/share/', '/quiz/', '/quiz2/', '/flashcard/',
-  '/quick-response/', '/voice-quiz/', '/scan/confirm', '/shared/share-wordbook',
+  '/quick-response/', '/voice-quiz/', '/cloze-quiz/', '/scan/confirm', '/shared/share-wordbook',
   '/subscription', '/collections/new', '/word/', '/favorites', '/follows',
   // 自分のプロフィール(/profile)はボトムナビのタブなのでナビを表示する。
   // 他ユーザーのプロフィール(/profile/<accountId>)は詳細画面なので非表示のまま。
@@ -47,14 +47,14 @@ const HIDE_BOTTOM_NAV_PATHS = [
 // 単語帳詳細は画面上部に戻るボタン付きの自前ヘッダーを持つので、共通ヘッダーは重ねない。
 // クイズ / フラッシュカードなどの学習画面は全画面 (ds-fixed-main) なので、ヘッダーが
 // その上に被らないよう出さない。
-const HIDE_DESKTOP_HEADER_PATHS = ['/project/', '/flashcard/', '/quiz/', '/quiz2/', '/quick-response/', '/voice-quiz/'];
+const HIDE_DESKTOP_HEADER_PATHS = ['/project/', '/flashcard/', '/quiz/', '/quiz2/', '/quick-response/', '/voice-quiz/', '/cloze-quiz/'];
 
 // タブレットでサイドバーを出さず 1 カラムにするパス (全画面のフロー)。
 // 学習画面は集中モード、グループ / 語法演習 / 対戦 / スキャン確認は
 // `fixed inset-x-0 top-0 h-[100dvh]` の自前の全画面レイアウトを持つ。
 // 単語帳詳細はタブレットでは専用ビュー (サイドバーあり) なので含めない。
 const TABLET_IMMERSIVE_PATHS = [
-  '/flashcard/', '/quiz/', '/quiz2/', '/quick-response/', '/voice-quiz/',
+  '/flashcard/', '/quiz/', '/quiz2/', '/quick-response/', '/voice-quiz/', '/cloze-quiz/',
   '/battle', '/groups', '/grammar/', '/scan/confirm',
 ];
 

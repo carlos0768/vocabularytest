@@ -231,12 +231,15 @@ export function BattleNotice({
 export function BattleWaitingPanel({
   title,
   description,
+  icon = 'swords',
   children,
   onCancel,
   cancelLabel = 'キャンセル',
 }: {
   title: string;
-  description: string;
+  description?: string;
+  /** 中央の丸に出すアイコン。対戦以外 (クイズの準備中など) で差し替える。 */
+  icon?: string;
   children?: ReactNode;
   onCancel?: () => void;
   cancelLabel?: string;
@@ -246,14 +249,16 @@ export function BattleWaitingPanel({
       <div className="relative mb-6 flex h-[72px] w-[72px] items-center justify-center">
         <span className="absolute inset-0 animate-ping rounded-full border-2 border-[var(--color-accent)] opacity-40" />
         <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-accent)] text-[var(--color-on-accent)] shadow-[3px_4px_0_var(--solid-shadow)]">
-          <Icon name="swords" size={30} />
+          <Icon name={icon} size={30} />
         </span>
       </div>
 
       <h2 className="font-display text-[19px] font-black text-[var(--solid-ink)]">{title}</h2>
-      <p className="mt-2 max-w-[300px] text-[13px] leading-[1.7] text-[var(--color-muted)]">
-        {description}
-      </p>
+      {description && (
+        <p className="mt-2 max-w-[300px] text-[13px] leading-[1.7] text-[var(--color-muted)]">
+          {description}
+        </p>
+      )}
 
       {children && <div className="mt-6 w-full">{children}</div>}
 
