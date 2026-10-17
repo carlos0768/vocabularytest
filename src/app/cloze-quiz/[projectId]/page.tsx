@@ -1,11 +1,26 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { SolidButton } from '@/components/redesign/SolidPage';
-import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/modal';
-import { QuizModeChooser } from '@/components/quiz';
+import {
+  QuizModeChooser,
+  QuizProgressBoard,
+  QuizRoundStatus,
+  type QuizBoardResult,
+  type QuizRoundOutcome,
+} from '@/components/quiz';
+import {
+  BattleChoiceButton,
+  BattleHeaderButton,
+  BattleNotice,
+  BattleQuestionCard,
+  BattleScreen,
+  BattleScreenHeader,
+  BattleWaitingPanel,
+  type BattleChoiceState,
+} from '@/components/battle';
 import {
   QUIZ_FORMAT_QUERY_KEY,
   writeQuizMode,
@@ -27,12 +42,6 @@ import {
 } from '@/lib/cloze/client';
 import type { ClozeQuestion } from '@/lib/cloze/question';
 import type { Word, SubscriptionStatus } from '@/types';
-
-const SOLID_SURFACE =
-  'rounded-[var(--solid-radius)] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)]';
-const HARD_SHADOW = 'shadow-[3px_4px_0_var(--solid-shadow)]';
-const HARD_SHADOW_SM = 'shadow-[2px_3px_0_var(--solid-shadow)]';
-const EYEBROW = 'font-mono text-[10px] font-black uppercase tracking-[0.14em]';
 
 /**
  * 認証付きAPIの見出し。音読チャレンジと同じ理由で、アクセストークンを明示的に載せる
@@ -82,6 +91,9 @@ export default function ClozeQuizPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [results, setResults] = useState({ correct: 0, total: 0 });
+  /** 問題ごとの結果 (ヘッダの進捗帯に出す)。 */
+  const [answerResults, setAnswerResults] = useState<QuizBoardResult[]>([]);
+  const [showAttribution, setShowAttribution] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [showModeSwitch, setShowModeSwitch] = useState(false);
   /** 「もう一度」で出題を組み直すための番号。 */
@@ -174,6 +186,7 @@ export default function ClozeQuizPage() {
         setCurrentIndex(0);
         setSelectedIndex(null);
         setResults({ correct: 0, total: 0 });
+        setAnswerResults([]);
         setIsComplete(false);
         setLoadState(built.length > 0 ? 'ready' : 'empty');
       } catch {
@@ -194,10 +207,17 @@ export default function ClozeQuizPage() {
   const answer = useCallback(
     async (optionIndex: number) => {
       if (!question || selectedIndex !== null) return;
+      // -1 は「わからない」。正解を見せ、学習記録は不正解として残す。
+      const skipped = optionIndex < 0;
       const correct = optionIndex === question.correctIndex;
       setSelectedIndex(optionIndex);
-      playAnswerFeedbackSound(correct);
+      if (!skipped) playAnswerFeedbackSound(correct);
       setResults((prev) => ({ correct: prev.correct + (correct ? 1 : 0), total: prev.total + 1 }));
+      setAnswerResults((prev) => {
+        const next = [...prev];
+        next[currentIndex] = skipped ? 'skip' : correct;
+        return next;
+      });
 
       const word = wordsById.get(question.wordId);
       if (!word) return;
@@ -232,7 +252,7 @@ export default function ClozeQuizPage() {
         // 記録に失敗しても出題は続ける
       }
     },
-    [question, selectedIndex, wordsById, binderName, projectId, repository, userId],
+    [question, selectedIndex, currentIndex, wordsById, binderName, projectId, repository, userId],
   );
 
   const goNext = useCallback(() => {
@@ -244,94 +264,116 @@ export default function ClozeQuizPage() {
     setSelectedIndex(null);
   }, [currentIndex, questions.length]);
 
+  /** 「わからない」。正解を見せ、記録は不正解として残す (盤面の印は「わからない」)。 */
+  const skip = useCallback(() => {
+    if (!question || selectedIndex !== null) return;
+    void answer(-1);
+  }, [question, selectedIndex, answer]);
+
   // --- Render ---
+
+  const header = (children?: ReactNode) => (
+    <BattleScreenHeader
+      wide
+      bordered={false}
+      title="空所補充"
+      onBack={backToProject}
+      right={
+        children ? (
+          <div className="flex items-center gap-2">
+            <BattleHeaderButton icon="info" label="例文の出典" onClick={() => setShowAttribution(true)} />
+            <BattleHeaderButton icon="swap_horiz" label="クイズの解き方を変える" onClick={() => setShowModeSwitch(true)} />
+          </div>
+        ) : undefined
+      }
+    >
+      {children}
+    </BattleScreenHeader>
+  );
 
   if (authLoading || loadState === 'loading') {
     return (
-      <div className="h-screen flex items-center justify-center bg-[var(--color-background)] overflow-hidden">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[var(--color-muted)]">問題を準備中...</p>
-        </div>
-      </div>
+      <BattleScreen center wide header={header()}>
+        <BattleWaitingPanel icon="edit_note" title="問題を準備中" />
+      </BattleScreen>
     );
   }
 
   if (loadState === 'login-required') {
     return (
-      <NoticeScreen
-        onBack={backToProject}
-        icon="lock"
-        title="ログインが必要です"
-        message="空所補充の問題はログインすると解けます。"
-      />
+      <BattleScreen center wide header={header()}>
+        <BattleNotice
+          icon="lock"
+          title="ログインが必要です"
+          description="空所補充の問題はログインすると解けます。"
+          secondaryAction={{ label: '戻る', onClick: backToProject }}
+        />
+      </BattleScreen>
     );
   }
 
   if (loadState === 'error') {
     return (
-      <NoticeScreen
-        onBack={backToProject}
-        icon="error"
-        title="問題の準備に失敗しました"
-        message="通信状況を確認して、もう一度お試しください。"
-        action={{ label: 'もう一度試す', onClick: () => setRound((value) => value + 1) }}
-      />
+      <BattleScreen center wide header={header()}>
+        <BattleNotice
+          icon="error"
+          title="問題の準備に失敗しました"
+          description="通信状況を確認して、もう一度お試しください。"
+          action={{ label: 'もう一度試す', onClick: () => setRound((value) => value + 1) }}
+          secondaryAction={{ label: '戻る', onClick: backToProject }}
+        />
+      </BattleScreen>
     );
   }
 
   if (loadState === 'empty') {
     return (
-      <NoticeScreen
-        onBack={backToProject}
-        icon="search_off"
-        title="空所補充の問題を作れませんでした"
-        message="この単語帳の単語が入った例文が見つかりませんでした。熟語や、例文の少ない難しい単語は出題できないことがあります。"
-        action={{ label: '四択で解く', onClick: () => chooseMode('normal') }}
-      />
+      <BattleScreen center wide header={header()}>
+        <BattleNotice
+          icon="search_off"
+          title="空所補充の問題を作れませんでした"
+          description="この単語帳の単語が入った例文が見つかりませんでした。熟語や、例文の少ない難しい単語は出題できないことがあります。"
+          action={{ label: '四択で解く', onClick: () => chooseMode('normal') }}
+          secondaryAction={{ label: '戻る', onClick: backToProject }}
+        />
+      </BattleScreen>
     );
   }
 
   if (isComplete) {
     const percentage = results.total > 0 ? Math.round((results.correct / results.total) * 100) : 0;
     return (
-      <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-        <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
-          <CloseButton onClick={backToProject} />
-        </header>
-        <main className="flex-1 flex items-center justify-center px-6">
-          <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-7 text-center animate-fade-in-up')}>
-            <p className={cn(EYEBROW, 'text-[var(--color-accent)]')}>Result</p>
-            <p className="mt-2 font-display text-5xl font-black text-[var(--solid-ink)]">
-              {percentage}
-              <span className="text-2xl">%</span>
-            </p>
-            <div className="mx-auto mt-4 h-3 w-full overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
-              <div
-                className="h-full bg-[var(--color-accent)] transition-[width] duration-700 ease-out"
-                style={{ width: `${percentage}%` }}
-              />
-            </div>
-            <p className="mt-4 text-sm font-bold text-[var(--color-muted)]">
-              {results.correct} / {results.total} 問正解
-            </p>
-            <div className="mt-7 space-y-3">
-              <SolidButton
-                variant="accent"
-                size="lg"
-                iconLeft="refresh"
-                onClick={() => setRound((value) => value + 1)}
-                className={cn('w-full', HARD_SHADOW)}
-              >
-                新しい問題で解く
-              </SolidButton>
-              <SolidButton size="lg" onClick={backToProject} className={cn('w-full', HARD_SHADOW_SM)}>
-                単語一覧に戻る
-              </SolidButton>
-            </div>
+      <BattleScreen center wide header={header()}>
+        <div className="mx-auto w-full max-w-sm rounded-[18px] border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] p-7 text-center shadow-[3px_4px_0_var(--solid-shadow)] animate-fade-in-up">
+          <p className="font-display text-5xl font-black text-[var(--solid-ink)]">
+            {percentage}
+            <span className="text-2xl">%</span>
+          </p>
+          <div className="mx-auto mt-4 h-3 w-full overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
+            <div
+              className="h-full bg-[var(--color-accent)] transition-[width] duration-700 ease-out"
+              style={{ width: `${percentage}%` }}
+            />
           </div>
-        </main>
-      </div>
+          <p className="mt-4 text-sm font-bold text-[var(--color-muted)]">
+            {results.correct} / {results.total} 問正解
+          </p>
+          <div className="mt-7 space-y-3">
+            <SolidButton
+              variant="accent"
+              size="lg"
+              iconLeft="refresh"
+              onClick={() => setRound((value) => value + 1)}
+              className="w-full justify-center"
+            >
+              新しい問題で解く
+            </SolidButton>
+            <SolidButton size="lg" onClick={backToProject} className="w-full justify-center">
+              単語一覧に戻る
+            </SolidButton>
+          </div>
+        </div>
+      </BattleScreen>
     );
   }
 
@@ -340,132 +382,144 @@ export default function ClozeQuizPage() {
   const answerText = question.options[question.correctIndex];
   const word = wordsById.get(question.wordId);
   const { attribution } = question;
+  const skipped = selectedIndex === -1;
+  const outcome: QuizRoundOutcome = !isRevealed
+    ? 'live'
+    : skipped
+      ? 'skip'
+      : selectedIndex === question.correctIndex
+        ? 'correct'
+        : 'wrong';
+  const choiceState = (index: number): BattleChoiceState => {
+    if (!isRevealed) return 'idle';
+    if (index === question.correctIndex) return 'correct';
+    if (index === selectedIndex) return 'wrong';
+    return 'muted';
+  };
 
   return (
-    <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-      <header className="sticky top-0 flex-shrink-0 flex items-center gap-3 p-4 safe-area-top">
-        <CloseButton onClick={backToProject} />
-        <div className="flex-1">
-          <div className="h-2 w-full overflow-hidden rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface-secondary)]">
-            <div
-              className="h-full bg-[var(--color-accent)] transition-[width] duration-300"
-              style={{ width: `${((currentIndex + (isRevealed ? 1 : 0)) / questions.length) * 100}%` }}
-            />
-          </div>
-        </div>
-        <span className="font-mono text-xs font-black text-[var(--solid-ink)]">
-          {currentIndex + 1}/{questions.length}
-        </span>
-        <button
-          type="button"
-          onClick={() => setShowModeSwitch(true)}
-          aria-label="解き方を変える"
-          className={cn(
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)]',
-            HARD_SHADOW_SM,
-          )}
-        >
-          <Icon name="tune" size={20} />
-        </button>
-      </header>
-
-      <main className="flex-1 overflow-y-auto px-5 pb-6">
-        <div className="mx-auto w-full max-w-md">
-          <p className={cn(EYEBROW, 'text-[var(--color-accent)]')}>Fill in the blank</p>
-          <p className="mt-1 text-xs font-bold text-[var(--color-muted)]">空欄に入る最も適切な語を選んでください</p>
-
-          <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'mt-3 p-5')}>
-            <p className="font-display text-lg font-bold leading-8 text-[var(--solid-ink)]" lang="en">
-              {question.before}
-              <span
-                className={cn(
-                  'mx-0.5 inline-block min-w-[4.5em] border-b-2 px-1 text-center',
-                  isRevealed
-                    ? 'border-[var(--color-success)] text-[var(--color-success)]'
-                    : 'border-[var(--solid-ink)] text-transparent',
-                )}
-                aria-label={isRevealed ? answerText : '空欄'}
-              >
-                {isRevealed ? answerText : '＿'}
+    <>
+      <BattleScreen
+        fill
+        wide
+        bodyClassName="pt-3"
+        header={header(
+          <QuizProgressBoard
+            total={questions.length}
+            currentIndex={currentIndex}
+            answerResults={answerResults}
+            correct={results.correct}
+          />,
+        )}
+      >
+        <div className="flex min-h-[120px] flex-1 items-center justify-center py-2">
+          <BattleQuestionCard
+            round={currentIndex + 1}
+            label={`Q${currentIndex + 1}`}
+            prompt={`${question.before}___${question.after}`}
+            promptNode={
+              <span className="block text-left text-[20px] font-bold leading-[1.6] tracking-normal" lang="en">
+                {question.before}
+                <span
+                  className={cn(
+                    'mx-0.5 inline-block min-w-[4.5em] border-b-2 px-1 text-center',
+                    // 正誤の色は一般・タイムアタックの選択肢と揃える (正解 = accent / 不正解・わからない = error)
+                    !isRevealed
+                      ? 'border-[var(--solid-ink)] text-transparent'
+                      : outcome === 'correct'
+                        ? 'border-[var(--color-accent-ink)] text-[var(--color-accent-ink)]'
+                        : 'border-[var(--color-error)] text-[var(--color-error)]',
+                  )}
+                  aria-label={isRevealed ? answerText : '空欄'}
+                >
+                  {isRevealed ? answerText : '＿'}
+                </span>
+                {question.after}
               </span>
-              {question.after}
-            </p>
+            }
+            // 答える前に読み上げると空欄の語が聞こえてしまうので、答えたあとだけ出す
+            speakText={isRevealed ? `${question.before}${answerText}${question.after}` : null}
+          >
             {isRevealed && (
-              <p className="mt-3 border-t-2 border-dashed border-[var(--color-border)] pt-3 text-sm leading-6 text-[var(--color-muted)]">
+              <div className="mt-3 border-t-2 border-dashed border-[var(--color-border)] pt-3 text-left text-sm leading-6 text-[var(--color-muted)]">
                 {question.sentenceJa}
+              </div>
+            )}
+          </BattleQuestionCard>
+        </div>
+
+        {/* 結果の帯は高さを確保した枠に出す (出入りで盤面がずれない) */}
+        <div className="flex h-[40px] shrink-0 items-center justify-center">
+          <QuizRoundStatus outcome={outcome} />
+        </div>
+
+        <div className="grid min-h-[200px] flex-[1.15] grid-cols-2 grid-rows-2 gap-2.5">
+          {question.options.map((option, index) => (
+            <BattleChoiceButton
+              key={`${currentIndex}-${index}`}
+              label={option}
+              index={index}
+              state={choiceState(index)}
+              onSelect={() => void answer(index)}
+            />
+          ))}
+        </div>
+
+        {!isRevealed && (
+          <button
+            type="button"
+            onClick={skip}
+            className="mt-3 w-full shrink-0 rounded-xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)] py-3 text-center text-[14px] font-bold text-[var(--color-muted)]"
+          >
+            わからない
+          </button>
+        )}
+
+        {isRevealed && (
+          <div className="shrink-0 pt-3">
+            {word && (
+              <p className="mb-2 text-sm font-bold text-[var(--solid-ink)]">
+                <span lang="en">{word.english}</span>
+                <span className="ml-2 text-[var(--color-muted)]">{word.japanese}</span>
               </p>
             )}
+            <SolidButton
+              variant="accent"
+              iconRight="chevron_right"
+              onClick={goNext}
+              className="w-full justify-center tablet:min-h-[56px] tablet:text-[16px]"
+            >
+              {currentIndex + 1 >= questions.length ? '結果を見る' : '次へ'}
+            </SolidButton>
           </div>
+        )}
 
-          <div className="mt-4 grid grid-cols-1 gap-2.5">
-            {question.options.map((option, index) => {
-              const isCorrectOption = index === question.correctIndex;
-              const isSelected = index === selectedIndex;
-              return (
-                <button
-                  key={`${currentIndex}-${option}`}
-                  type="button"
-                  disabled={isRevealed}
-                  onClick={() => void answer(index)}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-[var(--solid-radius-sm)] border-2 border-[var(--solid-ink)] px-4 py-3 text-left transition-all duration-100 active:translate-x-px active:translate-y-px',
-                    HARD_SHADOW_SM,
-                    !isRevealed && 'bg-[var(--color-surface)]',
-                    isRevealed && isCorrectOption && 'bg-[var(--color-success-light)]',
-                    isRevealed && isSelected && !isCorrectOption && 'bg-[var(--color-error-light)]',
-                    isRevealed && !isSelected && !isCorrectOption && 'bg-[var(--color-surface)] opacity-60',
-                  )}
-                >
-                  <span className="font-mono text-xs font-black text-[var(--color-muted)]">{index + 1}</span>
-                  <span className="flex-1 font-display text-base font-black text-[var(--solid-ink)]" lang="en">
-                    {option}
-                  </span>
-                  {isRevealed && isCorrectOption && <Icon name="check_circle" size={20} className="text-[var(--color-success)]" />}
-                  {isRevealed && isSelected && !isCorrectOption && <Icon name="cancel" size={20} className="text-[var(--color-error)]" />}
-                </button>
-              );
-            })}
+      </BattleScreen>
+
+      {/* 例文の出典。Tatoeba の文は CC BY 2.0 FR なので、毎問ここから作者・ライセンス・文IDを辿れるようにしておく。 */}
+      <Modal isOpen={showAttribution} onClose={() => setShowAttribution(false)}>
+        <h2 className="mb-3 font-display text-[17px] font-black text-[var(--solid-ink)]">例文の出典</h2>
+        <dl className="space-y-3 text-sm leading-6 text-[var(--solid-ink)]">
+          <div>
+            <dt className="font-bold">英文</dt>
+            <dd>
+              <a href={tatoebaSentenceUrl(attribution.enSentenceId)} target="_blank" rel="noopener noreferrer" className="underline">
+                Tatoeba #{attribution.enSentenceId}
+              </a>{' '}
+              {attributionAuthor(attribution.enAuthor)} / {attribution.enLicense}
+            </dd>
           </div>
-
-          {isRevealed && (
-            <div className="mt-4 animate-fade-in-up">
-              {word && (
-                <p className="text-sm font-bold text-[var(--solid-ink)]">
-                  <span lang="en">{word.english}</span>
-                  <span className="ml-2 text-[var(--color-muted)]">{word.japanese}</span>
-                </p>
-              )}
-              <SolidButton
-                variant="accent"
-                size="lg"
-                iconRight="arrow_forward"
-                onClick={goNext}
-                className={cn('mt-3 w-full', HARD_SHADOW)}
-              >
-                {currentIndex + 1 >= questions.length ? '結果を見る' : '次へ'}
-              </SolidButton>
-            </div>
-          )}
-
-          {/* 出典表示。CC BY 2.0 FR の利用条件なので、毎問必ず出す。 */}
-          <p className="mt-5 text-[10px] leading-4 text-[var(--color-muted)]">
-            例文:{' '}
-            <a href={tatoebaSentenceUrl(attribution.enSentenceId)} target="_blank" rel="noopener noreferrer" className="underline">
-              #{attribution.enSentenceId}
-            </a>{' '}
-            {attributionAuthor(attribution.enAuthor)} / {attribution.enLicense}
-            {isRevealed && (
-              <>
-                {' '}・ 和訳:{' '}
-                <a href={tatoebaSentenceUrl(attribution.jaSentenceId)} target="_blank" rel="noopener noreferrer" className="underline">
-                  #{attribution.jaSentenceId}
-                </a>{' '}
-                {attributionAuthor(attribution.jaAuthor)} / {attribution.jaLicense}
-              </>
-            )}
-          </p>
-        </div>
-      </main>
+          <div>
+            <dt className="font-bold">和訳</dt>
+            <dd>
+              <a href={tatoebaSentenceUrl(attribution.jaSentenceId)} target="_blank" rel="noopener noreferrer" className="underline">
+                Tatoeba #{attribution.jaSentenceId}
+              </a>{' '}
+              {attributionAuthor(attribution.jaAuthor)} / {attribution.jaLicense}
+            </dd>
+          </div>
+        </dl>
+      </Modal>
 
       <Modal
         isOpen={showModeSwitch}
@@ -478,69 +532,9 @@ export default function ClozeQuizPage() {
           onSelect={chooseMode}
           onCancel={() => setShowModeSwitch(false)}
           title="クイズの解き方を変える"
-          description="いまの空所補充をやめて、選んだ解き方に切り替えます。"
+          description="今日はこのあともこの解き方で始めます。"
         />
       </Modal>
-    </div>
-  );
-}
-
-function CloseButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="閉じる"
-      className={cn(
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--solid-ink)] bg-[var(--color-surface)] text-[var(--solid-ink)] transition-all duration-100 active:translate-x-px active:translate-y-px',
-        HARD_SHADOW_SM,
-      )}
-    >
-      <Icon name="close" size={20} />
-    </button>
-  );
-}
-
-function NoticeScreen({
-  onBack,
-  icon,
-  title,
-  message,
-  action,
-}: {
-  onBack: () => void;
-  icon: string;
-  title: string;
-  message: string;
-  action?: { label: string; onClick: () => void };
-}) {
-  return (
-    <div className="h-dvh flex flex-col bg-[var(--color-background)] overflow-hidden fixed inset-0">
-      <header className="sticky top-0 flex-shrink-0 p-4 safe-area-top">
-        <CloseButton onClick={onBack} />
-      </header>
-      <main className="flex-1 flex items-center justify-center px-6">
-        <div className={cn(SOLID_SURFACE, HARD_SHADOW, 'w-full max-w-sm p-7 text-center animate-fade-in-up')}>
-          <div
-            className={cn(
-              'mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] border-2 border-[var(--solid-ink)] bg-[var(--color-warning-light)]',
-              HARD_SHADOW_SM,
-            )}
-          >
-            <Icon name={icon} size={30} className="text-[var(--color-warning)]" />
-          </div>
-          <p className="font-display text-lg font-black leading-snug text-[var(--solid-ink)]">{title}</p>
-          <p className="mt-3 mb-6 text-sm leading-6 text-[var(--color-muted)]">{message}</p>
-          {action && (
-            <SolidButton variant="accent" size="lg" onClick={action.onClick} className={cn('mb-3 w-full', HARD_SHADOW)}>
-              {action.label}
-            </SolidButton>
-          )}
-          <SolidButton size="lg" onClick={onBack} className={cn('w-full', HARD_SHADOW_SM)}>
-            戻る
-          </SolidButton>
-        </div>
-      </main>
-    </div>
+    </>
   );
 }
