@@ -1415,13 +1415,15 @@ export default function QuizPage() {
   // その日最初のクイズでだけここを通す。前回 (前日以前) の選択は初期選択として印を付けるだけ。
   if (answerFormat === null) {
     return (
-      <QuizModeChooser
-        current={storedMode ?? undefined}
-        currentLabel="前回"
-        onSelect={chooseMode}
-        hiddenModes={hiddenModes}
-        wordCounts={chooserWordCounts}
-      />
+      <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)] p-6">
+        <QuizModeChooser
+          current={storedMode ?? undefined}
+          currentLabel="前回"
+          onSelect={chooseMode}
+          hiddenModes={hiddenModes}
+          wordCounts={chooserWordCounts}
+        />
+      </div>
     );
   }
 
